@@ -14,11 +14,13 @@ INITIAL_WINDOW_WIDTH :: 1080
 INITIAL_WINDOW_HEIGHT :: 1080
 WINDOW_TITLE :: "Blockgame"
 
+@(private="file")
 glfw_error_callback :: proc "c" (error: i32, description: cstring) {
 	context = runtime.default_context()
 	fmt.eprintfln("GLFW Error %v: %v", error, description)
 }
 
+@(private="file")
 glfw_key_callback :: proc "c" (window: glfw.WindowHandle, key, scancode, action, mods: i32) {
 	context = runtime.default_context()
 
@@ -32,10 +34,21 @@ glfw_key_callback :: proc "c" (window: glfw.WindowHandle, key, scancode, action,
 	if key == glfw.KEY_ESCAPE && action == glfw.PRESS do glfw.SetWindowShouldClose(window, true)
 }
 
+@(private="file")
 glfw_framebuffer_size_callback :: proc "c" (window: glfw.WindowHandle, width, height: i32) {
 	context = runtime.default_context()
 	fmt.printfln("New window size: %v x %v", width, height)
 	gl.Viewport(0, 0, width, height)
+}
+
+@(private="file")
+gl_debug_message_callback :: proc "c" (
+	source, type, id, severity: u32,
+	length: i32,
+	message: cstring,
+	user_ptr: rawptr) {
+	context = runtime.default_context()
+	fmt.printfln("OpenGL message: %v", message)
 }
 
 // TODO List:
@@ -55,6 +68,7 @@ main :: proc() {
 	glfw.WindowHint(glfw.CONTEXT_VERSION_MAJOR, GL_VERSION_MAJOR)
 	glfw.WindowHint(glfw.CONTEXT_VERSION_MINOR, GL_VERSION_MINOR)
 	glfw.WindowHint(glfw.OPENGL_PROFILE, glfw.OPENGL_CORE_PROFILE)
+	glfw.WindowHint(glfw.OPENGL_DEBUG_CONTEXT, glfw.TRUE)
 
 	window := glfw.CreateWindow(INITIAL_WINDOW_WIDTH, INITIAL_WINDOW_HEIGHT, WINDOW_TITLE, nil, nil)
 
@@ -67,6 +81,9 @@ main :: proc() {
 
 	glfw.MakeContextCurrent(window)
 	gl.load_up_to(GL_VERSION_MAJOR, GL_VERSION_MINOR, glfw.gl_set_proc_address)
+	gl.Enable(gl.DEBUG_OUTPUT)
+	gl.Enable(gl.DEBUG_OUTPUT_SYNCHRONOUS)
+	gl.DebugMessageCallback(gl_debug_message_callback, nil)
 	gl.Viewport(0, 0, INITIAL_WINDOW_WIDTH, INITIAL_WINDOW_HEIGHT)
 
 	glfw.SetFramebufferSizeCallback(window, glfw_framebuffer_size_callback)
