@@ -32,8 +32,15 @@ glfw_key_callback :: proc "c" (window: glfw.WindowHandle, key, scancode, action,
 	if key == glfw.KEY_ESCAPE && action == glfw.PRESS do glfw.SetWindowShouldClose(window, true)
 }
 
+glfw_framebuffer_size_callback :: proc "c" (window: glfw.WindowHandle, width, height: i32) {
+	context = runtime.default_context()
+	fmt.printfln("New window size: %v x %v", width, height)
+	gl.Viewport(0, 0, width, height)
+}
+
 // TODO List:
 // - Use the context's logger
+// - Disable OpenGL debug context in non-debug builds
 
 main :: proc() {
 	glfw.SetErrorCallback(glfw_error_callback)
@@ -60,7 +67,9 @@ main :: proc() {
 
 	glfw.MakeContextCurrent(window)
 	gl.load_up_to(GL_VERSION_MAJOR, GL_VERSION_MINOR, glfw.gl_set_proc_address)
+	gl.Viewport(0, 0, INITIAL_WINDOW_WIDTH, INITIAL_WINDOW_HEIGHT)
 
+	glfw.SetFramebufferSizeCallback(window, glfw_framebuffer_size_callback)
 	glfw.SetKeyCallback(window, glfw_key_callback)
 
 	for !glfw.WindowShouldClose(window) {
