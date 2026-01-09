@@ -19,6 +19,19 @@ glfw_error_callback :: proc "c" (error: i32, description: cstring) {
 	fmt.eprintfln("GLFW Error %v: %v", error, description)
 }
 
+glfw_key_callback :: proc "c" (window: glfw.WindowHandle, key, scancode, action, mods: i32) {
+	context = runtime.default_context()
+
+	switch key {
+	case 'A'..='Z', 'a'..='z':
+		fmt.printfln("Key %v pressed", rune(key))
+	case:
+		fmt.printfln("Key %v pressed", key)
+	}
+
+	if key == glfw.KEY_ESCAPE && action == glfw.PRESS do glfw.SetWindowShouldClose(window, true)
+}
+
 // TODO List:
 // - Use the context's logger
 
@@ -47,6 +60,8 @@ main :: proc() {
 
 	glfw.MakeContextCurrent(window)
 	gl.load_up_to(GL_VERSION_MAJOR, GL_VERSION_MINOR, glfw.gl_set_proc_address)
+
+	glfw.SetKeyCallback(window, glfw_key_callback)
 
 	for !glfw.WindowShouldClose(window) {
 		glfw.PollEvents()
