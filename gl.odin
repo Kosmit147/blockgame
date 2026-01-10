@@ -37,11 +37,11 @@ create_sub_shader :: proc(shader_source: cstring, shader_type: u32) -> (u32, boo
 		info_log_length: i32
 		gl.GetShaderiv(shader, gl.INFO_LOG_LENGTH, &info_log_length)
 
-		info_log_builder := strings.builder_make(int(info_log_length))
-		info_log := strings.to_string(info_log_builder)
-		defer strings.builder_destroy(&info_log_builder)
+		info_log_buffer := make([]byte, info_log_length)
+		defer delete(info_log_buffer)
 
-		gl.GetShaderInfoLog(shader, info_log_length, &info_log_length, (^u8)(raw_data(info_log[:])))
+		gl.GetShaderInfoLog(shader, info_log_length, nil, raw_data(info_log_buffer))
+		info_log := string(info_log_buffer)
 		info_log = strings.trim_null(info_log)
 
 		fmt.eprintf("Failed to compile shader: %v", info_log)
@@ -66,11 +66,12 @@ link_shader_program :: proc(vertex_shader, fragment_shader: u32) -> (u32, bool) 
 	if gl.GetProgramiv(program, gl.LINK_STATUS, &is_linked); is_linked == gl.FALSE {
 		info_log_length: i32
 		gl.GetProgramiv(program, gl.INFO_LOG_LENGTH, &info_log_length)
-		info_log_builder := strings.builder_make(int(info_log_length))
-		info_log := strings.to_string(info_log_builder)
-		defer strings.builder_destroy(&info_log_builder)
 
-		gl.GetProgramInfoLog(program, info_log_length, &info_log_length, (^u8)(raw_data(info_log[:])))
+		info_log_buffer := make([]byte, info_log_length)
+		defer delete(info_log_buffer)
+
+		gl.GetProgramInfoLog(program, info_log_length, nil, raw_data(info_log_buffer))
+		info_log := string(info_log_buffer)
 		info_log = strings.trim_null(info_log)
 
 		fmt.eprintf("Failed to link shader: %v", info_log)
