@@ -14,6 +14,28 @@ INITIAL_WINDOW_WIDTH :: 1080
 INITIAL_WINDOW_HEIGHT :: 1080
 WINDOW_TITLE :: "Blockgame"
 
+VERTEX_SHADER_SOURCE ::
+`
+#version 460 core
+
+void main()
+{
+	gl_Position = vec4(0, 0, 0, 1);
+}
+`
+
+FRAGMENT_SHADER_SOURCE ::
+`
+#version 460 core
+
+out vec4 outColor;
+
+void main()
+{
+	outColor = vec4(1, 1, 1, 1);
+}
+`
+
 @(private="file")
 glfw_error_callback :: proc "c" (error: i32, description: cstring) {
 	context = runtime.default_context()
@@ -89,6 +111,13 @@ main :: proc() {
 	glfw.SetFramebufferSizeCallback(window, glfw_framebuffer_size_callback)
 	glfw.SetKeyCallback(window, glfw_key_callback)
 
+	shader: Shader
+	if !create_shader(&shader, VERTEX_SHADER_SOURCE, FRAGMENT_SHADER_SOURCE) {
+		fmt.eprintln("Failed to compile the shader.")
+		os.exit(-1)
+	}
+	defer destroy_shader(&shader)
+
 	for !glfw.WindowShouldClose(window) {
 		glfw.PollEvents()
 
@@ -96,5 +125,6 @@ main :: proc() {
 		gl.Clear(gl.COLOR_BUFFER_BIT)
 
 		glfw.SwapBuffers(window)
+		free_all(context.temp_allocator)
 	}
 }
