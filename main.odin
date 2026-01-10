@@ -7,6 +7,7 @@ import gl "vendor:OpenGL"
 
 import "core:fmt"
 import "core:os"
+import "core:mem"
 
 GL_VERSION_MAJOR :: 4
 GL_VERSION_MINOR :: 6
@@ -78,6 +79,25 @@ gl_debug_message_callback :: proc "c" (
 // - Disable OpenGL debug context in non-debug builds
 
 main :: proc() {
+	when ODIN_DEBUG {
+		tracking_allocator: mem.Tracking_Allocator
+		mem.tracking_allocator_init(&tracking_allocator, context.allocator)
+		context.allocator = mem.tracking_allocator(&tracking_allocator)
+
+		defer {
+			if len(tracking_allocator.allocation_map) > 0 {
+				fmt.eprintfln("MEMORY LEAK: %v allocations not freed:",
+					      len(tracking_allocator.allocation_map))
+
+				for _, entry in tracking_allocator.allocation_map {
+					fmt.eprintfln("- %v bytes at %v", entry.size, entry.location)
+				}
+			}
+
+			mem.tracking_allocator_destroy(&tracking_allocator)
+		}
+	}
+
 	glfw.SetErrorCallback(glfw_error_callback)
 
 	if !bool(glfw.Init()) {
