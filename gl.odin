@@ -4,6 +4,7 @@ import gl "vendor:OpenGL"
 
 import "core:fmt"
 import "core:strings"
+import "core:slice"
 
 Shader :: struct {
 	id: u32
@@ -94,14 +95,33 @@ Vertex_Array :: struct {
 	id: u32
 }
 
-create_va :: proc(va: ^Vertex_Array) {
+create_vertex_array :: proc(va: ^Vertex_Array) {
 	gl.CreateVertexArrays(1, &va.id)
 }
 
-destroy_va :: proc(va: ^Vertex_Array) {
+destroy_vertex_array :: proc(va: ^Vertex_Array) {
 	gl.DeleteVertexArrays(1, &va.id)
 }
 
-bind_va :: proc(va: Vertex_Array) {
+bind_vertex_array :: proc(va: Vertex_Array) {
 	gl.BindVertexArray(va.id)
+}
+
+Gl_Buffer :: struct {
+	id: u32,
+	size: int
+}
+
+create_gl_buffer :: proc(buffer: ^Gl_Buffer, size: int) {
+	gl.CreateBuffers(1, &buffer.id)
+	gl.NamedBufferStorage(buffer.id, size, nil, gl.DYNAMIC_STORAGE_BIT)
+}
+
+create_gl_buffer_with_data :: proc(buffer: ^Gl_Buffer, data: []byte) {
+	gl.CreateBuffers(1, &buffer.id)
+	gl.NamedBufferStorage(buffer.id, slice.size(data), raw_data(data), gl.DYNAMIC_STORAGE_BIT)
+}
+
+destroy_gl_buffer :: proc(buffer: ^Gl_Buffer) {
+	gl.DeleteBuffers(1, &buffer.id)
 }

@@ -8,6 +8,7 @@ import gl "vendor:OpenGL"
 import "core:fmt"
 import "core:os"
 import "core:mem"
+import "core:slice"
 
 GL_VERSION_MAJOR :: 4
 GL_VERSION_MINOR :: 6
@@ -51,6 +52,14 @@ void main()
 	outColor = vec4(1, 0, 0, 1);
 }
 `
+
+TRIANGLE_VERTICES :: [3][2]f32{
+	{ -0.5, -0.5 },
+	{  0.0,  0.5 },
+	{  0.5, -0.5 },
+}
+
+TRIANGLE_INDICES :: [3]u16{ 0, 1, 2 }
 
 @(private="file")
 glfw_error_callback :: proc "c" (error: i32, description: cstring) {
@@ -154,10 +163,21 @@ main :: proc() {
 	defer destroy_shader(&shader)
 
 	va: Vertex_Array
-	create_va(&va)
-	defer destroy_va(&va)
+	create_vertex_array(&va)
+	defer destroy_vertex_array(&va)
 
-	bind_va(va)
+	triangle_vertices := TRIANGLE_VERTICES
+	triangle_indices := TRIANGLE_INDICES
+
+	vb: Gl_Buffer
+	create_gl_buffer_with_data(&vb, slice.to_bytes(triangle_vertices[:]))
+	defer destroy_gl_buffer(&vb)
+
+	ib: Gl_Buffer
+	create_gl_buffer_with_data(&ib, slice.to_bytes(triangle_indices[:]))
+	defer destroy_gl_buffer(&ib)
+
+	bind_vertex_array(va)
 	bind_shader(shader)
 
 	for !glfw.WindowShouldClose(window) {
