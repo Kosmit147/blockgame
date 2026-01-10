@@ -77,14 +77,18 @@ glfw_framebuffer_size_callback :: proc "c" (window: glfw.WindowHandle, width, he
 	gl.Viewport(0, 0, width, height)
 }
 
-@(private="file")
-gl_debug_message_callback :: proc "c" (
-	source, type, id, severity: u32,
-	length: i32,
-	message: cstring,
-	user_ptr: rawptr) {
-	context = runtime.default_context()
-	fmt.printfln("OpenGL message: %v", message)
+when ODIN_DEBUG {
+
+	@(private="file")
+	gl_debug_message_callback :: proc "c" (
+		source, type, id, severity: u32,
+		length: i32,
+		message: cstring,
+		user_ptr: rawptr) {
+		context = runtime.default_context()
+		fmt.printfln("OpenGL message: %v", message)
+	}
+
 }
 
 // TODO List:
@@ -123,7 +127,7 @@ main :: proc() {
 	glfw.WindowHint(glfw.CONTEXT_VERSION_MAJOR, GL_VERSION_MAJOR)
 	glfw.WindowHint(glfw.CONTEXT_VERSION_MINOR, GL_VERSION_MINOR)
 	glfw.WindowHint(glfw.OPENGL_PROFILE, glfw.OPENGL_CORE_PROFILE)
-	glfw.WindowHint(glfw.OPENGL_DEBUG_CONTEXT, glfw.TRUE)
+	glfw.WindowHint(glfw.OPENGL_DEBUG_CONTEXT, glfw.TRUE when ODIN_DEBUG else glfw.FALSE)
 
 	window := glfw.CreateWindow(INITIAL_WINDOW_WIDTH, INITIAL_WINDOW_HEIGHT, WINDOW_TITLE, nil, nil)
 
@@ -136,9 +140,13 @@ main :: proc() {
 
 	glfw.MakeContextCurrent(window)
 	gl.load_up_to(GL_VERSION_MAJOR, GL_VERSION_MINOR, glfw.gl_set_proc_address)
-	gl.Enable(gl.DEBUG_OUTPUT)
-	gl.Enable(gl.DEBUG_OUTPUT_SYNCHRONOUS)
-	gl.DebugMessageCallback(gl_debug_message_callback, nil)
+
+	when ODIN_DEBUG {
+		gl.Enable(gl.DEBUG_OUTPUT)
+		gl.Enable(gl.DEBUG_OUTPUT_SYNCHRONOUS)
+		gl.DebugMessageCallback(gl_debug_message_callback, nil)
+	}
+
 	gl.Viewport(0, 0, INITIAL_WINDOW_WIDTH, INITIAL_WINDOW_HEIGHT)
 
 	glfw.SetFramebufferSizeCallback(window, glfw_framebuffer_size_callback)
