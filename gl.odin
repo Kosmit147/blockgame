@@ -23,6 +23,10 @@ destroy_shader :: proc(shader: ^Shader) {
 	gl.DeleteProgram(shader.id)
 }
 
+bind_shader :: proc(shader: Shader) {
+	gl.UseProgram(shader.id)
+}
+
 @(private="file")
 create_sub_shader :: proc(shader_source: cstring, shader_type: u32) -> (u32, bool) {
 	sources_array := [1]cstring{ shader_source }
@@ -84,4 +88,20 @@ link_shader_program :: proc(vertex_shader, fragment_shader: u32) -> (u32, bool) 
 	gl.DetachShader(program, fragment_shader)
 
 	return program, true
+}
+
+Vertex_Array :: struct {
+	id: u32
+}
+
+create_va :: proc(va: ^Vertex_Array) {
+	gl.CreateVertexArrays(1, &va.id)
+}
+
+destroy_va :: proc(va: ^Vertex_Array) {
+	gl.DeleteVertexArrays(1, &va.id)
+}
+
+bind_va :: proc(va: Vertex_Array) {
+	gl.BindVertexArray(va.id)
 }

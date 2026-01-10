@@ -21,7 +21,22 @@ VERTEX_SHADER_SOURCE ::
 
 void main()
 {
-	gl_Position = vec4(0, 0, 0, 1);
+	vec2 position = vec2(0, 0);
+
+	switch (gl_VertexID)
+	{
+	case 0:
+		position = vec2(-0.5, -0.5);
+		break;
+	case 1:
+		position = vec2(0.0, 0.5);
+		break;
+	case 2:
+		position = vec2(0.5, -0.5);
+		break;
+	}
+
+	gl_Position = vec4(position, 0, 1);
 }
 `
 
@@ -33,7 +48,7 @@ out vec4 outColor;
 
 void main()
 {
-	outColor = vec4(1, 1, 1, 1);
+	outColor = vec4(1, 0, 0, 1);
 }
 `
 
@@ -138,11 +153,20 @@ main :: proc() {
 	}
 	defer destroy_shader(&shader)
 
+	va: Vertex_Array
+	create_va(&va)
+	defer destroy_va(&va)
+
+	bind_va(va)
+	bind_shader(shader)
+
 	for !glfw.WindowShouldClose(window) {
 		glfw.PollEvents()
 
 		gl.ClearColor(0, 0, 0, 1)
 		gl.Clear(gl.COLOR_BUFFER_BIT)
+
+		gl.DrawArrays(gl.TRIANGLES, 0, 3)
 
 		glfw.SwapBuffers(window)
 		free_all(context.temp_allocator)
