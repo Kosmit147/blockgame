@@ -42,6 +42,10 @@ void main()
 
 Triangle_Vertex :: [2]f32
 
+TRIANGLE_VERTEX_FORMAT :: [?]Vertex_Attribute{
+	.Float2
+}
+
 TRIANGLE_VERTICES :: [3]Triangle_Vertex{
 	{ -0.5, -0.5 },
 	{  0.0,  0.5 },
@@ -93,7 +97,6 @@ when ODIN_DEBUG {
 
 // TODO List:
 // - Use the context's logger
-// - Disable OpenGL debug context in non-debug builds
 
 main :: proc() {
 	when ODIN_DEBUG {
@@ -161,6 +164,7 @@ main :: proc() {
 
 	va: Vertex_Array
 	create_vertex_array(&va)
+	set_vertex_array_format(va, TRIANGLE_VERTEX_FORMAT)
 	defer destroy_vertex_array(&va)
 
 	triangle_vertices := TRIANGLE_VERTICES
@@ -175,14 +179,10 @@ main :: proc() {
 	defer destroy_gl_buffer(&ib)
 
 	bind_vertex_array(va)
+	// TODO: size_of(Triangle_Vertex) shouldn't be hardcoded here.
 	bind_vertex_buffer(va, vb, size_of(Triangle_Vertex))
 	bind_index_buffer(va, ib)
 	bind_shader(shader)
-
-	// TODO: Move this code to gl.odin.
-	gl.EnableVertexArrayAttrib(va.id, 0);
-	gl.VertexArrayAttribFormat(va.id, 0, 2, gl.FLOAT, gl.FALSE, 0)
-	gl.VertexArrayAttribBinding(va.id, 0, 0)
 
 	for !glfw.WindowShouldClose(window) {
 		glfw.PollEvents()
@@ -190,7 +190,8 @@ main :: proc() {
 		gl.ClearColor(0, 0, 0, 1)
 		gl.Clear(gl.COLOR_BUFFER_BIT)
 
-		gl.DrawElements(gl.TRIANGLES, 3, gl.UNSIGNED_INT, nil)
+		// TODO: gl.UNSIGNED_INT shouldn't be hardcoded here.
+		gl.DrawElements(gl.TRIANGLES, len(triangle_vertices), gl.UNSIGNED_INT, nil)
 
 		glfw.SwapBuffers(window)
 		free_all(context.temp_allocator)

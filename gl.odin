@@ -107,7 +107,46 @@ bind_vertex_array :: proc(va: Vertex_Array) {
 	gl.BindVertexArray(va.id)
 }
 
+Vertex_Attribute :: enum {
+	Float2
+}
+
+Vertex_Attribute_Description :: struct {
+	count: i32,
+	type: u32,
+	size: u32,
+}
+
+describe_vertex_attribute :: proc(attribute: Vertex_Attribute) -> Vertex_Attribute_Description {
+	switch attribute {
+	case .Float2:
+		return { 2, gl.FLOAT, 2 * size_of(f32) }
+	case:
+		assert(false)
+		return {}
+	}
+}
+
 VERTEX_BUFFER_BINDING_INDEX :: 0
+
+set_vertex_array_format :: proc(va: Vertex_Array, $format: [$E]Vertex_Attribute) {
+	offset: u32 = 0
+
+	for attribute, index in format {
+		description := describe_vertex_attribute(attribute)
+
+		gl.EnableVertexArrayAttrib(va.id, u32(index));
+		gl.VertexArrayAttribFormat(va.id,
+					   u32(index),
+					   description.count,
+					   description.type,
+					   gl.FALSE,
+					   offset)
+		gl.VertexArrayAttribBinding(va.id, u32(index), VERTEX_BUFFER_BINDING_INDEX)
+
+		offset += description.size
+	}
+}
 
 bind_vertex_buffer :: proc(va: Vertex_Array, buffer: Gl_Buffer, stride: i32) {
 	gl.VertexArrayVertexBuffer(va.id, VERTEX_BUFFER_BINDING_INDEX, buffer.id, 0, stride)
