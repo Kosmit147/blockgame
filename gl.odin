@@ -107,6 +107,16 @@ bind_vertex_array :: proc(va: Vertex_Array) {
 	gl.BindVertexArray(va.id)
 }
 
+VERTEX_BUFFER_BINDING_INDEX :: 0
+
+bind_vertex_buffer :: proc(va: Vertex_Array, buffer: Gl_Buffer, stride: i32) {
+	gl.VertexArrayVertexBuffer(va.id, VERTEX_BUFFER_BINDING_INDEX, buffer.id, 0, stride)
+}
+
+bind_index_buffer :: proc(va: Vertex_Array, buffer: Gl_Buffer) {
+	gl.VertexArrayElementBuffer(va.id, buffer.id)
+}
+
 Gl_Buffer :: struct {
 	id: u32,
 	size: int

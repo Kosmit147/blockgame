@@ -53,7 +53,9 @@ void main()
 }
 `
 
-TRIANGLE_VERTICES :: [3][2]f32{
+Triangle_Vertex :: [2]f32
+
+TRIANGLE_VERTICES :: [3]Triangle_Vertex{
 	{ -0.5, -0.5 },
 	{  0.0,  0.5 },
 	{  0.5, -0.5 },
@@ -178,6 +180,8 @@ main :: proc() {
 	defer destroy_gl_buffer(&ib)
 
 	bind_vertex_array(va)
+	bind_vertex_buffer(va, vb, size_of(Triangle_Vertex))
+	bind_index_buffer(va, ib)
 	bind_shader(shader)
 
 	for !glfw.WindowShouldClose(window) {
