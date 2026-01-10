@@ -20,24 +20,11 @@ VERTEX_SHADER_SOURCE ::
 `
 #version 460 core
 
+layout (location = 0) in vec2 inPosition;
+
 void main()
 {
-	vec2 position = vec2(0, 0);
-
-	switch (gl_VertexID)
-	{
-	case 0:
-		position = vec2(-0.5, -0.5);
-		break;
-	case 1:
-		position = vec2(0.0, 0.5);
-		break;
-	case 2:
-		position = vec2(0.5, -0.5);
-		break;
-	}
-
-	gl_Position = vec4(position, 0, 1);
+	gl_Position = vec4(inPosition, 0, 1);
 }
 `
 
@@ -61,7 +48,7 @@ TRIANGLE_VERTICES :: [3]Triangle_Vertex{
 	{  0.5, -0.5 },
 }
 
-TRIANGLE_INDICES :: [3]u16{ 0, 1, 2 }
+TRIANGLE_INDICES :: [3]u32{ 0, 1, 2 }
 
 @(private="file")
 glfw_error_callback :: proc "c" (error: i32, description: cstring) {
@@ -184,13 +171,18 @@ main :: proc() {
 	bind_index_buffer(va, ib)
 	bind_shader(shader)
 
+	// TODO: Move this code to gl.odin.
+	gl.EnableVertexArrayAttrib(va.id, 0);
+	gl.VertexArrayAttribFormat(va.id, 0, 2, gl.FLOAT, gl.FALSE, 0)
+	gl.VertexArrayAttribBinding(va.id, 0, 0)
+
 	for !glfw.WindowShouldClose(window) {
 		glfw.PollEvents()
 
 		gl.ClearColor(0, 0, 0, 1)
 		gl.Clear(gl.COLOR_BUFFER_BIT)
 
-		gl.DrawArrays(gl.TRIANGLES, 0, 3)
+		gl.DrawElements(gl.TRIANGLES, 3, gl.UNSIGNED_INT, nil)
 
 		glfw.SwapBuffers(window)
 		free_all(context.temp_allocator)
