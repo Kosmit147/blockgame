@@ -46,13 +46,15 @@ TRIANGLE_VERTEX_FORMAT :: [?]Vertex_Attribute{
 	.Float2
 }
 
-TRIANGLE_VERTICES :: [3]Triangle_Vertex{
+@(rodata)
+triangle_vertices := [3]Triangle_Vertex{
 	{ -0.5, -0.5 },
 	{  0.0,  0.5 },
 	{  0.5, -0.5 },
 }
 
-TRIANGLE_INDICES :: [3]u32{ 0, 1, 2 }
+@(rodata)
+triangle_indices := [3]u32{ 0, 1, 2 }
 
 @(private="file")
 glfw_error_callback :: proc "c" (error: i32, description: cstring) {
@@ -166,9 +168,6 @@ main :: proc() {
 	create_vertex_array(&va)
 	set_vertex_array_format(va, TRIANGLE_VERTEX_FORMAT)
 	defer destroy_vertex_array(&va)
-
-	triangle_vertices := TRIANGLE_VERTICES
-	triangle_indices := TRIANGLE_INDICES
 
 	vb: Gl_Buffer
 	create_gl_buffer_with_data(&vb, slice.to_bytes(triangle_vertices[:]))
