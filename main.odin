@@ -22,11 +22,17 @@ VERTEX_SHADER_SOURCE ::
 
 layout (location = 0) in vec2 inPosition;
 
+uniform int frame;
+
 void main()
 {
-	gl_Position = vec4(inPosition, 0, 1);
+	vec2 position = inPosition * sin(float(frame) / 1000);
+	gl_Position = vec4(position, 0, 1);
 }
 `
+
+FRAME_UNIFORM :: "frame"
+FRAME_UNIFORM_T :: i32
 
 FRAGMENT_SHADER_SOURCE ::
 `
@@ -164,6 +170,11 @@ main :: proc() {
 	}
 	defer destroy_shader(&shader)
 
+	use_shader(shader)
+
+	frame_uniform, frame_uniform_ok := get_uniform(shader, FRAME_UNIFORM, FRAME_UNIFORM_T)
+	assert(frame_uniform_ok)
+
 	va: Vertex_Array
 	create_vertex_array(&va)
 	set_vertex_array_format(va, TRIANGLE_VERTEX_FORMAT)
@@ -181,7 +192,8 @@ main :: proc() {
 	// TODO: size_of(Triangle_Vertex) shouldn't be hardcoded here.
 	bind_vertex_buffer(va, vb, size_of(Triangle_Vertex))
 	bind_index_buffer(va, ib)
-	bind_shader(shader)
+
+	frame_count: i32 = 0
 
 	for !glfw.WindowShouldClose(window) {
 		glfw.PollEvents()
@@ -189,10 +201,13 @@ main :: proc() {
 		gl.ClearColor(0, 0, 0, 1)
 		gl.Clear(gl.COLOR_BUFFER_BIT)
 
+		set_uniform(frame_uniform, frame_count)
+
 		// TODO: gl.UNSIGNED_INT shouldn't be hardcoded here.
 		gl.DrawElements(gl.TRIANGLES, len(triangle_vertices), gl.UNSIGNED_INT, nil)
 
 		glfw.SwapBuffers(window)
 		free_all(context.temp_allocator)
+		frame_count += 1
 	}
 }

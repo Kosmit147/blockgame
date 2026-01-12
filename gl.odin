@@ -10,6 +10,10 @@ Shader :: struct {
 	id: u32
 }
 
+Uniform :: struct($T: typeid) {
+	location: i32,
+}
+
 create_shader :: proc(shader: ^Shader, vertex_source, fragment_source: cstring) -> bool {
 	vertex_shader := create_sub_shader(vertex_source, gl.VERTEX_SHADER) or_return
 	defer gl.DeleteShader(vertex_shader)
@@ -24,8 +28,28 @@ destroy_shader :: proc(shader: ^Shader) {
 	gl.DeleteProgram(shader.id)
 }
 
-bind_shader :: proc(shader: Shader) {
+use_shader :: proc(shader: Shader) {
 	gl.UseProgram(shader.id)
+}
+
+get_uniform :: proc(shader: Shader, uniform: cstring, $T: typeid) -> (Uniform(T), bool) {
+	location := gl.GetUniformLocation(shader.id, uniform)
+
+	when ODIN_DEBUG {
+		if location == -1 do fmt.eprintln("Uniform %v does not exist!", uniform)
+	}
+
+	return Uniform(T) { location }, location != -1
+}
+
+set_uniform :: proc(uniform: Uniform($T), value: T) {
+	assert(uniform.location != -1)
+
+	when T == i32 {
+		gl.Uniform1i(uniform.location, value)
+	} else {
+ 		#panic("Type T not implemented for set_uniform.")
+	}
 }
 
 @(private="file")
