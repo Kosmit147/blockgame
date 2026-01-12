@@ -43,10 +43,14 @@ get_uniform :: proc(shader: Shader, uniform: cstring, $T: typeid) -> (Uniform(T)
 }
 
 set_uniform :: proc(uniform: Uniform($T), value: T) {
-	assert(uniform.location != -1)
+	location := uniform.location
+	assert(location != -1)
 
 	when T == i32 {
-		gl.Uniform1i(uniform.location, value)
+		gl.Uniform1i(location, value)
+	} else when T == Mat4 {
+		value := value
+		gl.UniformMatrix4fv(location, 1, false, raw_data(&value))
 	} else {
  		#panic("Type T not implemented for set_uniform.")
 	}
@@ -132,7 +136,8 @@ bind_vertex_array :: proc(va: Vertex_Array) {
 }
 
 Vertex_Attribute :: enum {
-	Float2
+	Float2,
+	Float3,
 }
 
 Vertex_Attribute_Description :: struct {
@@ -145,6 +150,8 @@ describe_vertex_attribute :: proc(attribute: Vertex_Attribute) -> Vertex_Attribu
 	switch attribute {
 	case .Float2:
 		return { 2, gl.FLOAT, 2 * size_of(f32) }
+	case .Float3:
+		return { 3, gl.FLOAT, 3 * size_of(f32) }
 	case:
 		assert(false)
 		return {}

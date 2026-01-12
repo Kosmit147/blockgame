@@ -9,6 +9,8 @@ import "core:fmt"
 import "core:os"
 import "core:mem"
 import "core:slice"
+import "core:math"
+import "core:math/linalg"
 
 GL_VERSION_MAJOR :: 4
 GL_VERSION_MINOR :: 6
@@ -16,23 +18,41 @@ INITIAL_WINDOW_WIDTH :: 1080
 INITIAL_WINDOW_HEIGHT :: 1080
 WINDOW_TITLE :: "Blockgame"
 
+Vec2 :: [2]f32
+Vec3 :: [3]f32
+Vec4 :: [4]f32
+
+Mat3 :: matrix[3, 3]f32
+Mat4 :: matrix[4, 4]f32
+
+Camera :: struct {
+	position: Vec3,
+	forward: Vec3,
+	up: Vec3,
+}
+
 VERTEX_SHADER_SOURCE ::
 `
 #version 460 core
 
-layout (location = 0) in vec2 inPosition;
+layout (location = 0) in vec3 inPosition;
 
-uniform int frame;
+uniform mat4 model;
+uniform mat4 view;
+uniform mat4 projection;
 
 void main()
 {
-	vec2 position = inPosition * sin(float(frame) / 1000);
-	gl_Position = vec4(position, 0, 1);
+	gl_Position = projection * view * model * vec4(inPosition, 1);
 }
 `
 
-FRAME_UNIFORM :: "frame"
-FRAME_UNIFORM_T :: i32
+MODEL_UNIFORM_NAME :: "model"
+MODEL_UNIFORM_TYPE :: Mat4
+VIEW_UNIFORM_NAME :: "view"
+VIEW_UNIFORM_TYPE :: Mat4
+PROJECTION_UNIFORM_NAME :: "projection"
+PROJECTION_UNIFORM_TYPE :: Mat4
 
 FRAGMENT_SHADER_SOURCE ::
 `
@@ -46,17 +66,17 @@ void main()
 }
 `
 
-Triangle_Vertex :: [2]f32
+Triangle_Vertex :: Vec3
 
 TRIANGLE_VERTEX_FORMAT :: [?]Vertex_Attribute{
-	.Float2
+	.Float3
 }
 
 @(rodata)
 triangle_vertices := [3]Triangle_Vertex{
-	{ -0.5, -0.5 },
-	{  0.0,  0.5 },
-	{  0.5, -0.5 },
+	{ -0.5, -0.5, 0 },
+	{  0.0,  0.5, 0 },
+	{  0.5, -0.5, 0 },
 }
 
 @(rodata)
@@ -103,8 +123,10 @@ when ODIN_DEBUG {
 
 }
 
-// TODO List:
-// - Use the context's logger
+get_aspect_ratio :: proc(window: glfw.WindowHandle) -> f32 {
+	width, height := glfw.GetWindowSize(window)
+	return f32(width) / f32(height)
+}
 
 main :: proc() {
 	when ODIN_DEBUG {
@@ -172,8 +194,13 @@ main :: proc() {
 
 	use_shader(shader)
 
-	frame_uniform, frame_uniform_ok := get_uniform(shader, FRAME_UNIFORM, FRAME_UNIFORM_T)
-	assert(frame_uniform_ok)
+	model_uniform, model_uniform_ok := get_uniform(shader, MODEL_UNIFORM_NAME, MODEL_UNIFORM_TYPE)
+	view_uniform, view_uniform_ok := get_uniform(shader, VIEW_UNIFORM_NAME, VIEW_UNIFORM_TYPE)
+	projection_uniform, projection_uniform_ok := get_uniform(shader, PROJECTION_UNIFORM_NAME, PROJECTION_UNIFORM_TYPE)
+
+	assert(model_uniform_ok)
+	assert(view_uniform_ok)
+	assert(projection_uniform_ok)
 
 	va: Vertex_Array
 	create_vertex_array(&va)
@@ -193,21 +220,48 @@ main :: proc() {
 	bind_vertex_buffer(va, vb, size_of(Triangle_Vertex))
 	bind_index_buffer(va, ib)
 
-	frame_count: i32 = 0
+	camera := Camera {
+		position = { 0, 0, 1 },
+		forward = { 0, 0, -1 },
+		up = { 0, 1, 0 },
+	}
+
+	prev_time := glfw.GetTime()
 
 	for !glfw.WindowShouldClose(window) {
 		glfw.PollEvents()
 
+		time := glfw.GetTime()
+		dt := time - prev_time
+		prev_time = time
+
+		if glfw.GetKey(window, glfw.KEY_W) == glfw.PRESS do camera.position += {  0,  0, -1 } * f32(dt)
+		if glfw.GetKey(window, glfw.KEY_S) == glfw.PRESS do camera.position += {  0,  0, +1 } * f32(dt)
+		if glfw.GetKey(window, glfw.KEY_A) == glfw.PRESS do camera.position += { -1,  0,  0 } * f32(dt)
+		if glfw.GetKey(window, glfw.KEY_D) == glfw.PRESS do camera.position += { +1,  0,  0 } * f32(dt)
+
+		model: Mat4 = 1
+
+		view := linalg.matrix4_look_at(eye = camera.position,
+					       centre = camera.position + camera.forward,
+					       up = camera.up)
+
+		projection := linalg.matrix4_perspective(fovy = math.to_radians(f32(45)),
+							 aspect = get_aspect_ratio(window),
+							 near = 0.1,
+							 far = 100)
+
 		gl.ClearColor(0, 0, 0, 1)
 		gl.Clear(gl.COLOR_BUFFER_BIT)
 
-		set_uniform(frame_uniform, frame_count)
+		set_uniform(model_uniform, model)
+		set_uniform(view_uniform, view)
+		set_uniform(projection_uniform, projection)
 
 		// TODO: gl.UNSIGNED_INT shouldn't be hardcoded here.
 		gl.DrawElements(gl.TRIANGLES, len(triangle_vertices), gl.UNSIGNED_INT, nil)
 
 		glfw.SwapBuffers(window)
 		free_all(context.temp_allocator)
-		frame_count += 1
 	}
 }
