@@ -17,19 +17,7 @@ GL_VERSION_MINOR :: 6
 INITIAL_WINDOW_WIDTH :: 1080
 INITIAL_WINDOW_HEIGHT :: 1080
 WINDOW_TITLE :: "Blockgame"
-
-Vec2 :: [2]f32
-Vec3 :: [3]f32
-Vec4 :: [4]f32
-
-Mat3 :: matrix[3, 3]f32
-Mat4 :: matrix[4, 4]f32
-
-Camera :: struct {
-	position: Vec3,
-	forward: Vec3,
-	up: Vec3,
-}
+MOUSE_SENSITIVITY :: 1
 
 VERTEX_SHADER_SOURCE ::
 `
@@ -128,6 +116,11 @@ get_aspect_ratio :: proc(window: glfw.WindowHandle) -> f32 {
 	return f32(width) / f32(height)
 }
 
+get_cursor_pos :: proc(window: glfw.WindowHandle) -> Vec2 {
+	x, y := glfw.GetCursorPos(window)
+	return { f32(x), f32(y) }
+}
+
 main :: proc() {
 	when ODIN_DEBUG {
 		tracking_allocator: mem.Tracking_Allocator
@@ -150,7 +143,7 @@ main :: proc() {
 
 	glfw.SetErrorCallback(glfw_error_callback)
 
-	if !bool(glfw.Init()) {
+	if !glfw.Init() {
 		fmt.eprintln("Failed to initialize GLFW.")
 		os.exit(-1)
 	}
@@ -188,6 +181,11 @@ main :: proc() {
 
 	glfw.SetFramebufferSizeCallback(window, glfw_framebuffer_size_callback)
 	glfw.SetKeyCallback(window, glfw_key_callback)
+	glfw.SetInputMode(window, glfw.CURSOR, glfw.CURSOR_DISABLED)
+
+	if glfw.RawMouseMotionSupported() {
+		glfw.SetInputMode(window, glfw.RAW_MOUSE_MOTION, glfw.TRUE)
+	}
 
 	shader: Shader
 	if !create_shader(&shader, VERTEX_SHADER_SOURCE, FRAGMENT_SHADER_SOURCE) {
@@ -226,10 +224,11 @@ main :: proc() {
 
 	camera := Camera {
 		position = { 0, 0, 1 },
-		forward = { 0, 0, -1 },
-		up = { 0, 1, 0 },
+		yaw = math.to_radians(f32(-90)),
+		pitch = math.to_radians(f32(0)),
 	}
 
+	prev_cursor_pos := get_cursor_pos(window)
 	prev_time := glfw.GetTime()
 
 	for !glfw.WindowShouldClose(window) {
@@ -239,16 +238,25 @@ main :: proc() {
 		dt := time - prev_time
 		prev_time = time
 
-		if glfw.GetKey(window, glfw.KEY_W) == glfw.PRESS do camera.position += {  0,  0, -1 } * f32(dt)
-		if glfw.GetKey(window, glfw.KEY_S) == glfw.PRESS do camera.position += {  0,  0, +1 } * f32(dt)
-		if glfw.GetKey(window, glfw.KEY_A) == glfw.PRESS do camera.position += { -1,  0,  0 } * f32(dt)
-		if glfw.GetKey(window, glfw.KEY_D) == glfw.PRESS do camera.position += { +1,  0,  0 } * f32(dt)
+		cursor_pos := get_cursor_pos(window)
+		cursor_pos_delta := cursor_pos - prev_cursor_pos
+		prev_cursor_pos = cursor_pos
+
+		camera.yaw += cursor_pos_delta.x * MOUSE_SENSITIVITY * f32(dt)
+		camera.pitch += -cursor_pos_delta.y * MOUSE_SENSITIVITY * f32(dt)
+
+		camera_vectors := camera_vectors(camera)
+
+		if glfw.GetKey(window, glfw.KEY_W) == glfw.PRESS do camera.position += camera_vectors.forward * f32(dt)
+		if glfw.GetKey(window, glfw.KEY_S) == glfw.PRESS do camera.position -= camera_vectors.forward * f32(dt)
+		if glfw.GetKey(window, glfw.KEY_A) == glfw.PRESS do camera.position -= camera_vectors.right * f32(dt)
+		if glfw.GetKey(window, glfw.KEY_D) == glfw.PRESS do camera.position += camera_vectors.right * f32(dt)
 
 		model: Mat4 = 1
 
 		view := linalg.matrix4_look_at(eye = camera.position,
-					       centre = camera.position + camera.forward,
-					       up = camera.up)
+					       centre = camera.position + camera_vectors.forward,
+					       up = camera_vectors.up)
 
 		projection := linalg.matrix4_perspective(fovy = math.to_radians(f32(45)),
 							 aspect = get_aspect_ratio(window),
