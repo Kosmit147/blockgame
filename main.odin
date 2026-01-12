@@ -19,21 +19,8 @@ INITIAL_WINDOW_HEIGHT :: 1080
 WINDOW_TITLE :: "Blockgame"
 MOUSE_SENSITIVITY :: 1
 
-VERTEX_SHADER_SOURCE ::
-`
-#version 460 core
-
-layout (location = 0) in vec3 inPosition;
-
-uniform mat4 model;
-uniform mat4 view;
-uniform mat4 projection;
-
-void main()
-{
-	gl_Position = projection * view * model * vec4(inPosition, 1);
-}
-`
+VERTEX_SHADER_SOURCE :: #load("vertex.glsl", cstring)
+FRAGMENT_SHADER_SOURCE :: #load("fragment.glsl", cstring)
 
 MODEL_UNIFORM_NAME :: "model"
 MODEL_UNIFORM_TYPE :: Mat4
@@ -41,18 +28,6 @@ VIEW_UNIFORM_NAME :: "view"
 VIEW_UNIFORM_TYPE :: Mat4
 PROJECTION_UNIFORM_NAME :: "projection"
 PROJECTION_UNIFORM_TYPE :: Mat4
-
-FRAGMENT_SHADER_SOURCE ::
-`
-#version 460 core
-
-out vec4 outColor;
-
-void main()
-{
-	outColor = vec4(1, 0, 0, 1);
-}
-`
 
 Triangle_Vertex :: Vec3
 
