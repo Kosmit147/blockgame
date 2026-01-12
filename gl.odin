@@ -2,9 +2,12 @@ package blockgame
 
 import gl "vendor:OpenGL"
 
+import "core:bytes"
 import "core:fmt"
 import "core:strings"
 import "core:slice"
+import "core:image"
+import "core:image/png"
 
 Shader :: struct {
 	id: u32
@@ -58,6 +61,18 @@ set_uniform :: proc(uniform: Uniform($T), value: T) {
 
 @(private="file")
 create_sub_shader :: proc(shader_source: cstring, shader_type: u32) -> (u32, bool) {
+	shader_type_string :: proc(type: u32) -> string {
+		switch type {
+		case gl.VERTEX_SHADER:
+			return "vertex"
+		case gl.FRAGMENT_SHADER:
+			return "fragment"
+		}
+
+		assert(false)
+		return "ERROR - Unknown shader type"
+	}
+
 	sources_array := [1]cstring{ shader_source }
 
 	shader := gl.CreateShader(shader_type)
@@ -77,7 +92,7 @@ create_sub_shader :: proc(shader_source: cstring, shader_type: u32) -> (u32, boo
 		info_log := string(info_log_buffer)
 		info_log = strings.trim_null(info_log)
 
-		fmt.eprintf("Failed to compile shader: %v", info_log)
+		fmt.eprintf("Failed to compile %v shader: %v", shader_type_string(shader_type), info_log)
 
 		gl.DeleteShader(shader)
 		return gl.NONE, false
@@ -204,4 +219,71 @@ create_gl_buffer_with_data :: proc(buffer: ^Gl_Buffer, data: []byte) {
 
 destroy_gl_buffer :: proc(buffer: ^Gl_Buffer) {
 	gl.DeleteBuffers(1, &buffer.id)
+}
+
+Texture :: struct {
+	id: u32,
+	width: u32,
+	height: u32,
+}
+
+create_texture_from_png_in_memory :: proc(texture: ^Texture, png_file_data: []byte) -> bool {
+	format_from_png_channels :: proc(#any_int channels: int) -> u32 {
+		switch channels {
+		case 1:
+			return gl.RED
+		case 2:
+			return gl.RG
+		case 3:
+			return gl.RGB
+		case 4:
+			return gl.RGBA
+		}
+
+		assert(false)
+		return gl.NONE
+	}
+
+	img, err := image.load(png_file_data)
+
+	if err != nil {
+		fmt.eprintfln("Failed to load image from file in memory: %v", err)
+		return false
+	}
+
+	defer image.destroy(img)
+
+	gl.CreateTextures(gl.TEXTURE_2D, 1, &texture.id)
+
+	gl.TextureParameteri(texture.id, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE)
+	gl.TextureParameteri(texture.id, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE)
+	gl.TextureParameteri(texture.id, gl.TEXTURE_MIN_FILTER, gl.NEAREST)
+	gl.TextureParameteri(texture.id, gl.TEXTURE_MAG_FILTER, gl.NEAREST)
+
+	gl.TextureStorage2D(texture.id,
+			    levels = 1,
+			    internalformat = gl.RGBA8,
+			    width = i32(img.width),
+			    height = i32(img.height))
+
+	gl.TextureSubImage2D(texture.id,
+			     level = 0,
+			     xoffset = 0,
+			     yoffset = 0,
+			     width = i32(img.width),
+			     height = i32(img.height),
+			     format = format_from_png_channels(img.channels),
+			     type = gl.UNSIGNED_BYTE,
+			     pixels = raw_data(bytes.buffer_to_bytes(&img.pixels)))
+
+	texture.width, texture.height = u32(img.width), u32(img.height)
+	return true
+}
+
+destroy_texture :: proc(texture: ^Texture) {
+	gl.DeleteTextures(1, &texture.id)
+}
+
+bind_texture :: proc(texture: Texture, slot: u32) {
+	gl.BindTextureUnit(slot, texture.id)
 }

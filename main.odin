@@ -29,21 +29,28 @@ VIEW_UNIFORM_TYPE :: Mat4
 PROJECTION_UNIFORM_NAME :: "projection"
 PROJECTION_UNIFORM_TYPE :: Mat4
 
-Triangle_Vertex :: Vec3
+COBBLE_TEXTURE_FILE_DATA :: #load("cobble.png")
 
-TRIANGLE_VERTEX_FORMAT :: [?]Vertex_Attribute{
-	.Float3
+Vertex :: struct {
+	position: Vec3,
+	tex_coords: Vec2,
+}
+
+VERTEX_FORMAT :: [?]Vertex_Attribute{
+	.Float3,
+	.Float2,
 }
 
 @(rodata)
-triangle_vertices := [3]Triangle_Vertex{
-	{ -0.5, -0.5, 0 },
-	{  0.0,  0.5, 0 },
-	{  0.5, -0.5, 0 },
+vertices := [4]Vertex{
+	{ position = { -0.5, -0.5, 0 }, tex_coords = { 0, 1 } },
+	{ position = { -0.5,  0.5, 0 }, tex_coords = { 0, 0 } },
+	{ position = {  0.5,  0.5, 0 }, tex_coords = { 1, 0 } },
+	{ position = {  0.5, -0.5, 0 }, tex_coords = { 1, 1 } },
 }
 
 @(rodata)
-triangle_indices := [3]u32{ 0, 1, 2 }
+indices := [6]u32{ 0, 1, 2, 0, 2, 3 }
 
 @(private="file")
 glfw_error_callback :: proc "c" (error: i32, description: cstring) {
@@ -179,26 +186,33 @@ main :: proc() {
 	assert(view_uniform_ok)
 	assert(projection_uniform_ok)
 
+	texture: Texture
+	if !create_texture_from_png_in_memory(&texture, COBBLE_TEXTURE_FILE_DATA) {
+		fmt.eprintln("Failed to load the texture.")
+		os.exit(-1)
+	}
+	defer destroy_texture(&texture)
+	bind_texture(texture, 0)
+
 	va: Vertex_Array
 	create_vertex_array(&va)
-	set_vertex_array_format(va, TRIANGLE_VERTEX_FORMAT)
+	set_vertex_array_format(va, VERTEX_FORMAT)
 	defer destroy_vertex_array(&va)
 
 	vb: Gl_Buffer
-	create_gl_buffer_with_data(&vb, slice.to_bytes(triangle_vertices[:]))
+	create_gl_buffer_with_data(&vb, slice.to_bytes(vertices[:]))
 	defer destroy_gl_buffer(&vb)
 
 	ib: Gl_Buffer
-	create_gl_buffer_with_data(&ib, slice.to_bytes(triangle_indices[:]))
+	create_gl_buffer_with_data(&ib, slice.to_bytes(indices[:]))
 	defer destroy_gl_buffer(&ib)
 
 	bind_vertex_array(va)
-	// TODO: size_of(Triangle_Vertex) shouldn't be hardcoded here.
-	bind_vertex_buffer(va, vb, size_of(Triangle_Vertex))
+	bind_vertex_buffer(va, vb, size_of(Vertex))
 	bind_index_buffer(va, ib)
 
 	camera := Camera {
-		position = { 0, 0, 1 },
+		position = { 0, 0, 2 },
 		yaw = math.to_radians(f32(-90)),
 		pitch = math.to_radians(f32(0)),
 	}
@@ -245,8 +259,7 @@ main :: proc() {
 		set_uniform(view_uniform, view)
 		set_uniform(projection_uniform, projection)
 
-		// TODO: gl.UNSIGNED_INT shouldn't be hardcoded here.
-		gl.DrawElements(gl.TRIANGLES, len(triangle_vertices), gl.UNSIGNED_INT, nil)
+		gl.DrawElements(gl.TRIANGLES, len(indices), gl.UNSIGNED_INT, nil)
 
 		glfw.SwapBuffers(window)
 		free_all(context.temp_allocator)
