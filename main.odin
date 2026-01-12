@@ -178,6 +178,10 @@ main :: proc() {
 		gl.Enable(gl.DEBUG_OUTPUT)
 		gl.Enable(gl.DEBUG_OUTPUT_SYNCHRONOUS)
 		gl.DebugMessageCallback(gl_debug_message_callback, nil)
+
+		fmt.printfln("Vendor: %v", gl.GetString(gl.VENDOR))
+		fmt.printfln("Renderer: %v", gl.GetString(gl.RENDERER))
+		fmt.printfln("Version: %v", gl.GetString(gl.VERSION))
 	}
 
 	gl.Viewport(0, 0, INITIAL_WINDOW_WIDTH, INITIAL_WINDOW_HEIGHT)
