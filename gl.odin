@@ -27,7 +27,7 @@ create_shader :: proc(shader: ^Shader, vertex_source, fragment_source: cstring) 
 	return true
 }
 
-destroy_shader :: proc(shader: ^Shader) {
+destroy_shader :: proc(shader: Shader) {
 	gl.DeleteProgram(shader.id)
 }
 
@@ -244,10 +244,10 @@ create_texture_from_png_in_memory :: proc(texture: ^Texture, png_file_data: []by
 		return gl.NONE
 	}
 
-	img, err := image.load(png_file_data)
+	img, error := image.load(png_file_data)
 
-	if err != nil {
-		fmt.eprintfln("Failed to load image from file in memory: %v", err)
+	if error != nil {
+		fmt.eprintfln("Failed to load image from file in memory: %v", error)
 		return false
 	}
 

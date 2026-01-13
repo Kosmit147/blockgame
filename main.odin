@@ -174,7 +174,7 @@ main :: proc() {
 		fmt.eprintln("Failed to compile the shader.")
 		os.exit(-1)
 	}
-	defer destroy_shader(&shader)
+	defer destroy_shader(shader)
 
 	use_shader(shader)
 
