@@ -169,8 +169,8 @@ main :: proc() {
 		glfw.SetInputMode(window, glfw.RAW_MOUSE_MOTION, glfw.TRUE)
 	}
 
-	shader: Shader
-	if !create_shader(&shader, VERTEX_SHADER_SOURCE, FRAGMENT_SHADER_SOURCE) {
+	shader, shader_ok := create_shader(VERTEX_SHADER_SOURCE, FRAGMENT_SHADER_SOURCE) 
+	if !shader_ok {
 		fmt.eprintln("Failed to compile the shader.")
 		os.exit(-1)
 	}
@@ -178,16 +178,12 @@ main :: proc() {
 
 	use_shader(shader)
 
-	model_uniform, model_uniform_ok := get_uniform(shader, MODEL_UNIFORM_NAME, MODEL_UNIFORM_TYPE)
-	view_uniform, view_uniform_ok := get_uniform(shader, VIEW_UNIFORM_NAME, VIEW_UNIFORM_TYPE)
-	projection_uniform, projection_uniform_ok := get_uniform(shader, PROJECTION_UNIFORM_NAME, PROJECTION_UNIFORM_TYPE)
+	model_uniform := get_uniform(shader, MODEL_UNIFORM_NAME, MODEL_UNIFORM_TYPE)
+	view_uniform := get_uniform(shader, VIEW_UNIFORM_NAME, VIEW_UNIFORM_TYPE)
+	projection_uniform := get_uniform(shader, PROJECTION_UNIFORM_NAME, PROJECTION_UNIFORM_TYPE)
 
-	assert(model_uniform_ok)
-	assert(view_uniform_ok)
-	assert(projection_uniform_ok)
-
-	texture: Texture
-	if !create_texture_from_png_in_memory(&texture, COBBLE_TEXTURE_FILE_DATA) {
+	texture, texture_ok := create_texture_from_png_in_memory(COBBLE_TEXTURE_FILE_DATA)
+	if !texture_ok {
 		fmt.eprintln("Failed to load the texture.")
 		os.exit(-1)
 	}

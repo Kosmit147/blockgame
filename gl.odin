@@ -13,18 +13,13 @@ Shader :: struct {
 	id: u32
 }
 
-Uniform :: struct($T: typeid) {
-	location: i32,
-}
-
-create_shader :: proc(shader: ^Shader, vertex_source, fragment_source: cstring) -> bool {
+create_shader :: proc(vertex_source, fragment_source: cstring) -> (shader: Shader, ok := false) {
 	vertex_shader := create_sub_shader(vertex_source, gl.VERTEX_SHADER) or_return
 	defer gl.DeleteShader(vertex_shader)
 	fragment_shader := create_sub_shader(fragment_source, gl.FRAGMENT_SHADER) or_return
 	defer gl.DeleteShader(fragment_shader)
-	shader_program := link_shader_program(vertex_shader, fragment_shader) or_return
-	shader.id = shader_program
-	return true
+	shader.id = link_shader_program(vertex_shader, fragment_shader) or_return
+	return shader, true
 }
 
 destroy_shader :: proc(shader: Shader) {
@@ -33,30 +28,6 @@ destroy_shader :: proc(shader: Shader) {
 
 use_shader :: proc(shader: Shader) {
 	gl.UseProgram(shader.id)
-}
-
-get_uniform :: proc(shader: Shader, uniform: cstring, $T: typeid) -> (Uniform(T), bool) {
-	location := gl.GetUniformLocation(shader.id, uniform)
-
-	when ODIN_DEBUG {
-		if location == -1 do fmt.eprintln("Uniform %v does not exist!", uniform)
-	}
-
-	return Uniform(T) { location }, location != -1
-}
-
-set_uniform :: proc(uniform: Uniform($T), value: T) {
-	location := uniform.location
-	assert(location != -1)
-
-	when T == i32 {
-		gl.Uniform1i(location, value)
-	} else when T == Mat4 {
-		value := value
-		gl.UniformMatrix4fv(location, 1, false, raw_data(&value))
-	} else {
- 		#panic("Type T not implemented for set_uniform.")
-	}
 }
 
 @(private="file")
@@ -132,6 +103,34 @@ link_shader_program :: proc(vertex_shader, fragment_shader: u32) -> (u32, bool) 
 	gl.DetachShader(program, fragment_shader)
 
 	return program, true
+}
+
+Uniform :: struct($T: typeid) {
+	location: i32,
+}
+
+get_uniform :: proc(shader: Shader, uniform: cstring, $T: typeid) -> (Uniform(T), bool) #optional_ok {
+	location := gl.GetUniformLocation(shader.id, uniform)
+
+	when ODIN_DEBUG {
+		if location == -1 do fmt.eprintln("Uniform %v does not exist!", uniform)
+	}
+
+	return Uniform(T) { location }, location != -1
+}
+
+set_uniform :: proc(uniform: Uniform($T), value: T) {
+	location := uniform.location
+	assert(location != -1)
+
+	when T == i32 {
+		gl.Uniform1i(location, value)
+	} else when T == Mat4 {
+		value := value
+		gl.UniformMatrix4fv(location, 1, false, raw_data(&value))
+	} else {
+ 		#panic("Type T not implemented for set_uniform.")
+	}
 }
 
 Vertex_Array :: struct {
@@ -227,7 +226,7 @@ Texture :: struct {
 	height: u32,
 }
 
-create_texture_from_png_in_memory :: proc(texture: ^Texture, png_file_data: []byte) -> bool {
+create_texture_from_png_in_memory :: proc(png_file_data: []byte) -> (texture: Texture, ok := false) {
 	format_from_png_channels :: proc(#any_int channels: int) -> u32 {
 		switch channels {
 		case 1:
@@ -245,12 +244,10 @@ create_texture_from_png_in_memory :: proc(texture: ^Texture, png_file_data: []by
 	}
 
 	img, error := image.load(png_file_data)
-
 	if error != nil {
 		fmt.eprintfln("Failed to load image from file in memory: %v", error)
-		return false
+		return
 	}
-
 	defer image.destroy(img)
 
 	gl.CreateTextures(gl.TEXTURE_2D, 1, &texture.id)
@@ -277,7 +274,7 @@ create_texture_from_png_in_memory :: proc(texture: ^Texture, png_file_data: []by
 			     pixels = raw_data(bytes.buffer_to_bytes(&img.pixels)))
 
 	texture.width, texture.height = u32(img.width), u32(img.height)
-	return true
+	return texture, true
 }
 
 destroy_texture :: proc(texture: ^Texture) {
