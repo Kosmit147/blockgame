@@ -33,24 +33,75 @@ COBBLE_TEXTURE_FILE_DATA :: #load("cobble.png")
 
 Vertex :: struct {
 	position: Vec3,
-	tex_coords: Vec2,
+	normal: Vec3,
+	uv: Vec2,
 }
 
 VERTEX_FORMAT :: [?]Vertex_Attribute{
+	.Float3,
 	.Float3,
 	.Float2,
 }
 
 @(rodata)
-vertices := [4]Vertex{
-	{ position = { -0.5, -0.5, 0 }, tex_coords = { 0, 1 } },
-	{ position = { -0.5,  0.5, 0 }, tex_coords = { 0, 0 } },
-	{ position = {  0.5,  0.5, 0 }, tex_coords = { 1, 0 } },
-	{ position = {  0.5, -0.5, 0 }, tex_coords = { 1, 1 } },
+vertices := [24]Vertex{
+	// Front wall.
+	{ position = { -0.5, -0.5,  0.5 }, normal = {  0,  0,  1 }, uv = { 0, 0 } },
+	{ position = {  0.5, -0.5,  0.5 }, normal = {  0,  0,  1 }, uv = { 1, 0 } },
+	{ position = {  0.5,  0.5,  0.5 }, normal = {  0,  0,  1 }, uv = { 1, 1 } },
+	{ position = { -0.5,  0.5,  0.5 }, normal = {  0,  0,  1 }, uv = { 0, 1 } },
+
+	// Back wall.
+	{ position = { -0.5, -0.5, -0.5 }, normal = {  0,  0, -1 }, uv = { 0, 0 } },
+	{ position = { -0.5,  0.5, -0.5 }, normal = {  0,  0, -1 }, uv = { 0, 1 } },
+	{ position = {  0.5,  0.5, -0.5 }, normal = {  0,  0, -1 }, uv = { 1, 1 } },
+	{ position = {  0.5, -0.5, -0.5 }, normal = {  0,  0, -1 }, uv = { 1, 0 } },
+
+	// Left wall.
+	{ position = { -0.5,  0.5,  0.5 }, normal = { -1,  0,  0 }, uv = { 1, 0 } },
+	{ position = { -0.5,  0.5, -0.5 }, normal = { -1,  0,  0 }, uv = { 1, 1 } },
+	{ position = { -0.5, -0.5, -0.5 }, normal = { -1,  0,  0 }, uv = { 0, 1 } },
+	{ position = { -0.5, -0.5,  0.5 }, normal = { -1,  0,  0 }, uv = { 0, 0 } },
+
+	// Right wall.
+	{ position = {  0.5,  0.5,  0.5 }, normal = {  1,  0,  0 }, uv = { 1, 0 } },
+	{ position = {  0.5, -0.5,  0.5 }, normal = {  1,  0,  0 }, uv = { 0, 0 } },
+	{ position = {  0.5, -0.5, -0.5 }, normal = {  1,  0,  0 }, uv = { 0, 1 } },
+	{ position = {  0.5,  0.5, -0.5 }, normal = {  1,  0,  0 }, uv = { 1, 1 } },
+
+	// Bottom wall.
+	{ position = { -0.5, -0.5, -0.5 }, normal = {  0, -1,  0 }, uv = { 0, 1 } },
+	{ position = {  0.5, -0.5, -0.5 }, normal = {  0, -1,  0 }, uv = { 1, 1 } },
+	{ position = {  0.5, -0.5,  0.5 }, normal = {  0, -1,  0 }, uv = { 1, 0 } },
+	{ position = { -0.5, -0.5,  0.5 }, normal = {  0, -1,  0 }, uv = { 0, 0 } },
+
+	// Top wall.
+	{ position = { -0.5,  0.5, -0.5 }, normal = {  0,  1,  0 }, uv = { 0, 1 } },
+	{ position = { -0.5,  0.5,  0.5 }, normal = {  0,  1,  0 }, uv = { 0, 0 } },
+	{ position = {  0.5,  0.5,  0.5 }, normal = {  0,  1,  0 }, uv = { 1, 0 } },
+	{ position = {  0.5,  0.5, -0.5 }, normal = {  0,  1,  0 }, uv = { 1, 1 } },
 }
 
 @(rodata)
-indices := [6]u32{ 0, 1, 2, 0, 2, 3 }
+indices := [36]u16{
+	// Front wall.
+	0, 1, 2, 0, 2, 3,
+
+	// Back wall.
+	4, 5, 6, 4, 6, 7,
+
+	// Left wall.
+	8, 9, 10, 8, 10, 11,
+
+	// Right wall.
+	12, 13, 14, 12, 14, 15,
+
+	// Bottom wall.
+	16, 17, 18, 16, 18, 19,
+
+	// Top wall.
+	20, 21, 22, 20, 22, 23,
+}
 
 @(private="file")
 glfw_error_callback :: proc "c" (error: i32, description: cstring) {
@@ -160,6 +211,10 @@ main :: proc() {
 	}
 
 	gl.Viewport(0, 0, INITIAL_WINDOW_WIDTH, INITIAL_WINDOW_HEIGHT)
+	gl.Enable(gl.CULL_FACE)
+	gl.CullFace(gl.BACK)
+	gl.FrontFace(gl.CCW)
+	gl.Enable(gl.DEPTH_TEST)
 
 	glfw.SetFramebufferSizeCallback(window, glfw_framebuffer_size_callback)
 	glfw.SetKeyCallback(window, glfw_key_callback)
@@ -249,13 +304,13 @@ main :: proc() {
 							 far = 100)
 
 		gl.ClearColor(0, 0, 0, 1)
-		gl.Clear(gl.COLOR_BUFFER_BIT)
+		gl.Clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
 
 		set_uniform(model_uniform, model)
 		set_uniform(view_uniform, view)
 		set_uniform(projection_uniform, projection)
 
-		gl.DrawElements(gl.TRIANGLES, len(indices), gl.UNSIGNED_INT, nil)
+		gl.DrawElements(gl.TRIANGLES, len(indices), gl.UNSIGNED_SHORT, nil)
 
 		glfw.SwapBuffers(window)
 		free_all(context.temp_allocator)
