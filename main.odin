@@ -19,8 +19,8 @@ INITIAL_WINDOW_HEIGHT :: 1080
 WINDOW_TITLE :: "Blockgame"
 MOUSE_SENSITIVITY :: 1
 
-VERTEX_SHADER_SOURCE :: #load("vertex.glsl", cstring)
-FRAGMENT_SHADER_SOURCE :: #load("fragment.glsl", cstring)
+SHADER_VERTEX_SOURCE :: #load("shader_vertex.glsl", cstring)
+SHADER_FRAGMENT_SOURCE :: #load("shader_fragment.glsl", cstring)
 
 MODEL_UNIFORM_NAME :: "model"
 MODEL_UNIFORM_TYPE :: Mat4
@@ -224,13 +224,12 @@ main :: proc() {
 		glfw.SetInputMode(window, glfw.RAW_MOUSE_MOTION, glfw.TRUE)
 	}
 
-	shader, shader_ok := create_shader(VERTEX_SHADER_SOURCE, FRAGMENT_SHADER_SOURCE) 
+	shader, shader_ok := create_shader(SHADER_VERTEX_SOURCE, SHADER_FRAGMENT_SOURCE) 
 	if !shader_ok {
 		fmt.eprintln("Failed to compile the shader.")
 		os.exit(-1)
 	}
 	defer destroy_shader(shader)
-
 	use_shader(shader)
 
 	model_uniform := get_uniform(shader, MODEL_UNIFORM_NAME, MODEL_UNIFORM_TYPE)
@@ -306,6 +305,7 @@ main :: proc() {
 		gl.ClearColor(0, 0, 0, 1)
 		gl.Clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
 
+		use_shader(shader)
 		set_uniform(model_uniform, model)
 		set_uniform(view_uniform, view)
 		set_uniform(projection_uniform, projection)

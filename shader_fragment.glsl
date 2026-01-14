@@ -6,7 +6,6 @@ out vec4 outColor;
 
 layout (binding = 0) uniform sampler2D texture0;
 
-void main()
-{
+void main() {
 	outColor = texture(texture0, TexCoords);
 }
