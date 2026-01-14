@@ -125,6 +125,12 @@ set_uniform :: proc(uniform: Uniform($T), value: T) {
 
 	when T == i32 {
 		gl.Uniform1i(location, value)
+	} else when T == Vec2 {
+		gl.Uniform2f(location, value.x, value.y)
+	} else when T == Vec3 {
+		gl.Uniform3f(location, value.x, value.y, value.z)
+	} else when T == Vec4 {
+		gl.Uniform4f(location, value.x, value.y, value.z, value.w)
 	} else when T == Mat4 {
 		value := value
 		gl.UniformMatrix4fv(location, 1, false, raw_data(&value))
