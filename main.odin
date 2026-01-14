@@ -168,7 +168,7 @@ main :: proc() {
 
 	cube_translation: Vec3
 
-	prev_cursor_pos := g_window.cursor_pos
+	prev_cursor_pos := window_cursor_pos()
 	prev_time := window_time()
 
 	for !window_should_close() {
@@ -178,7 +178,7 @@ main :: proc() {
 		dt := time - prev_time
 		prev_time = time
 
-		cursor_pos := g_window.cursor_pos
+		cursor_pos := window_cursor_pos()
 		cursor_pos_delta := cursor_pos - prev_cursor_pos
 		prev_cursor_pos = cursor_pos
 
@@ -187,37 +187,15 @@ main :: proc() {
 
 		camera_vectors := camera_vectors(camera)
 
-		if glfw.GetKey(g_window.handle, glfw.KEY_W) == glfw.PRESS {
-			camera.position += camera_vectors.forward * f32(dt)
-		}
+		if glfw.GetKey(window_handle(), glfw.KEY_W) == glfw.PRESS     do camera.position += camera_vectors.forward * f32(dt)
+		if glfw.GetKey(window_handle(), glfw.KEY_S) == glfw.PRESS     do camera.position -= camera_vectors.forward * f32(dt)
+		if glfw.GetKey(window_handle(), glfw.KEY_A) == glfw.PRESS     do camera.position -= camera_vectors.right * f32(dt)
+		if glfw.GetKey(window_handle(), glfw.KEY_D) == glfw.PRESS     do camera.position += camera_vectors.right * f32(dt)
 
-		if glfw.GetKey(g_window.handle, glfw.KEY_S) == glfw.PRESS {
-			camera.position -= camera_vectors.forward * f32(dt)
-		}
-
-		if glfw.GetKey(g_window.handle, glfw.KEY_A) == glfw.PRESS {
-			camera.position -= camera_vectors.right * f32(dt)
-		}
-
-		if glfw.GetKey(g_window.handle, glfw.KEY_D) == glfw.PRESS {
-			camera.position += camera_vectors.right * f32(dt)
-		}
-
-		if glfw.GetKey(g_window.handle, glfw.KEY_UP) == glfw.PRESS {
-			cube_translation.y += MODEL_MOVE_SPEED * f32(dt)
-		}
-
-		if glfw.GetKey(g_window.handle, glfw.KEY_DOWN) == glfw.PRESS {
-			cube_translation.y -= MODEL_MOVE_SPEED * f32(dt)
-		}
-
-		if glfw.GetKey(g_window.handle, glfw.KEY_LEFT) == glfw.PRESS {
-			cube_translation.x -= MODEL_MOVE_SPEED * f32(dt)
-		}
-
-		if glfw.GetKey(g_window.handle, glfw.KEY_RIGHT) == glfw.PRESS {
-			cube_translation.x += MODEL_MOVE_SPEED * f32(dt)
-		}
+		if glfw.GetKey(window_handle(), glfw.KEY_UP) == glfw.PRESS    do cube_translation.y += MODEL_MOVE_SPEED * f32(dt)
+		if glfw.GetKey(window_handle(), glfw.KEY_DOWN) == glfw.PRESS  do cube_translation.y -= MODEL_MOVE_SPEED * f32(dt)
+		if glfw.GetKey(window_handle(), glfw.KEY_LEFT) == glfw.PRESS  do cube_translation.x -= MODEL_MOVE_SPEED * f32(dt)
+		if glfw.GetKey(window_handle(), glfw.KEY_RIGHT) == glfw.PRESS do cube_translation.x += MODEL_MOVE_SPEED * f32(dt)
 
 		model := linalg.matrix4_translate(cube_translation)
 
