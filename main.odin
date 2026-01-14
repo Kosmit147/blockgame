@@ -1,7 +1,5 @@
 package blockgame
 
-import "base:runtime"
-
 import "vendor:glfw"
 import gl "vendor:OpenGL"
 
@@ -12,11 +10,6 @@ import "core:slice"
 import "core:math"
 import "core:math/linalg"
 
-GL_VERSION_MAJOR :: 4
-GL_VERSION_MINOR :: 6
-INITIAL_WINDOW_WIDTH :: 1080
-INITIAL_WINDOW_HEIGHT :: 1080
-WINDOW_TITLE :: "Blockgame"
 MOUSE_SENSITIVITY :: 1
 
 SHADER_VERTEX_SOURCE :: #load("shader_vertex.glsl", cstring)
@@ -103,57 +96,6 @@ indices := [36]u16{
 	20, 21, 22, 20, 22, 23,
 }
 
-@(private="file")
-glfw_error_callback :: proc "c" (error: i32, description: cstring) {
-	context = runtime.default_context()
-	fmt.eprintfln("GLFW Error %v: %v", error, description)
-}
-
-@(private="file")
-glfw_key_callback :: proc "c" (window: glfw.WindowHandle, key, scancode, action, mods: i32) {
-	context = runtime.default_context()
-
-	switch key {
-	case 'A'..='Z', 'a'..='z':
-		fmt.printfln("Key %v pressed", rune(key))
-	case:
-		fmt.printfln("Key %v pressed", key)
-	}
-
-	if key == glfw.KEY_ESCAPE && action == glfw.PRESS do glfw.SetWindowShouldClose(window, true)
-}
-
-@(private="file")
-glfw_framebuffer_size_callback :: proc "c" (window: glfw.WindowHandle, width, height: i32) {
-	context = runtime.default_context()
-	fmt.printfln("New window size: %v x %v", width, height)
-	gl.Viewport(0, 0, width, height)
-}
-
-when ODIN_DEBUG {
-
-	@(private="file")
-	gl_debug_message_callback :: proc "c" (
-		source, type, id, severity: u32,
-		length: i32,
-		message: cstring,
-		user_ptr: rawptr) {
-		context = runtime.default_context()
-		fmt.printfln("OpenGL message: %v", message)
-	}
-
-}
-
-get_aspect_ratio :: proc(window: glfw.WindowHandle) -> f32 {
-	width, height := glfw.GetWindowSize(window)
-	return f32(width) / f32(height)
-}
-
-get_cursor_pos :: proc(window: glfw.WindowHandle) -> Vec2 {
-	x, y := glfw.GetCursorPos(window)
-	return { f32(x), f32(y) }
-}
-
 main :: proc() {
 	when ODIN_DEBUG {
 		tracking_allocator: mem.Tracking_Allocator
@@ -174,55 +116,11 @@ main :: proc() {
 		}
 	}
 
-	glfw.SetErrorCallback(glfw_error_callback)
-
-	if !glfw.Init() {
-		fmt.eprintln("Failed to initialize GLFW.")
-		os.exit(-1)
-	}
-
-	defer glfw.Terminate()
-
-	glfw.WindowHint(glfw.CONTEXT_VERSION_MAJOR, GL_VERSION_MAJOR)
-	glfw.WindowHint(glfw.CONTEXT_VERSION_MINOR, GL_VERSION_MINOR)
-	glfw.WindowHint(glfw.OPENGL_PROFILE, glfw.OPENGL_CORE_PROFILE)
-	glfw.WindowHint(glfw.OPENGL_DEBUG_CONTEXT, glfw.TRUE when ODIN_DEBUG else glfw.FALSE)
-
-	window := glfw.CreateWindow(INITIAL_WINDOW_WIDTH, INITIAL_WINDOW_HEIGHT, WINDOW_TITLE, nil, nil)
-
-	if window == nil {
+	if !create_window(1080, 1080, "Blockgame") {
 		fmt.eprintln("Failed to create a window.")
 		os.exit(-1)
 	}
-
-	defer glfw.DestroyWindow(window)
-
-	glfw.MakeContextCurrent(window)
-	gl.load_up_to(GL_VERSION_MAJOR, GL_VERSION_MINOR, glfw.gl_set_proc_address)
-
-	when ODIN_DEBUG {
-		gl.Enable(gl.DEBUG_OUTPUT)
-		gl.Enable(gl.DEBUG_OUTPUT_SYNCHRONOUS)
-		gl.DebugMessageCallback(gl_debug_message_callback, nil)
-
-		fmt.printfln("Vendor: %v", gl.GetString(gl.VENDOR))
-		fmt.printfln("Renderer: %v", gl.GetString(gl.RENDERER))
-		fmt.printfln("Version: %v", gl.GetString(gl.VERSION))
-	}
-
-	gl.Viewport(0, 0, INITIAL_WINDOW_WIDTH, INITIAL_WINDOW_HEIGHT)
-	gl.Enable(gl.CULL_FACE)
-	gl.CullFace(gl.BACK)
-	gl.FrontFace(gl.CCW)
-	gl.Enable(gl.DEPTH_TEST)
-
-	glfw.SetFramebufferSizeCallback(window, glfw_framebuffer_size_callback)
-	glfw.SetKeyCallback(window, glfw_key_callback)
-	glfw.SetInputMode(window, glfw.CURSOR, glfw.CURSOR_DISABLED)
-
-	if glfw.RawMouseMotionSupported() {
-		glfw.SetInputMode(window, glfw.RAW_MOUSE_MOTION, glfw.TRUE)
-	}
+	defer destroy_window()
 
 	shader, shader_ok := create_shader(SHADER_VERTEX_SOURCE, SHADER_FRAGMENT_SOURCE) 
 	if !shader_ok {
@@ -267,17 +165,17 @@ main :: proc() {
 		pitch = math.to_radians(f32(0)),
 	}
 
-	prev_cursor_pos := get_cursor_pos(window)
+	prev_cursor_pos := g_window.cursor_pos
 	prev_time := glfw.GetTime()
 
-	for !glfw.WindowShouldClose(window) {
-		glfw.PollEvents()
+	for !window_should_close() {
+		poll_window_events()
 
-		time := glfw.GetTime()
+		time := time()
 		dt := time - prev_time
 		prev_time = time
 
-		cursor_pos := get_cursor_pos(window)
+		cursor_pos := g_window.cursor_pos
 		cursor_pos_delta := cursor_pos - prev_cursor_pos
 		prev_cursor_pos = cursor_pos
 
@@ -286,10 +184,21 @@ main :: proc() {
 
 		camera_vectors := camera_vectors(camera)
 
-		if glfw.GetKey(window, glfw.KEY_W) == glfw.PRESS do camera.position += camera_vectors.forward * f32(dt)
-		if glfw.GetKey(window, glfw.KEY_S) == glfw.PRESS do camera.position -= camera_vectors.forward * f32(dt)
-		if glfw.GetKey(window, glfw.KEY_A) == glfw.PRESS do camera.position -= camera_vectors.right * f32(dt)
-		if glfw.GetKey(window, glfw.KEY_D) == glfw.PRESS do camera.position += camera_vectors.right * f32(dt)
+		if glfw.GetKey(g_window.handle, glfw.KEY_W) == glfw.PRESS {
+			camera.position += camera_vectors.forward * f32(dt)
+		}
+
+		if glfw.GetKey(g_window.handle, glfw.KEY_S) == glfw.PRESS {
+			camera.position -= camera_vectors.forward * f32(dt)
+		}
+
+		if glfw.GetKey(g_window.handle, glfw.KEY_A) == glfw.PRESS {
+			camera.position -= camera_vectors.right * f32(dt)
+		}
+
+		if glfw.GetKey(g_window.handle, glfw.KEY_D) == glfw.PRESS {
+			camera.position += camera_vectors.right * f32(dt)
+		}
 
 		model: Mat4 = 1
 
@@ -298,7 +207,7 @@ main :: proc() {
 					       up = camera_vectors.up)
 
 		projection := linalg.matrix4_perspective(fovy = math.to_radians(f32(45)),
-							 aspect = get_aspect_ratio(window),
+							 aspect = window_aspect_ratio(),
 							 near = 0.1,
 							 far = 100)
 
@@ -312,7 +221,7 @@ main :: proc() {
 
 		gl.DrawElements(gl.TRIANGLES, len(indices), gl.UNSIGNED_SHORT, nil)
 
-		glfw.SwapBuffers(window)
+		swap_window_buffers()
 		free_all(context.temp_allocator)
 	}
 }
