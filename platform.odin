@@ -85,7 +85,7 @@ swap_window_buffers :: proc() {
 	glfw.SwapBuffers(g_window.handle)
 }
 
-time :: proc() -> f64 {
+window_time :: proc() -> f64 {
 	return glfw.GetTime()
 }
 

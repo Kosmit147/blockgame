@@ -11,6 +11,7 @@ import "core:math"
 import "core:math/linalg"
 
 MOUSE_SENSITIVITY :: 1
+MODEL_MOVE_SPEED :: 1
 
 SHADER_VERTEX_SOURCE :: #load("shader_vertex.glsl", cstring)
 SHADER_FRAGMENT_SOURCE :: #load("shader_fragment.glsl", cstring)
@@ -165,13 +166,15 @@ main :: proc() {
 		pitch = math.to_radians(f32(0)),
 	}
 
+	cube_translation: Vec3
+
 	prev_cursor_pos := g_window.cursor_pos
-	prev_time := glfw.GetTime()
+	prev_time := window_time()
 
 	for !window_should_close() {
 		poll_window_events()
 
-		time := time()
+		time := window_time()
 		dt := time - prev_time
 		prev_time = time
 
@@ -200,7 +203,23 @@ main :: proc() {
 			camera.position += camera_vectors.right * f32(dt)
 		}
 
-		model: Mat4 = 1
+		if glfw.GetKey(g_window.handle, glfw.KEY_UP) == glfw.PRESS {
+			cube_translation.y += MODEL_MOVE_SPEED * f32(dt)
+		}
+
+		if glfw.GetKey(g_window.handle, glfw.KEY_DOWN) == glfw.PRESS {
+			cube_translation.y -= MODEL_MOVE_SPEED * f32(dt)
+		}
+
+		if glfw.GetKey(g_window.handle, glfw.KEY_LEFT) == glfw.PRESS {
+			cube_translation.x -= MODEL_MOVE_SPEED * f32(dt)
+		}
+
+		if glfw.GetKey(g_window.handle, glfw.KEY_RIGHT) == glfw.PRESS {
+			cube_translation.x += MODEL_MOVE_SPEED * f32(dt)
+		}
+
+		model := linalg.matrix4_translate(cube_translation)
 
 		view := linalg.matrix4_look_at(eye = camera.position,
 					       centre = camera.position + camera_vectors.forward,
