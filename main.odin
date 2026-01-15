@@ -1,16 +1,18 @@
 package blockgame
 
+import "base:runtime"
+
 import "vendor:glfw"
 import gl "vendor:OpenGL"
 
-import "core:fmt"
+import "core:log"
 import "core:os"
 import "core:mem"
 import "core:slice"
 import "core:math"
 import "core:math/linalg"
 
-MOUSE_SENSITIVITY :: 1
+MOUSE_SENSITIVITY :: 0.15
 MODEL_MOVE_SPEED :: 1
 
 SHADER_VERTEX_SOURCE :: #load("shader_vertex.glsl", cstring)
@@ -97,7 +99,12 @@ indices := [36]u16{
 	20, 21, 22, 20, 22, 23,
 }
 
+g_context: runtime.Context
+
 main :: proc() {
+	context.logger = log.create_console_logger(.Debug when ODIN_DEBUG else .Info)
+	defer log.destroy_console_logger(context.logger)
+
 	when ODIN_DEBUG {
 		tracking_allocator: mem.Tracking_Allocator
 		mem.tracking_allocator_init(&tracking_allocator, context.allocator)
@@ -105,11 +112,11 @@ main :: proc() {
 
 		defer {
 			if len(tracking_allocator.allocation_map) > 0 {
-				fmt.eprintfln("MEMORY LEAK: %v allocations not freed:",
-					      len(tracking_allocator.allocation_map))
+				log.errorf("MEMORY LEAK: %v allocations not freed:",
+					   len(tracking_allocator.allocation_map))
 
 				for _, entry in tracking_allocator.allocation_map {
-					fmt.eprintfln("- %v bytes at %v", entry.size, entry.location)
+					log.errorf("- %v bytes at %v", entry.size, entry.location)
 				}
 			}
 
@@ -117,17 +124,13 @@ main :: proc() {
 		}
 	}
 
-	if !create_window(1080, 1080, "Blockgame") {
-		fmt.eprintln("Failed to create a window.")
-		os.exit(-1)
-	}
-	defer destroy_window()
+	g_context = context
+
+	if !window_init(1920, 1080, "Blockgame") do log.panic("Failed to create a window.")
+	defer window_deinit()
 
 	shader, shader_ok := create_shader(SHADER_VERTEX_SOURCE, SHADER_FRAGMENT_SOURCE) 
-	if !shader_ok {
-		fmt.eprintln("Failed to compile the shader.")
-		os.exit(-1)
-	}
+	if !shader_ok do log.panic("Failed to compile the shader.")
 	defer destroy_shader(shader)
 	use_shader(shader)
 
@@ -136,10 +139,7 @@ main :: proc() {
 	projection_uniform := get_uniform(shader, PROJECTION_UNIFORM_NAME, PROJECTION_UNIFORM_TYPE)
 
 	texture, texture_ok := create_texture_from_png_in_memory(COBBLE_TEXTURE_FILE_DATA)
-	if !texture_ok {
-		fmt.eprintln("Failed to load the texture.")
-		os.exit(-1)
-	}
+	if !texture_ok do log.panic("Failed to load the texture.")
 	defer destroy_texture(&texture)
 	bind_texture(texture, 0)
 
@@ -172,7 +172,7 @@ main :: proc() {
 	prev_time := window_time()
 
 	for !window_should_close() {
-		poll_window_events()
+		window_poll_events()
 
 		time := window_time()
 		dt := time - prev_time
@@ -218,7 +218,7 @@ main :: proc() {
 
 		gl.DrawElements(gl.TRIANGLES, len(indices), gl.UNSIGNED_SHORT, nil)
 
-		swap_window_buffers()
+		window_swap_buffers()
 		free_all(context.temp_allocator)
 	}
 }

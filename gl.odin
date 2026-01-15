@@ -2,8 +2,8 @@ package blockgame
 
 import gl "vendor:OpenGL"
 
+import "core:log"
 import "core:bytes"
-import "core:fmt"
 import "core:strings"
 import "core:slice"
 import "core:image"
@@ -63,7 +63,7 @@ create_sub_shader :: proc(shader_source: cstring, shader_type: u32) -> (u32, boo
 		info_log := string(info_log_buffer)
 		info_log = strings.trim_null(info_log)
 
-		fmt.eprintf("Failed to compile %v shader: %v", shader_type_string(shader_type), info_log)
+		log.errorf("Failed to compile %v shader: %v", shader_type_string(shader_type), info_log)
 
 		gl.DeleteShader(shader)
 		return gl.NONE, false
@@ -93,7 +93,7 @@ link_shader_program :: proc(vertex_shader, fragment_shader: u32) -> (u32, bool) 
 		info_log := string(info_log_buffer)
 		info_log = strings.trim_null(info_log)
 
-		fmt.eprintf("Failed to link shader: %v", info_log)
+		log.errorf("Failed to link shader: %v", info_log)
 
 		gl.DeleteProgram(program)
 		return gl.NONE, false
@@ -113,7 +113,7 @@ get_uniform :: proc(shader: Shader, uniform: cstring, $T: typeid) -> (Uniform(T)
 	location := gl.GetUniformLocation(shader.id, uniform)
 
 	when ODIN_DEBUG {
-		if location == -1 do fmt.eprintln("Uniform %v does not exist!", uniform)
+		if location == -1 do log.warnf("Uniform \"%v\" does not exist!", uniform)
 	}
 
 	return Uniform(T) { location }, location != -1
@@ -251,7 +251,7 @@ create_texture_from_png_in_memory :: proc(png_file_data: []byte) -> (texture: Te
 
 	img, error := image.load(png_file_data)
 	if error != nil {
-		fmt.eprintfln("Failed to load image from file in memory: %v", error)
+		log.errorf("Failed to load image from file in memory: %v", error)
 		return
 	}
 	defer image.destroy(img)

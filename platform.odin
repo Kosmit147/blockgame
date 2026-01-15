@@ -1,11 +1,9 @@
 package blockgame
 
-import "base:runtime"
-
 import "vendor:glfw"
 import gl "vendor:OpenGL"
 
-import "core:fmt"
+import "core:log"
 
 GL_VERSION_MAJOR :: 4
 GL_VERSION_MINOR :: 6
@@ -20,10 +18,10 @@ Window :: struct {
 @(private="file")
 s_window: Window
 
-create_window :: proc(width, height: i32, title: cstring) -> (ok := false) {
+window_init :: proc(width, height: i32, title: cstring) -> (ok := false) {
 	glfw.SetErrorCallback(glfw_error_callback)
 	if !glfw.Init() {
-		fmt.eprintln("Failed to initialize GLFW.")
+		log.fatalf("Failed to initialize GLFW.")
 		return
 	}
 
@@ -34,7 +32,7 @@ create_window :: proc(width, height: i32, title: cstring) -> (ok := false) {
 
 	s_window.handle = glfw.CreateWindow(width, height, title, nil, nil)
 	if s_window.handle == nil {
-		fmt.eprintln("Failed to create a window.")
+		log.fatalf("Failed to create a window.")
 		return
 	}
 
@@ -56,15 +54,12 @@ create_window :: proc(width, height: i32, title: cstring) -> (ok := false) {
 	glfw.SetKeyCallback(s_window.handle, glfw_key_callback)
 
 	glfw.SetInputMode(s_window.handle, glfw.CURSOR, glfw.CURSOR_DISABLED)
-
-	if glfw.RawMouseMotionSupported() {
-		glfw.SetInputMode(s_window.handle, glfw.RAW_MOUSE_MOTION, glfw.TRUE)
-	}
+	if glfw.RawMouseMotionSupported() do glfw.SetInputMode(s_window.handle, glfw.RAW_MOUSE_MOTION, glfw.TRUE)
 
 	return true
 }
 
-destroy_window :: proc() {
+window_deinit :: proc() {
 	glfw.DestroyWindow(s_window.handle)
 	glfw.Terminate()
 	s_window.handle = nil
@@ -74,15 +69,15 @@ window_should_close :: proc() -> bool {
 	return bool(glfw.WindowShouldClose(s_window.handle))
 }
 
-close_window :: proc() {
+window_close :: proc() {
 	glfw.SetWindowShouldClose(s_window.handle, glfw.TRUE)
 }
 
-poll_window_events :: proc() {
+window_poll_events :: proc() {
 	glfw.PollEvents()
 }
 
-swap_window_buffers :: proc() {
+window_swap_buffers :: proc() {
 	glfw.SwapBuffers(s_window.handle)
 }
 
@@ -92,6 +87,14 @@ window_time :: proc() -> f64 {
 
 window_aspect_ratio :: proc() -> f32 {
 	return f32(s_window.size.x) / f32(s_window.size.y)
+}
+
+window_width :: proc() -> i32 {
+	return s_window.size.x
+}
+
+window_height :: proc() -> i32 {
+	return s_window.size.y
 }
 
 window_size :: proc() -> [2]i32 {
@@ -112,22 +115,22 @@ window_handle :: proc() -> glfw.WindowHandle {
 
 @(private="file")
 glfw_error_callback :: proc "c" (error: i32, description: cstring) {
-	context = runtime.default_context()
-	fmt.eprintfln("GLFW Error %v: %v", error, description)
+	context = g_context
+	log.errorf("GLFW Error %v: %v", error, description)
 }
 
 @(private="file")
 glfw_key_callback :: proc "c" (window_handle: glfw.WindowHandle, key, scancode, action, mods: i32) {
-	context = runtime.default_context()
+	context = g_context
 
 	switch key {
 	case 'A'..='Z', 'a'..='z':
-		fmt.printfln("Key %v pressed", rune(key))
+		log.debugf("Key %v pressed", rune(key))
 	case:
-		fmt.printfln("Key %v pressed", key)
+		log.debugf("Key %v pressed", key)
 	}
 
-	if key == glfw.KEY_ESCAPE && action == glfw.PRESS do close_window()
+	if key == glfw.KEY_ESCAPE && action == glfw.PRESS do window_close()
 }
 
 @(private="file")
@@ -154,9 +157,9 @@ init_gl_context :: proc() {
 		gl.Enable(gl.DEBUG_OUTPUT_SYNCHRONOUS)
 		gl.DebugMessageCallback(gl_debug_message_callback, nil)
 
-		fmt.printfln("Vendor: %v", gl.GetString(gl.VENDOR))
-		fmt.printfln("Renderer: %v", gl.GetString(gl.RENDERER))
-		fmt.printfln("Version: %v", gl.GetString(gl.VERSION))
+		log.infof("Vendor: %v", gl.GetString(gl.VENDOR))
+		log.infof("Renderer: %v", gl.GetString(gl.RENDERER))
+		log.infof("Version: %v", gl.GetString(gl.VERSION))
 	}
 
 	gl.Viewport(0, 0, s_window.framebuffer_size.x, s_window.framebuffer_size.y)
@@ -174,8 +177,19 @@ when ODIN_DEBUG {
 		length: i32,
 		message: cstring,
 		user_ptr: rawptr) {
-		context = runtime.default_context()
-		fmt.printfln("OpenGL message: %v", message)
+		context = g_context
+
+		switch severity {
+		case gl.DEBUG_SEVERITY_NOTIFICATION:
+			log.debugf("OpenGL Notification: %v", message)
+		case gl.DEBUG_SEVERITY_LOW:
+			log.warnf("OpenGL Warning: %v", message)
+		case gl.DEBUG_SEVERITY_MEDIUM, gl.DEBUG_SEVERITY_HIGH:
+			log.errorf("OpenGL Error: %v", message)
+		case:
+			assert(false)
+			log.errorf("Unrecognized OpenGL debug message severity: %X", severity)
+		}
 	}
 
 }
