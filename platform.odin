@@ -50,8 +50,9 @@ window_init :: proc(width, height: i32, title: cstring) -> (ok := false) {
 
 	glfw.SetWindowSizeCallback(s_window.handle, glfw_window_size_callback)
 	glfw.SetFramebufferSizeCallback(s_window.handle, glfw_framebuffer_size_callback)
-	glfw.SetCursorPosCallback(s_window.handle, glfw_cursor_pos_callback)
 	glfw.SetKeyCallback(s_window.handle, glfw_key_callback)
+	glfw.SetCursorPosCallback(s_window.handle, glfw_cursor_pos_callback)
+	glfw.SetMouseButtonCallback(s_window.handle, glfw_mouse_button_callback)
 
 	glfw.SetInputMode(s_window.handle, glfw.CURSOR, glfw.CURSOR_DISABLED)
 	if glfw.RawMouseMotionSupported() do glfw.SetInputMode(s_window.handle, glfw.RAW_MOUSE_MOTION, glfw.TRUE)
@@ -241,6 +242,8 @@ Key :: enum u8 {
 	Right_Alt,
 	Right_Super,
 	Menu,
+
+	Unknown,
 }
 
 @(private="file")
@@ -373,14 +376,8 @@ map_glfw_key :: proc "contextless" (glfw_key: i32) -> Key {
 	case glfw.KEY_RIGHT_ALT:      return .Right_Alt
 	case glfw.KEY_RIGHT_SUPER:    return .Right_Super
 	case glfw.KEY_MENU:           return .Menu
+	case:                         return .Unknown
 	}
-
-	when ODIN_DEBUG {
-		context = g_context
-		assert(false)
-	}
-
-	return Key(glfw_key)
 }
 
 Mouse_Button :: enum u8 {
@@ -393,6 +390,8 @@ Mouse_Button :: enum u8 {
 	Button_7,
 	Button_8,
 
+	Unknown,
+
 	Left   = Button_1,
 	Right  = Button_2,
 	Middle = Button_3,
@@ -401,22 +400,16 @@ Mouse_Button :: enum u8 {
 @(private="file")
 map_glfw_mouse_button :: proc "contextless" (glfw_mouse_button: i32) -> Mouse_Button {
 	switch glfw_mouse_button {
- 	case glfw.MOUSE_BUTTON_1: return .Button_1
- 	case glfw.MOUSE_BUTTON_2: return .Button_2
- 	case glfw.MOUSE_BUTTON_3: return .Button_3
- 	case glfw.MOUSE_BUTTON_4: return .Button_4
- 	case glfw.MOUSE_BUTTON_5: return .Button_5
- 	case glfw.MOUSE_BUTTON_6: return .Button_6
- 	case glfw.MOUSE_BUTTON_7: return .Button_7
- 	case glfw.MOUSE_BUTTON_8: return .Button_8
+ 	case glfw.MOUSE_BUTTON_1:  return .Button_1
+ 	case glfw.MOUSE_BUTTON_2:  return .Button_2
+ 	case glfw.MOUSE_BUTTON_3:  return .Button_3
+ 	case glfw.MOUSE_BUTTON_4:  return .Button_4
+ 	case glfw.MOUSE_BUTTON_5:  return .Button_5
+ 	case glfw.MOUSE_BUTTON_6:  return .Button_6
+ 	case glfw.MOUSE_BUTTON_7:  return .Button_7
+ 	case glfw.MOUSE_BUTTON_8:  return .Button_8
+	case:                      return .Unknown
 	}
-
-	when ODIN_DEBUG {
-		context = g_context
-		assert(false)
-	}
-
-	return Mouse_Button(glfw_mouse_button)
 }
 
 Input :: struct {
@@ -442,13 +435,6 @@ glfw_error_callback :: proc "c" (error: i32, description: cstring) {
 }
 
 @(private="file")
-glfw_key_callback :: proc "c" (window_handle: glfw.WindowHandle, key, scancode, action, mods: i32) {
-	key := map_glfw_key(key)
-	if action == glfw.PRESS do s_input.pressed_keys += { key }
-	else if action == glfw.RELEASE do s_input.pressed_keys -= { key }
-}
-
-@(private="file")
 glfw_window_size_callback :: proc "c" (window_handle: glfw.WindowHandle, width, height: i32) {
 	s_window.size.x, s_window.size.y = width, height
 }
@@ -460,8 +446,22 @@ glfw_framebuffer_size_callback :: proc "c" (window_handle: glfw.WindowHandle, wi
 }
 
 @(private="file")
+glfw_key_callback :: proc "c" (window_handle: glfw.WindowHandle, key, scancode, action, mods: i32) {
+	key := map_glfw_key(key)
+	if action == glfw.PRESS do s_input.pressed_keys += { key }
+	else if action == glfw.RELEASE do s_input.pressed_keys -= { key }
+}
+
+@(private="file")
 glfw_cursor_pos_callback :: proc "c" (window_handle: glfw.WindowHandle, xpos, ypos: f64) {
 	s_window.cursor_pos.x, s_window.cursor_pos.y = f32(xpos), f32(ypos)
+}
+
+@(private="file")
+glfw_mouse_button_callback :: proc "c" (window_handle: glfw.WindowHandle, button, action, mods: i32) {
+	button := map_glfw_mouse_button(button)
+	if action == glfw.PRESS do s_input.pressed_mouse_buttons += { button }
+	else if action == glfw.RELEASE do s_input.pressed_mouse_buttons -= { button }
 }
 
 init_gl_context :: proc() {
