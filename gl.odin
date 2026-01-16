@@ -156,8 +156,8 @@ bind_vertex_array :: proc(va: Vertex_Array) {
 }
 
 Vertex_Attribute :: enum {
-	Float2,
-	Float3,
+	Float_2,
+	Float_3,
 }
 
 Vertex_Attribute_Description :: struct {
@@ -168,9 +168,9 @@ Vertex_Attribute_Description :: struct {
 
 describe_vertex_attribute :: proc(attribute: Vertex_Attribute) -> Vertex_Attribute_Description {
 	switch attribute {
-	case .Float2:
+	case .Float_2:
 		return { 2, gl.FLOAT, 2 * size_of(f32) }
-	case .Float3:
+	case .Float_3:
 		return { 3, gl.FLOAT, 3 * size_of(f32) }
 	case:
 		assert(false)

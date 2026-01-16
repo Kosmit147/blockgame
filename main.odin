@@ -2,7 +2,6 @@ package blockgame
 
 import "base:runtime"
 
-import "vendor:glfw"
 import gl "vendor:OpenGL"
 
 import "core:log"
@@ -34,9 +33,9 @@ Vertex :: struct {
 }
 
 VERTEX_FORMAT :: [?]Vertex_Attribute{
-	.Float3,
-	.Float3,
-	.Float2,
+	.Float_3,
+	.Float_3,
+	.Float_2,
 }
 
 @(rodata)
@@ -187,15 +186,15 @@ main :: proc() {
 
 		camera_vectors := camera_vectors(camera)
 
-		if glfw.GetKey(window_handle(), glfw.KEY_W) == glfw.PRESS     do camera.position += camera_vectors.forward * f32(dt)
-		if glfw.GetKey(window_handle(), glfw.KEY_S) == glfw.PRESS     do camera.position -= camera_vectors.forward * f32(dt)
-		if glfw.GetKey(window_handle(), glfw.KEY_A) == glfw.PRESS     do camera.position -= camera_vectors.right * f32(dt)
-		if glfw.GetKey(window_handle(), glfw.KEY_D) == glfw.PRESS     do camera.position += camera_vectors.right * f32(dt)
+		if key_pressed(.W) do camera.position += camera_vectors.forward * f32(dt)
+		if key_pressed(.S) do camera.position -= camera_vectors.forward * f32(dt)
+		if key_pressed(.A) do camera.position -= camera_vectors.right   * f32(dt)
+		if key_pressed(.D) do camera.position += camera_vectors.right   * f32(dt)
 
-		if glfw.GetKey(window_handle(), glfw.KEY_UP) == glfw.PRESS    do cube_translation.y += MODEL_MOVE_SPEED * f32(dt)
-		if glfw.GetKey(window_handle(), glfw.KEY_DOWN) == glfw.PRESS  do cube_translation.y -= MODEL_MOVE_SPEED * f32(dt)
-		if glfw.GetKey(window_handle(), glfw.KEY_LEFT) == glfw.PRESS  do cube_translation.x -= MODEL_MOVE_SPEED * f32(dt)
-		if glfw.GetKey(window_handle(), glfw.KEY_RIGHT) == glfw.PRESS do cube_translation.x += MODEL_MOVE_SPEED * f32(dt)
+		if key_pressed(.Up)    do cube_translation.y += MODEL_MOVE_SPEED * f32(dt)
+		if key_pressed(.Down)  do cube_translation.y -= MODEL_MOVE_SPEED * f32(dt)
+		if key_pressed(.Left)  do cube_translation.x -= MODEL_MOVE_SPEED * f32(dt)
+		if key_pressed(.Right) do cube_translation.x += MODEL_MOVE_SPEED * f32(dt)
 
 		model := linalg.matrix4_translate(cube_translation)
 
