@@ -56,4 +56,18 @@ game_update :: proc(dt: f32) {
 
 game_render :: proc() {
 	renderer_render(s_game.camera, s_game.cube_position)
+
+	renderer_2d_submit_quad(Quad {
+		position = { -0.9, 0.9 },
+		size = { 1.8, 1.8 },
+		color = RED,
+	})
+
+	renderer_2d_submit_quad(Quad {
+		position = { -0.9, 0.9 },
+		size = { 0.9, 0.9 },
+		color = GREEN,
+	})
+
+	renderer_2d_render()
 }

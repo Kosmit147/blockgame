@@ -38,6 +38,9 @@ main :: proc() {
 	if !renderer_init() do log.panic("Failed to initialize the renderer.")
 	defer renderer_deinit()
 
+	if !renderer_2d_init() do log.panic("Failed to initialize the 2D renderer.")
+	defer renderer_2d_deinit()
+
 	if !game_init() do log.panic("Failed to initialize the game state.")
 	defer game_deinit()
 

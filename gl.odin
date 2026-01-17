@@ -158,6 +158,7 @@ bind_vertex_array :: proc(va: Vertex_Array) {
 Vertex_Attribute :: enum {
 	Float_2,
 	Float_3,
+	Float_4,
 }
 
 Vertex_Attribute_Description :: struct {
@@ -172,6 +173,8 @@ describe_vertex_attribute :: proc(attribute: Vertex_Attribute) -> Vertex_Attribu
 		return { 2, gl.FLOAT, 2 * size_of(f32) }
 	case .Float_3:
 		return { 3, gl.FLOAT, 3 * size_of(f32) }
+	case .Float_4:
+		return { 4, gl.FLOAT, 4 * size_of(f32) }
 	case:
 		assert(false)
 		return {}
@@ -207,19 +210,81 @@ bind_index_buffer :: proc(va: Vertex_Array, buffer: Gl_Buffer) {
 	gl.VertexArrayElementBuffer(va.id, buffer.id)
 }
 
+// Buffers can be either static or dynamic.
+// Static buffers have a fixed size.
+// Dynamic buffers have a dynamic size.
 Gl_Buffer :: struct {
 	id: u32,
 	size: int
 }
 
-create_gl_buffer :: proc(buffer: ^Gl_Buffer, size: int) {
+create_static_gl_buffer :: proc(buffer: ^Gl_Buffer, size: int) {
 	gl.CreateBuffers(1, &buffer.id)
 	gl.NamedBufferStorage(buffer.id, size, nil, gl.DYNAMIC_STORAGE_BIT)
+	buffer.size = size
 }
 
-create_gl_buffer_with_data :: proc(buffer: ^Gl_Buffer, data: []byte) {
+create_static_gl_buffer_with_data :: proc(buffer: ^Gl_Buffer, data: []byte) {
 	gl.CreateBuffers(1, &buffer.id)
-	gl.NamedBufferStorage(buffer.id, slice.size(data), raw_data(data), gl.DYNAMIC_STORAGE_BIT)
+	data_size := slice.size(data)
+	gl.NamedBufferStorage(buffer.id, data_size, raw_data(data), gl.DYNAMIC_STORAGE_BIT)
+	buffer.size = data_size
+}
+
+create_dynamic_gl_buffer :: proc(buffer: ^Gl_Buffer, size := 0, usage: u32 = gl.DYNAMIC_DRAW) {
+	gl.CreateBuffers(1, &buffer.id)
+	gl.NamedBufferData(buffer.id, size, nil, usage)
+	buffer.size = size
+}
+
+create_dynamic_gl_buffer_with_data :: proc(buffer: ^Gl_Buffer, data: []byte, usage: u32 = gl.DYNAMIC_DRAW) {
+	gl.CreateBuffers(1, &buffer.id)
+	data_size := slice.size(data)
+	gl.NamedBufferData(buffer.id, data_size, raw_data(data), usage)
+	buffer.size = data_size
+}
+
+upload_dynamic_gl_buffer_data :: proc(buffer: ^Gl_Buffer, data: []byte) {
+	data_size := slice.size(data)
+	reserve_dynamic_gl_buffer_size(buffer, data_size)
+	gl.NamedBufferSubData(buffer.id, 0, data_size, raw_data(data))
+}
+
+reserve_dynamic_gl_buffer_size :: proc(buffer: ^Gl_Buffer, min_size: int, usage: u32 = gl.DYNAMIC_DRAW) {
+	// We can't just create a new buffer and copy the old data into it, because we want the id of the buffer to
+	// remain the same. So we copy the data into a temporary buffer, initialize the new data store for the buffer
+	// and copy over the data from the temporary buffer back into the old buffer.
+
+	if buffer.size >= min_size do return
+
+	new_size := max(buffer.size + buffer.size / 2, min_size)
+
+	if buffer.size == 0 {
+		// No need to do any copying.
+		gl.NamedBufferData(buffer.id, new_size, nil, usage)
+		buffer.size = new_size
+		return
+	}
+
+	temp_buffer: Gl_Buffer
+	create_static_gl_buffer(&temp_buffer, buffer.size)
+	defer destroy_gl_buffer(&temp_buffer)
+
+	gl.CopyNamedBufferSubData(readBuffer = buffer.id,
+				  writeBuffer = temp_buffer.id,
+				  readOffset = 0,
+				  writeOffset = 0,
+				  size = buffer.size)
+
+	gl.NamedBufferData(buffer.id, new_size, nil, usage)
+
+	gl.CopyNamedBufferSubData(readBuffer = temp_buffer.id,
+				  writeBuffer = buffer.id,
+				  readOffset = 0,
+				  writeOffset = 0,
+				  size = buffer.size)
+
+	buffer.size = new_size
 }
 
 destroy_gl_buffer :: proc(buffer: ^Gl_Buffer) {
