@@ -181,6 +181,16 @@ main :: proc() {
 		cursor_pos_delta := cursor_pos - prev_cursor_pos
 		prev_cursor_pos = cursor_pos
 
+		for event in window_pop_event() {
+			switch event in event {
+			case Key_Pressed_Event:
+				log.debugf("%v key pressed.", event.key)
+				if event.key == .Escape do window_close()
+			case Mouse_Button_Pressed_Event:
+				log.debugf("%v mouse button pressed.", event.button)
+			}
+		}
+
 		camera.yaw += cursor_pos_delta.x * MOUSE_SENSITIVITY * f32(dt)
 		camera.pitch += -cursor_pos_delta.y * MOUSE_SENSITIVITY * f32(dt)
 

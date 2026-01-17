@@ -4,6 +4,7 @@ import "vendor:glfw"
 import gl "vendor:OpenGL"
 
 import "core:log"
+import "core:container/queue"
 
 GL_VERSION_MAJOR :: 4
 GL_VERSION_MINOR :: 6
@@ -48,6 +49,7 @@ window_init :: proc(width, height: i32, title: cstring) -> (ok := false) {
 	glfw.MakeContextCurrent(s_window.handle)
 	init_gl_context()
 
+	window_init_event_queue()
 	glfw.SetWindowSizeCallback(s_window.handle, glfw_window_size_callback)
 	glfw.SetFramebufferSizeCallback(s_window.handle, glfw_framebuffer_size_callback)
 	glfw.SetKeyCallback(s_window.handle, glfw_key_callback)
@@ -61,6 +63,7 @@ window_init :: proc(width, height: i32, title: cstring) -> (ok := false) {
 }
 
 window_deinit :: proc() {
+	window_deinit_event_queue()
 	glfw.DestroyWindow(s_window.handle)
 	glfw.Terminate()
 	s_window.handle = nil
@@ -445,11 +448,20 @@ glfw_framebuffer_size_callback :: proc "c" (window_handle: glfw.WindowHandle, wi
 	s_window.framebuffer_size.x, s_window.framebuffer_size.y = width, height
 }
 
+Key_Pressed_Event :: struct {
+	key: Key,
+}
+
 @(private="file")
 glfw_key_callback :: proc "c" (window_handle: glfw.WindowHandle, key, scancode, action, mods: i32) {
+	context = g_context
 	key := map_glfw_key(key)
-	if action == glfw.PRESS do s_input.pressed_keys += { key }
-	else if action == glfw.RELEASE do s_input.pressed_keys -= { key }
+	if action == glfw.PRESS {
+		s_input.pressed_keys += { key }
+		window_push_event(Key_Pressed_Event{ key })
+	} else if action == glfw.RELEASE { 
+		s_input.pressed_keys -= { key }
+	}
 }
 
 @(private="file")
@@ -457,11 +469,46 @@ glfw_cursor_pos_callback :: proc "c" (window_handle: glfw.WindowHandle, xpos, yp
 	s_window.cursor_pos.x, s_window.cursor_pos.y = f32(xpos), f32(ypos)
 }
 
+Mouse_Button_Pressed_Event :: struct {
+	button: Mouse_Button,
+}
+
 @(private="file")
 glfw_mouse_button_callback :: proc "c" (window_handle: glfw.WindowHandle, button, action, mods: i32) {
+	context = g_context
 	button := map_glfw_mouse_button(button)
-	if action == glfw.PRESS do s_input.pressed_mouse_buttons += { button }
-	else if action == glfw.RELEASE do s_input.pressed_mouse_buttons -= { button }
+	if action == glfw.PRESS { 
+		s_input.pressed_mouse_buttons += { button }
+		window_push_event(Mouse_Button_Pressed_Event{ button })
+	} else if action == glfw.RELEASE {
+		s_input.pressed_mouse_buttons -= { button }
+	}
+}
+
+Event :: union #no_nil {
+	Key_Pressed_Event,
+	Mouse_Button_Pressed_Event,
+}
+
+@(private="file")
+s_event_queue: queue.Queue(Event)
+
+@(private="file")
+window_init_event_queue :: proc() {
+	queue.init(&s_event_queue)
+}
+
+@(private="file")
+window_deinit_event_queue :: proc() {
+	queue.destroy(&s_event_queue)
+}
+
+window_pop_event :: proc() -> (Event, bool) {
+	return queue.pop_front_safe(&s_event_queue)
+}
+
+window_push_event :: proc(event: Event) {
+	queue.push_back(&s_event_queue, event)
 }
 
 init_gl_context :: proc() {
