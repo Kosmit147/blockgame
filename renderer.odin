@@ -7,6 +7,12 @@ import "core:slice"
 import "core:math/linalg"
 import "core:math"
 
+// These symbols tell GPU drivers to use the dedicated graphics card.
+@(export, rodata)
+NvOptimusEnablement: u32 = 1
+@(export, rodata)
+AmdPowerXpressRequestHighPerformance: u32 = 1
+
 SHADER_VERTEX_SOURCE :: #load("shader_vertex.glsl", cstring)
 SHADER_FRAGMENT_SOURCE :: #load("shader_fragment.glsl", cstring)
 
