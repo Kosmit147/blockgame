@@ -13,7 +13,6 @@ Window :: struct {
 	handle: glfw.WindowHandle,
 	size: [2]i32,
 	framebuffer_size: [2]i32,
-	cursor_pos: Vec2, // TODO: Should be part of input.
 }
 
 @(private="file")
@@ -43,7 +42,7 @@ window_init :: proc(width, height: i32, title: cstring) -> (ok := false) {
 		framebuffer_size_x, framebuffer_size_y := glfw.GetFramebufferSize(s_window.handle)
 		s_window.framebuffer_size = { framebuffer_size_x, framebuffer_size_y }
 		cursor_pos_x, cursor_pos_y := glfw.GetCursorPos(s_window.handle)
-		s_window.cursor_pos = { f32(cursor_pos_x), f32(cursor_pos_y) }
+		s_input.cursor_pos = { f32(cursor_pos_x), f32(cursor_pos_y) }
 	}
 
 	glfw.MakeContextCurrent(s_window.handle)
@@ -78,6 +77,7 @@ window_close :: proc() {
 }
 
 window_poll_events :: proc() {
+	input_new_frame()
 	glfw.PollEvents()
 }
 
@@ -107,10 +107,6 @@ window_size :: proc() -> [2]i32 {
 
 window_framebuffer_size :: proc() -> [2]i32 {
 	return s_window.framebuffer_size
-}
-
-window_cursor_pos :: proc() -> Vec2 {
-	return s_window.cursor_pos
 }
 
 window_handle :: proc() -> glfw.WindowHandle {
@@ -418,17 +414,32 @@ map_glfw_mouse_button :: proc "contextless" (glfw_mouse_button: i32) -> Mouse_Bu
 Input :: struct {
 	pressed_keys: bit_set[Key],
 	pressed_mouse_buttons: bit_set[Mouse_Button],
+	cursor_pos: Vec2,
+	cursor_pos_delta: Vec2,
 }
 
 @(private="file")
 s_input: Input
 
-key_pressed :: proc(key: Key) -> bool {
+@(private="file")
+input_new_frame :: proc() {
+	s_input.cursor_pos_delta = 0
+}
+
+input_key_pressed :: proc(key: Key) -> bool {
 	return key in s_input.pressed_keys
 }
 
-mouse_button_pressed :: proc(mouse_button: Mouse_Button) -> bool {
+input_mouse_button_pressed :: proc(mouse_button: Mouse_Button) -> bool {
 	return mouse_button in s_input.pressed_mouse_buttons
+}
+
+input_cursor_pos :: proc() -> Vec2 {
+	return s_input.cursor_pos
+}
+
+input_cursor_pos_delta :: proc() -> Vec2 {
+	return s_input.cursor_pos_delta
 }
 
 @(private="file")
@@ -466,7 +477,9 @@ glfw_key_callback :: proc "c" (window_handle: glfw.WindowHandle, key, scancode, 
 
 @(private="file")
 glfw_cursor_pos_callback :: proc "c" (window_handle: glfw.WindowHandle, xpos, ypos: f64) {
-	s_window.cursor_pos.x, s_window.cursor_pos.y = f32(xpos), f32(ypos)
+	new_pos := Vec2{ f32(xpos), f32(ypos) }
+	s_input.cursor_pos_delta += (new_pos - s_input.cursor_pos)
+	s_input.cursor_pos = new_pos
 }
 
 Mouse_Button_Pressed_Event :: struct {

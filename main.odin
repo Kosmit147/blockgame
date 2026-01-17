@@ -11,7 +11,7 @@ import "core:slice"
 import "core:math"
 import "core:math/linalg"
 
-MOUSE_SENSITIVITY :: 0.15
+MOUSE_SENSITIVITY :: 1
 MODEL_MOVE_SPEED :: 1
 
 SHADER_VERTEX_SOURCE :: #load("shader_vertex.glsl", cstring)
@@ -167,7 +167,6 @@ main :: proc() {
 
 	cube_translation: Vec3
 
-	prev_cursor_pos := window_cursor_pos()
 	prev_time := window_time()
 
 	for !window_should_close() {
@@ -176,10 +175,6 @@ main :: proc() {
 		time := window_time()
 		dt := time - prev_time
 		prev_time = time
-
-		cursor_pos := window_cursor_pos()
-		cursor_pos_delta := cursor_pos - prev_cursor_pos
-		prev_cursor_pos = cursor_pos
 
 		for event in window_pop_event() {
 			switch event in event {
@@ -191,20 +186,21 @@ main :: proc() {
 			}
 		}
 
+		cursor_pos_delta := input_cursor_pos_delta()
 		camera.yaw += cursor_pos_delta.x * MOUSE_SENSITIVITY * f32(dt)
 		camera.pitch += -cursor_pos_delta.y * MOUSE_SENSITIVITY * f32(dt)
 
 		camera_vectors := camera_vectors(camera)
 
-		if key_pressed(.W) do camera.position += camera_vectors.forward * f32(dt)
-		if key_pressed(.S) do camera.position -= camera_vectors.forward * f32(dt)
-		if key_pressed(.A) do camera.position -= camera_vectors.right   * f32(dt)
-		if key_pressed(.D) do camera.position += camera_vectors.right   * f32(dt)
+		if input_key_pressed(.W) do camera.position += camera_vectors.forward * f32(dt)
+		if input_key_pressed(.S) do camera.position -= camera_vectors.forward * f32(dt)
+		if input_key_pressed(.A) do camera.position -= camera_vectors.right   * f32(dt)
+		if input_key_pressed(.D) do camera.position += camera_vectors.right   * f32(dt)
 
-		if key_pressed(.Up)    do cube_translation.y += MODEL_MOVE_SPEED * f32(dt)
-		if key_pressed(.Down)  do cube_translation.y -= MODEL_MOVE_SPEED * f32(dt)
-		if key_pressed(.Left)  do cube_translation.x -= MODEL_MOVE_SPEED * f32(dt)
-		if key_pressed(.Right) do cube_translation.x += MODEL_MOVE_SPEED * f32(dt)
+		if input_key_pressed(.Up)    do cube_translation.y += MODEL_MOVE_SPEED * f32(dt)
+		if input_key_pressed(.Down)  do cube_translation.y -= MODEL_MOVE_SPEED * f32(dt)
+		if input_key_pressed(.Left)  do cube_translation.x -= MODEL_MOVE_SPEED * f32(dt)
+		if input_key_pressed(.Right) do cube_translation.x += MODEL_MOVE_SPEED * f32(dt)
 
 		model := linalg.matrix4_translate(cube_translation)
 
