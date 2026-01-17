@@ -538,10 +538,6 @@ init_gl_context :: proc() {
 	}
 
 	gl.Viewport(0, 0, s_window.framebuffer_size.x, s_window.framebuffer_size.y)
-	gl.Enable(gl.CULL_FACE)
-	gl.CullFace(gl.BACK)
-	gl.FrontFace(gl.CCW)
-	gl.Enable(gl.DEPTH_TEST)
 }
 
 when ODIN_DEBUG {
