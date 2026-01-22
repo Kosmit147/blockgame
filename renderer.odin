@@ -13,8 +13,8 @@ NvOptimusEnablement: u32 = 1
 @(export, rodata)
 AmdPowerXpressRequestHighPerformance: u32 = 1
 
-SHADER_VERTEX_SOURCE :: #load("shader_vertex.glsl", cstring)
-SHADER_FRAGMENT_SOURCE :: #load("shader_fragment.glsl", cstring)
+BASE_SHADER_VERTEX_SOURCE :: #load("base_shader.vert", cstring)
+BASE_SHADER_FRAGMENT_SOURCE :: #load("base_shader.frag", cstring)
 
 COBBLE_TEXTURE_FILE_DATA :: #load("cobble.png")
 
@@ -112,7 +112,7 @@ renderer_init :: proc() -> (ok := false) {
 	gl.FrontFace(gl.CCW)
 	gl.Enable(gl.DEPTH_TEST)
 
-	s_renderer.shader, ok = create_shader(SHADER_VERTEX_SOURCE, SHADER_FRAGMENT_SOURCE) 
+	s_renderer.shader, ok = create_shader(BASE_SHADER_VERTEX_SOURCE, BASE_SHADER_FRAGMENT_SOURCE) 
 	if !ok {
 		log.fatal("Failed to compile the base shader.")
 		return
@@ -179,8 +179,8 @@ renderer_render :: proc(camera: Camera, cube_position: Vec3) {
 	gl.DrawElements(gl.TRIANGLES, len(indices), gl.UNSIGNED_SHORT, nil)
 }
 
-SHADER_2D_VERTEX_SOURCE :: #load("shader_2d_vertex.glsl", cstring)
-SHADER_2D_FRAGMENT_SOURCE :: #load("shader_2d_fragment.glsl", cstring)
+SHADER_2D_VERTEX_SOURCE :: #load("2d_shader.vert", cstring)
+SHADER_2D_FRAGMENT_SOURCE :: #load("2d_shader.frag", cstring)
 
 Vertex_2D :: struct {
 	position: Vec2,
