@@ -113,6 +113,32 @@ window_handle :: proc() -> glfw.WindowHandle {
 	return s_window.handle
 }
 
+normalize_screen_position_i :: proc(screen_position: [2]i32) -> Vec2 {
+	screen_position := Vec2{ f32(screen_position.x), f32(screen_position.y) }
+	return normalize_screen_position_f(screen_position)
+}
+
+normalize_screen_position_f :: proc(screen_position: Vec2) -> Vec2 {
+	window_size := Vec2{ f32(s_window.size.x), f32(s_window.size.y) }
+	normalized := screen_position / window_size * 2 - 1
+	normalized.y = -normalized.y
+	return normalized
+}
+
+normalize_screen_position :: proc{ normalize_screen_position_i, normalize_screen_position_f }
+
+normalize_screen_size_i :: proc(screen_size: [2]i32) -> Vec2 {
+	screen_size := Vec2{ f32(screen_size.x), f32(screen_size.y) }
+	return normalize_screen_size_f(screen_size)
+}
+
+normalize_screen_size_f :: proc(screen_size: Vec2) -> Vec2 {
+	window_size := Vec2{ f32(s_window.size.x), f32(s_window.size.y) }
+	return screen_size / window_size * 2
+}
+
+normalize_screen_size :: proc{ normalize_screen_size_i, normalize_screen_size_f }
+
 Key :: enum u8 {
 	Space,
 	Apostrophe,

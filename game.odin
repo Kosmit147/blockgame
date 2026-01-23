@@ -55,19 +55,17 @@ game_update :: proc(dt: f32) {
 }
 
 game_render :: proc() {
+	renderer_clear()
 	renderer_render(s_game.camera, s_game.cube_position)
 
-	renderer_2d_submit_quad(Quad {
-		position = { -0.9, 0.9 },
-		size = { 1.8, 1.8 },
+	renderer_2d_submit_rect(Rect {
+		position = { 20, 20 },
+		size = { 100, 100 },
 		color = RED,
 	})
 
-	renderer_2d_submit_quad(Quad {
-		position = { -0.9, 0.9 },
-		size = { 0.9, 0.9 },
-		color = GREEN,
-	})
+	renderer_2d_submit_text("TEST", { 100, 100 }, WHITE, 10)
+	renderer_2d_submit_text("TEXT", { 120, 200 }, WHITE, 10)
 
 	renderer_2d_render()
 }

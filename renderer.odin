@@ -2,6 +2,8 @@ package blockgame
 
 import gl "vendor:OpenGL"
 
+import "easy_font"
+
 import "core:log"
 import "core:slice"
 import "core:math/linalg"
@@ -153,10 +155,12 @@ renderer_deinit :: proc() {
 	destroy_shader(s_renderer.shader)
 }
 
-renderer_render :: proc(camera: Camera, cube_position: Vec3) {
+renderer_clear :: proc() {
 	gl.ClearColor(0, 0, 0, 1)
 	gl.Clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
+}
 
+renderer_render :: proc(camera: Camera, cube_position: Vec3) {
 	camera_vectors := camera_vectors(camera)
 
 	model := linalg.matrix4_translate(cube_position)
@@ -187,7 +191,7 @@ Vertex_2D :: struct {
 	color: Vec4,
 }
 
-VERTEX_2D_FORMAT :: [?]Vertex_Attribute{
+VERTEX_2D_FORMAT :: [?]Vertex_Attribute {
 	.Float_2,
 	.Float_4,
 }
@@ -253,7 +257,15 @@ renderer_2d_render :: proc() {
 	clear(&s_renderer_2d.indices)
 }
 
+// Quads are represented with normalized device coordinates.
 Quad :: struct {
+	position: Vec2,
+	size: Vec2,
+	color: Vec4,
+}
+
+// Rects are represented with screen coordinates.
+Rect :: struct {
 	position: Vec2,
 	size: Vec2,
 	color: Vec4,
@@ -275,4 +287,26 @@ renderer_2d_submit_quad :: proc(quad: Quad) {
 	       index_offset + 0,
 	       index_offset + 2,
 	       index_offset + 1)
+}
+
+renderer_2d_submit_rect :: proc(rect: Rect) {
+	renderer_2d_submit_quad(Quad {
+		position = normalize_screen_position(rect.position),
+		size = normalize_screen_size(rect.size),
+		color = rect.color,
+	})
+}
+
+// SLOW IMPLEMENTATION
+renderer_2d_submit_text :: proc(text: string, screen_position: Vec2, color := WHITE, scale := f32(1)) {
+	quad_buffer: [1000]easy_font.Quad = ---
+	quad_count := easy_font.print(screen_position, text, quad_buffer[:], scale)
+
+	for quad in quad_buffer[:quad_count] {
+		renderer_2d_submit_quad(Quad {
+			position = normalize_screen_position(quad.top_left.position),
+			size = normalize_screen_size(quad.bottom_right.position - quad.top_left.position),
+			color = color,
+		})
+	}
 }
