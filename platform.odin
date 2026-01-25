@@ -11,11 +11,13 @@ import "core:container/queue"
 
 GL_VERSION_MAJOR :: 4
 GL_VERSION_MINOR :: 6
+IMGUI_FONT_SCALE :: 1.5
 
 Window :: struct {
 	handle: glfw.WindowHandle,
 	size: [2]i32,
 	framebuffer_size: [2]i32,
+	cursor_enabled: bool,
 }
 
 @(private="file")
@@ -57,7 +59,7 @@ window_init :: proc(width, height: i32, title: cstring) -> (ok := false) {
 	glfw.SetCursorPosCallback(s_window.handle, glfw_cursor_pos_callback)
 	glfw.SetMouseButtonCallback(s_window.handle, glfw_mouse_button_callback)
 
-	glfw.SetInputMode(s_window.handle, glfw.CURSOR, glfw.CURSOR_DISABLED)
+	window_set_cursor_enabled(false)
 	if glfw.RawMouseMotionSupported() do glfw.SetInputMode(s_window.handle, glfw.RAW_MOUSE_MOTION, glfw.TRUE)
 
 	return true
@@ -113,6 +115,15 @@ window_framebuffer_size :: proc() -> [2]i32 {
 
 window_handle :: proc() -> glfw.WindowHandle {
 	return s_window.handle
+}
+
+window_set_cursor_enabled :: proc(cursor_enabled: bool) {
+	glfw.SetInputMode(s_window.handle, glfw.CURSOR, glfw.CURSOR_NORMAL if cursor_enabled else glfw.CURSOR_DISABLED)
+	s_window.cursor_enabled = cursor_enabled
+}
+
+window_toggle_cursor :: proc() {
+	window_set_cursor_enabled(!s_window.cursor_enabled)
 }
 
 normalize_screen_position_i :: proc(screen_position: [2]i32) -> Vec2 {
@@ -571,6 +582,11 @@ init_gl_context :: proc() {
 init_imgui :: proc() {
 	imgui.CHECKVERSION()
 	imgui.CreateContext()
+
+	io := imgui.GetIO()
+	io.ConfigFlags += { .DockingEnable, .ViewportsEnable }
+	io.FontGlobalScale = IMGUI_FONT_SCALE
+
 	imgui_impl_glfw.InitForOpenGL(s_window.handle, install_callbacks = true)
 	imgui_impl_opengl3.Init("#version 430 core")
 }
@@ -590,6 +606,9 @@ imgui_new_frame :: proc() {
 imgui_render :: proc() {
 	imgui.Render()
 	imgui_impl_opengl3.RenderDrawData(imgui.GetDrawData())
+	imgui.UpdatePlatformWindows()
+	imgui.RenderPlatformWindowsDefault()
+	glfw.MakeContextCurrent(s_window.handle)
 }
 
 when ODIN_DEBUG {

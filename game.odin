@@ -37,6 +37,7 @@ game_on_event :: proc(event: Event) {
 	case Key_Pressed_Event:
 		log.debugf("%v key pressed.", event.key)
 		if event.key == .Escape do window_close()
+		else if event.key == .Left_Control do window_toggle_cursor()
 	case Mouse_Button_Pressed_Event:
 		log.debugf("%v mouse button pressed.", event.button)
 	}
