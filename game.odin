@@ -61,9 +61,9 @@ game_render :: proc() {
 	renderer_clear()
 	renderer_begin_frame(s_game.camera)
 
-	for chunk in s_game.world.chunks {
-		chunk_iterator: Chunk_Iterator
-		for block, block_coordinate in iterate_chunk_blocks(chunk, &chunk_iterator) {
+	for &chunk in s_game.world.chunks {
+		chunk_iterator := make_chunk_iterator(&chunk)
+		for block, block_coordinate in iterate_chunk(&chunk_iterator) {
 			renderer_render_block(block^, to_world_coordinate(block_coordinate, chunk.coordinate))
 		}
 	}

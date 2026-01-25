@@ -86,14 +86,20 @@ destroy_chunk :: proc(chunk: Chunk) {
 }
 
 Chunk_Iterator :: struct {
+	chunk: ^Chunk,
 	position: Block_Chunk_Coordinate,
 	finished: bool,
 }
 
-iterate_chunk_blocks :: proc(chunk: Chunk, iterator: ^Chunk_Iterator) -> (^Block, Block_Chunk_Coordinate, bool) {
+make_chunk_iterator :: proc(chunk: ^Chunk) -> (iterator: Chunk_Iterator) {
+	iterator.chunk = chunk
+	return
+}
+
+iterate_chunk :: proc(iterator: ^Chunk_Iterator) -> (^Block, Block_Chunk_Coordinate, bool) {
 	if iterator.finished do return {}, {}, false
 
-	block := get_chunk_block(chunk, iterator.position)
+	block := get_chunk_block(iterator.chunk^, iterator.position)
 	block_coordinate := iterator.position
 
 	iterator.position.z += 1
