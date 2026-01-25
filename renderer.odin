@@ -177,7 +177,7 @@ renderer_begin_frame :: proc(camera: Camera) {
 	set_uniform(s_renderer.projection_uniform, projection)
 }
 
-renderer_render_block :: proc(camera: Camera, block: Block, block_coordinate: Block_Coordinate) {
+renderer_render_block :: proc(block: Block, block_coordinate: Block_World_Coordinate) {
 	if block == .Air do return
 
 	model := linalg.matrix4_translate(Vec3{ f32(block_coordinate.x),

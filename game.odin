@@ -9,7 +9,7 @@ SPRINT_MOVEMENT_SPEED :: 10
 
 Game :: struct {
 	camera: Camera,
-	chunk: Chunk,
+	world: World,
 }
 
 @(private="file")
@@ -22,12 +22,12 @@ game_init :: proc() -> bool {
 		pitch = math.to_radians(f32(0)),
 	}
 
-	s_game.chunk = create_chunk({ 0, 0 })
+	world_init(&s_game.world)
 	return true
 }
 
 game_deinit :: proc() {
-	destroy_chunk(s_game.chunk)
+	world_deinit(s_game.world)
 }
 
 game_on_event :: proc(event: Event) {
@@ -61,9 +61,11 @@ game_render :: proc() {
 	renderer_clear()
 	renderer_begin_frame(s_game.camera)
 
-	chunk_iterator: Chunk_Iterator
-	for block, block_coordinate in iterate_chunk_blocks(s_game.chunk, &chunk_iterator) {
-		renderer_render_block(s_game.camera, block^, block_coordinate)
+	for chunk in s_game.world.chunks {
+		chunk_iterator: Chunk_Iterator
+		for block, block_coordinate in iterate_chunk_blocks(chunk, &chunk_iterator) {
+			renderer_render_block(block^, to_world_coordinate(block_coordinate, chunk.coordinate))
+		}
 	}
 
 	renderer_2d_render()
