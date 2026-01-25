@@ -33,7 +33,7 @@ VERTEX_FORMAT :: [?]Vertex_Attribute{
 }
 
 @(private="file", rodata)
-vertices := [24]Vertex{
+cube_vertices := [24]Vertex{
 	// Front wall.
 	{ position = { -0.5, -0.5,  0.5 }, normal = {  0,  0,  1 }, uv = { 0, 0 } },
 	{ position = {  0.5, -0.5,  0.5 }, normal = {  0,  0,  1 }, uv = { 1, 0 } },
@@ -72,7 +72,7 @@ vertices := [24]Vertex{
 }
 
 @(private="file", rodata)
-indices := [36]u16{
+cube_indices := [36]u16{
 	// Front wall.
 	0, 1, 2, 0, 2, 3,
 
@@ -109,6 +109,7 @@ Renderer :: struct {
 s_renderer: Renderer
 
 renderer_init :: proc() -> (ok := false) {
+	gl.ClearColor(0, 0, 0, 1)
 	gl.Enable(gl.CULL_FACE)
 	gl.CullFace(gl.BACK)
 	gl.FrontFace(gl.CCW)
@@ -136,8 +137,8 @@ renderer_init :: proc() -> (ok := false) {
 	// From this point onwards we cannot fail, so we don't have to set up any more cleanup.
 	create_vertex_array(&s_renderer.vertex_array)
 	set_vertex_array_format(s_renderer.vertex_array, VERTEX_FORMAT)
-	create_static_gl_buffer_with_data(&s_renderer.vertex_buffer, slice.to_bytes(vertices[:]))
-	create_static_gl_buffer_with_data(&s_renderer.index_buffer, slice.to_bytes(indices[:]))
+	create_static_gl_buffer_with_data(&s_renderer.vertex_buffer, slice.to_bytes(cube_vertices[:]))
+	create_static_gl_buffer_with_data(&s_renderer.index_buffer, slice.to_bytes(cube_indices[:]))
 
 	bind_vertex_array(s_renderer.vertex_array)
 	bind_vertex_buffer(s_renderer.vertex_array, s_renderer.vertex_buffer, size_of(Vertex))
@@ -156,14 +157,11 @@ renderer_deinit :: proc() {
 }
 
 renderer_clear :: proc() {
-	gl.ClearColor(0, 0, 0, 1)
 	gl.Clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
 }
 
-renderer_render :: proc(camera: Camera, cube_position: Vec3) {
+renderer_begin_frame :: proc(camera: Camera) {
 	camera_vectors := camera_vectors(camera)
-
-	model := linalg.matrix4_translate(cube_position)
 
 	view := linalg.matrix4_look_at(eye = camera.position,
 				       centre = camera.position + camera_vectors.forward,
@@ -175,12 +173,21 @@ renderer_render :: proc(camera: Camera, cube_position: Vec3) {
 						 far = 100)
 
 	use_shader(s_renderer.shader)
-	set_uniform(s_renderer.model_uniform, model)
 	set_uniform(s_renderer.view_uniform, view)
 	set_uniform(s_renderer.projection_uniform, projection)
+}
 
+renderer_render_block :: proc(camera: Camera, block: Block, block_coordinate: Block_Coordinate) {
+	if block == .Air do return
+
+	model := linalg.matrix4_translate(Vec3{ f32(block_coordinate.x),
+						f32(block_coordinate.y),
+						f32(block_coordinate.z) })
+
+	use_shader(s_renderer.shader)
+	set_uniform(s_renderer.model_uniform, model)
 	bind_vertex_array(s_renderer.vertex_array)
-	gl.DrawElements(gl.TRIANGLES, len(indices), gl.UNSIGNED_SHORT, nil)
+	gl.DrawElements(gl.TRIANGLES, len(cube_indices), gl.UNSIGNED_SHORT, nil)
 }
 
 SHADER_2D_VERTEX_SOURCE :: #load("2d_shader.vert", cstring)

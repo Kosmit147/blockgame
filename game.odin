@@ -3,12 +3,13 @@ package blockgame
 import "core:math"
 import "core:log"
 
-MOUSE_SENSITIVITY :: 1
-CUBE_MOVE_SPEED :: 1
+MOUSE_SENSITIVITY :: 0.2
+BASE_MOVEMENT_SPEED :: 5
+SPRINT_MOVEMENT_SPEED :: 10
 
 Game :: struct {
 	camera: Camera,
-	cube_position: Vec3,
+	chunk: Chunk,
 }
 
 @(private="file")
@@ -21,10 +22,13 @@ game_init :: proc() -> bool {
 		pitch = math.to_radians(f32(0)),
 	}
 
+	s_game.chunk = create_chunk({ 0, 0 })
 	return true
 }
 
-game_deinit :: proc() {}
+game_deinit :: proc() {
+	destroy_chunk(s_game.chunk)
+}
 
 game_on_event :: proc(event: Event) {
 	switch event in event {
@@ -37,35 +41,30 @@ game_on_event :: proc(event: Event) {
 }
 
 game_update :: proc(dt: f32) {
+	camera_vectors := camera_vectors(s_game.camera)
 	cursor_pos_delta := input_cursor_pos_delta()
+
 	s_game.camera.yaw += cursor_pos_delta.x * MOUSE_SENSITIVITY * dt
 	s_game.camera.pitch += -cursor_pos_delta.y * MOUSE_SENSITIVITY * dt
 
-	camera_vectors := camera_vectors(s_game.camera)
+	movement_speed := f32(BASE_MOVEMENT_SPEED)
 
-	if input_key_pressed(.W) do s_game.camera.position += camera_vectors.forward * dt
-	if input_key_pressed(.S) do s_game.camera.position -= camera_vectors.forward * dt
-	if input_key_pressed(.A) do s_game.camera.position -= camera_vectors.right   * dt
-	if input_key_pressed(.D) do s_game.camera.position += camera_vectors.right   * dt
+	if input_key_pressed(.Left_Shift) do movement_speed = SPRINT_MOVEMENT_SPEED
 
-	if input_key_pressed(.Up)    do s_game.cube_position.y += CUBE_MOVE_SPEED * dt
-	if input_key_pressed(.Down)  do s_game.cube_position.y -= CUBE_MOVE_SPEED * dt
-	if input_key_pressed(.Left)  do s_game.cube_position.x -= CUBE_MOVE_SPEED * dt
-	if input_key_pressed(.Right) do s_game.cube_position.x += CUBE_MOVE_SPEED * dt
+	if input_key_pressed(.W) do s_game.camera.position += camera_vectors.forward * movement_speed * dt
+	if input_key_pressed(.S) do s_game.camera.position -= camera_vectors.forward * movement_speed * dt
+	if input_key_pressed(.A) do s_game.camera.position -= camera_vectors.right   * movement_speed * dt
+	if input_key_pressed(.D) do s_game.camera.position += camera_vectors.right   * movement_speed * dt
 }
 
 game_render :: proc() {
 	renderer_clear()
-	renderer_render(s_game.camera, s_game.cube_position)
+	renderer_begin_frame(s_game.camera)
 
-	renderer_2d_submit_rect(Rect {
-		position = { 20, 20 },
-		size = { 100, 100 },
-		color = RED,
-	})
-
-	renderer_2d_submit_text("TEST", { 100, 100 }, WHITE, 10)
-	renderer_2d_submit_text("TEXT", { 120, 200 }, WHITE, 10)
+	chunk_iterator: Chunk_Iterator
+	for block, block_coordinate in iterate_chunk_blocks(s_game.chunk, &chunk_iterator) {
+		renderer_render_block(s_game.camera, block^, block_coordinate)
+	}
 
 	renderer_2d_render()
 }
