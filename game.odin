@@ -46,6 +46,7 @@ game_update :: proc(dt: f32) {
 
 	s_game.camera.yaw += cursor_pos_delta.x * MOUSE_SENSITIVITY * dt
 	s_game.camera.pitch += -cursor_pos_delta.y * MOUSE_SENSITIVITY * dt
+	s_game.camera.pitch = clamp(s_game.camera.pitch, math.to_radians(f32(-89)), math.to_radians(f32(89)))
 
 	movement_speed := f32(BASE_MOVEMENT_SPEED)
 
