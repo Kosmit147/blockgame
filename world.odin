@@ -9,7 +9,7 @@ World :: struct {
 	chunks: [dynamic]Chunk,
 }
 
-world_init :: proc(world: ^World, world_size := i32(2)) -> bool {
+world_init :: proc(world: ^World, world_size := i32(1)) -> bool {
 	world.chunks = make([dynamic]Chunk, 0, world_size * world_size)
 	for x in 0..<world_size {
 		for z in 0..<world_size {

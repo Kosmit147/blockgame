@@ -35,6 +35,10 @@ main :: proc() {
 	if !window_init(1920, 1080, "Blockgame") do log.panic("Failed to create a window.")
 	defer window_deinit()
 
+	init_gl_context()
+	init_imgui()
+	defer deinit_imgui()
+
 	if !renderer_init() do log.panic("Failed to initialize the renderer.")
 	defer renderer_deinit()
 
@@ -54,8 +58,12 @@ main :: proc() {
 		window_poll_events()
 		for event in window_pop_event() do game_on_event(event)
 
+		imgui_new_frame()
+
 		game_update(dt)
 		game_render()
+
+		imgui_render()
 
 		window_swap_buffers()
 		free_all(context.temp_allocator)

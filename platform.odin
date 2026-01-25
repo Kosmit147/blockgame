@@ -2,6 +2,9 @@ package blockgame
 
 import "vendor:glfw"
 import gl "vendor:OpenGL"
+import "vendor/imgui"
+import "vendor/imgui/imgui_impl_glfw"
+import "vendor/imgui/imgui_impl_opengl3"
 
 import "core:log"
 import "core:container/queue"
@@ -46,7 +49,6 @@ window_init :: proc(width, height: i32, title: cstring) -> (ok := false) {
 	}
 
 	glfw.MakeContextCurrent(s_window.handle)
-	init_gl_context()
 
 	window_init_event_queue()
 	glfw.SetWindowSizeCallback(s_window.handle, glfw_window_size_callback)
@@ -564,6 +566,30 @@ init_gl_context :: proc() {
 	}
 
 	gl.Viewport(0, 0, s_window.framebuffer_size.x, s_window.framebuffer_size.y)
+}
+
+init_imgui :: proc() {
+	imgui.CHECKVERSION()
+	imgui.CreateContext()
+	imgui_impl_glfw.InitForOpenGL(s_window.handle, install_callbacks = true)
+	imgui_impl_opengl3.Init("#version 430 core")
+}
+
+deinit_imgui :: proc() {
+	imgui_impl_opengl3.Shutdown()
+	imgui_impl_glfw.Shutdown()
+	imgui.DestroyContext()
+}
+
+imgui_new_frame :: proc() {
+	imgui_impl_opengl3.NewFrame()
+	imgui_impl_glfw.NewFrame()
+	imgui.NewFrame()
+}
+
+imgui_render :: proc() {
+	imgui.Render()
+	imgui_impl_opengl3.RenderDrawData(imgui.GetDrawData())
 }
 
 when ODIN_DEBUG {

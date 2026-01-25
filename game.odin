@@ -1,5 +1,7 @@
 package blockgame
 
+import "vendor/imgui"
+
 import "core:math"
 import "core:log"
 
@@ -55,6 +57,8 @@ game_update :: proc(dt: f32) {
 	if input_key_pressed(.S) do s_game.camera.position -= camera_vectors.forward * movement_speed * dt
 	if input_key_pressed(.A) do s_game.camera.position -= camera_vectors.right   * movement_speed * dt
 	if input_key_pressed(.D) do s_game.camera.position += camera_vectors.right   * movement_speed * dt
+
+	imgui.ShowDemoWindow()
 }
 
 game_render :: proc() {
