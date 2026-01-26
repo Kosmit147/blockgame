@@ -41,14 +41,9 @@ window_init :: proc(width, height: i32, title: cstring) -> (ok := false) {
 		return
 	}
 
-	{
-		size_x, size_y := glfw.GetWindowSize(s_window.handle)
-		s_window.size = { size_x, size_y }
-		framebuffer_size_x, framebuffer_size_y := glfw.GetFramebufferSize(s_window.handle)
-		s_window.framebuffer_size = { framebuffer_size_x, framebuffer_size_y }
-		cursor_pos_x, cursor_pos_y := glfw.GetCursorPos(s_window.handle)
-		s_input.cursor_pos = { f32(cursor_pos_x), f32(cursor_pos_y) }
-	}
+	window_update_size()
+	window_update_framebuffer_size()
+	input_update_cursor_pos()
 
 	glfw.MakeContextCurrent(s_window.handle)
 
@@ -62,7 +57,8 @@ window_init :: proc(width, height: i32, title: cstring) -> (ok := false) {
 	window_set_cursor_enabled(false)
 	if glfw.RawMouseMotionSupported() do glfw.SetInputMode(s_window.handle, glfw.RAW_MOUSE_MOTION, glfw.TRUE)
 
-	return true
+	ok = true
+	return
 }
 
 window_deinit :: proc() {
@@ -113,6 +109,18 @@ window_framebuffer_size :: proc() -> [2]i32 {
 	return s_window.framebuffer_size
 }
 
+@(private="file")
+window_update_size :: proc() {
+	window_size_x, window_size_y := glfw.GetWindowSize(s_window.handle)
+	s_window.size = { window_size_x, window_size_y }
+}
+
+@(private="file")
+window_update_framebuffer_size :: proc() {
+	framebuffer_size_x, framebuffer_size_y := glfw.GetFramebufferSize(s_window.handle)
+	s_window.framebuffer_size = { framebuffer_size_x, framebuffer_size_y }
+}
+
 window_handle :: proc() -> glfw.WindowHandle {
 	return s_window.handle
 }
@@ -120,6 +128,7 @@ window_handle :: proc() -> glfw.WindowHandle {
 window_set_cursor_enabled :: proc(cursor_enabled: bool) {
 	glfw.SetInputMode(s_window.handle, glfw.CURSOR, glfw.CURSOR_NORMAL if cursor_enabled else glfw.CURSOR_DISABLED)
 	s_window.cursor_enabled = cursor_enabled
+	input_update_cursor_pos()
 }
 
 window_toggle_cursor :: proc() {
@@ -479,6 +488,12 @@ input_cursor_pos :: proc() -> Vec2 {
 
 input_cursor_pos_delta :: proc() -> Vec2 {
 	return s_input.cursor_pos_delta
+}
+
+@(private="file")
+input_update_cursor_pos :: proc() {
+	cursor_pos_x, cursor_pos_y := glfw.GetCursorPos(s_window.handle)
+	s_input.cursor_pos = { f32(cursor_pos_x), f32(cursor_pos_y) }
 }
 
 @(private="file")
