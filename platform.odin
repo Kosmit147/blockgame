@@ -586,6 +586,16 @@ init_gl_context :: proc() {
 		gl.Enable(gl.DEBUG_OUTPUT_SYNCHRONOUS)
 		gl.DebugMessageCallback(gl_debug_message_callback, nil)
 
+		disabled_messages := [?]u32{
+			131185, // Buffer detailed info from NVIDIA.
+		}
+		gl.DebugMessageControl(source = gl.DEBUG_SOURCE_API,
+				       type = gl.DEBUG_TYPE_OTHER,
+				       severity = gl.DONT_CARE,
+				       count = len(disabled_messages),
+				       ids = raw_data(&disabled_messages),
+				       enabled = gl.FALSE)
+
 		log.infof("Vendor: %v", gl.GetString(gl.VENDOR))
 		log.infof("Renderer: %v", gl.GetString(gl.RENDERER))
 		log.infof("Version: %v", gl.GetString(gl.VERSION))
