@@ -60,11 +60,13 @@ create_chunk :: proc(coordinate: Chunk_Coordinate) -> (chunk: Chunk) {
 		for block_z in i32(0)..<CHUNK_SIZE.z {
 			height := get_height_at_world_coordinate({ coordinate.x * CHUNK_SIZE.x + block_x,
 								   coordinate.z * CHUNK_SIZE.z + block_z })
-			for block_y in 0..<height do get_chunk_block(chunk, { block_x, block_y, block_z })^ = .Cobble
+			for block_y in 0..<height {
+				get_chunk_block(chunk.blocks, { block_x, block_y, block_z })^ = .Cobble
+			}
 		}
 	}
 
-	update_chunk_mesh(&chunk)
+	chunk.mesh = create_chunk_mesh(chunk.blocks)
 	return chunk
 }
 
@@ -73,8 +75,8 @@ destroy_chunk :: proc(chunk: ^Chunk) {
 	free(chunk.blocks)
 }
 
-get_chunk_block :: proc(chunk: Chunk, coordinate: Block_Chunk_Coordinate) -> ^Block {
-	return &chunk.blocks[coordinate.y][coordinate.x][coordinate.z]
+get_chunk_block :: proc(blocks: ^Chunk_Blocks, coordinate: Block_Chunk_Coordinate) -> ^Block {
+	return &blocks[coordinate.y][coordinate.x][coordinate.z]
 }
 
 to_chunk_coordinate :: proc(block_coordinate: Block_World_Coordinate) -> Block_Chunk_Coordinate {
@@ -91,20 +93,20 @@ to_world_coordinate :: proc(block_coordinate: Block_Chunk_Coordinate,
 }
 
 Chunk_Iterator :: struct {
-	chunk: ^Chunk,
+	blocks: ^Chunk_Blocks,
 	position: Block_Chunk_Coordinate,
 	finished: bool,
 }
 
-make_chunk_iterator :: proc(chunk: ^Chunk) -> (iterator: Chunk_Iterator) {
-	iterator.chunk = chunk
+make_chunk_iterator :: proc(blocks: ^Chunk_Blocks) -> (iterator: Chunk_Iterator) {
+	iterator.blocks = blocks
 	return
 }
 
 iterate_chunk :: proc(iterator: ^Chunk_Iterator) -> (^Block, Block_Chunk_Coordinate, bool) {
 	if iterator.finished do return {}, {}, false
 
-	block := get_chunk_block(iterator.chunk^, iterator.position)
+	block := get_chunk_block(iterator.blocks, iterator.position)
 	block_coordinate := iterator.position
 
 	iterator.position.z += 1
@@ -133,7 +135,7 @@ get_height_at_world_coordinate :: proc(coordinate: [2]i32) -> i32 {
 	return clamp(height, 0, CHUNK_SIZE.y)
 }
 
-update_chunk_mesh :: proc(chunk: ^Chunk) {
+create_chunk_mesh :: proc(blocks: ^Chunk_Blocks) -> Mesh {
 	// TODO: Don't generate faces for blocks which are not visible.
 
 	vertices := make([dynamic]Standard_Vertex, context.temp_allocator)
@@ -141,7 +143,7 @@ update_chunk_mesh :: proc(chunk: ^Chunk) {
 	indices := make([dynamic]u32, context.temp_allocator)
 	defer delete(indices)
 
-	chunk_iterator := make_chunk_iterator(chunk)
+	chunk_iterator := make_chunk_iterator(blocks)
 	index_offset := u32(0)
 	for block, block_coordinate in iterate_chunk(&chunk_iterator) {
 		if block^ == .Air do continue
@@ -156,14 +158,14 @@ update_chunk_mesh :: proc(chunk: ^Chunk) {
 		index_offset += len(block_vertices)
 	}
 
-	// TODO: Trying to destroy the previous mesh is dubious when we're working with a completely new chunk.
-	destroy_mesh(&chunk.mesh)
-	create_mesh(mesh = &chunk.mesh,
+	mesh: Mesh
+	create_mesh(&mesh,
 		    vertices = slice.to_bytes(vertices[:]),
 		    vertex_stride = size_of(Chunk_Mesh_Vertex),
 		    vertex_format = chunk_mesh_vertex_format[:],
 		    indices = slice.to_bytes(indices[:]),
 		    index_type = gl_index(Chunk_Mesh_Index))
+	return mesh
 }
 
 Chunk_Mesh_Vertex :: Standard_Vertex
