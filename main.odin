@@ -48,11 +48,12 @@ main :: proc() {
 	if !game_init() do log.panic("Failed to initialize the game state.")
 	defer game_deinit()
 
+	DELTA_TIME_LIMIT :: 1.0 / 30.0
 	prev_time := f32(window_time())
 
 	for !window_should_close() {
 		time := f32(window_time())
-		dt := time - prev_time
+		dt := min(time - prev_time, DELTA_TIME_LIMIT)
 		prev_time = time
 
 		window_poll_events()
