@@ -20,77 +20,20 @@ BASE_SHADER_FRAGMENT_SOURCE :: #load("base_shader.frag", cstring)
 
 COBBLE_TEXTURE_FILE_DATA :: #load("cobble.png")
 
-Vertex :: struct {
+Standard_Vertex :: struct {
 	position: Vec3,
 	normal: Vec3,
 	uv: Vec2,
 }
 
-VERTEX_FORMAT :: [?]Vertex_Attribute{
+STANDARD_VERTEX_FORMAT :: [?]Vertex_Attribute{
 	.Float_3,
 	.Float_3,
 	.Float_2,
 }
 
-@(private="file", rodata)
-cube_vertices := [24]Vertex{
-	// Front wall.
-	{ position = { -0.5, -0.5,  0.5 }, normal = {  0,  0,  1 }, uv = { 0, 0 } },
-	{ position = {  0.5, -0.5,  0.5 }, normal = {  0,  0,  1 }, uv = { 1, 0 } },
-	{ position = {  0.5,  0.5,  0.5 }, normal = {  0,  0,  1 }, uv = { 1, 1 } },
-	{ position = { -0.5,  0.5,  0.5 }, normal = {  0,  0,  1 }, uv = { 0, 1 } },
-
-	// Back wall.
-	{ position = { -0.5, -0.5, -0.5 }, normal = {  0,  0, -1 }, uv = { 0, 0 } },
-	{ position = { -0.5,  0.5, -0.5 }, normal = {  0,  0, -1 }, uv = { 0, 1 } },
-	{ position = {  0.5,  0.5, -0.5 }, normal = {  0,  0, -1 }, uv = { 1, 1 } },
-	{ position = {  0.5, -0.5, -0.5 }, normal = {  0,  0, -1 }, uv = { 1, 0 } },
-
-	// Left wall.
-	{ position = { -0.5,  0.5,  0.5 }, normal = { -1,  0,  0 }, uv = { 1, 0 } },
-	{ position = { -0.5,  0.5, -0.5 }, normal = { -1,  0,  0 }, uv = { 1, 1 } },
-	{ position = { -0.5, -0.5, -0.5 }, normal = { -1,  0,  0 }, uv = { 0, 1 } },
-	{ position = { -0.5, -0.5,  0.5 }, normal = { -1,  0,  0 }, uv = { 0, 0 } },
-
-	// Right wall.
-	{ position = {  0.5,  0.5,  0.5 }, normal = {  1,  0,  0 }, uv = { 1, 0 } },
-	{ position = {  0.5, -0.5,  0.5 }, normal = {  1,  0,  0 }, uv = { 0, 0 } },
-	{ position = {  0.5, -0.5, -0.5 }, normal = {  1,  0,  0 }, uv = { 0, 1 } },
-	{ position = {  0.5,  0.5, -0.5 }, normal = {  1,  0,  0 }, uv = { 1, 1 } },
-
-	// Bottom wall.
-	{ position = { -0.5, -0.5, -0.5 }, normal = {  0, -1,  0 }, uv = { 0, 1 } },
-	{ position = {  0.5, -0.5, -0.5 }, normal = {  0, -1,  0 }, uv = { 1, 1 } },
-	{ position = {  0.5, -0.5,  0.5 }, normal = {  0, -1,  0 }, uv = { 1, 0 } },
-	{ position = { -0.5, -0.5,  0.5 }, normal = {  0, -1,  0 }, uv = { 0, 0 } },
-
-	// Top wall.
-	{ position = { -0.5,  0.5, -0.5 }, normal = {  0,  1,  0 }, uv = { 0, 1 } },
-	{ position = { -0.5,  0.5,  0.5 }, normal = {  0,  1,  0 }, uv = { 0, 0 } },
-	{ position = {  0.5,  0.5,  0.5 }, normal = {  0,  1,  0 }, uv = { 1, 0 } },
-	{ position = {  0.5,  0.5, -0.5 }, normal = {  0,  1,  0 }, uv = { 1, 1 } },
-}
-
-@(private="file", rodata)
-cube_indices := [36]u16{
-	// Front wall.
-	0, 1, 2, 0, 2, 3,
-
-	// Back wall.
-	4, 5, 6, 4, 6, 7,
-
-	// Left wall.
-	8, 9, 10, 8, 10, 11,
-
-	// Right wall.
-	12, 13, 14, 12, 14, 15,
-
-	// Bottom wall.
-	16, 17, 18, 16, 18, 19,
-
-	// Top wall.
-	20, 21, 22, 20, 22, 23,
-}
+@(rodata)
+standard_vertex_format := STANDARD_VERTEX_FORMAT
 
 Renderer :: struct {
 	shader: Shader,
@@ -98,11 +41,7 @@ Renderer :: struct {
 	view_uniform: Uniform(Mat4),
 	projection_uniform: Uniform(Mat4),
 
-	texture: Texture,
-
-	vertex_array: Vertex_Array,
-	vertex_buffer: Gl_Buffer,
-	index_buffer: Gl_Buffer,
+	block_texture: Texture,
 }
 
 @(private="file")
@@ -126,33 +65,19 @@ renderer_init :: proc() -> (ok := false) {
 	s_renderer.view_uniform = get_uniform(s_renderer.shader, "view", Mat4)
 	s_renderer.projection_uniform = get_uniform(s_renderer.shader, "projection", Mat4)
 
-	s_renderer.texture, ok = create_texture_from_png_in_memory(COBBLE_TEXTURE_FILE_DATA)
+	s_renderer.block_texture, ok = create_texture_from_png_in_memory(COBBLE_TEXTURE_FILE_DATA)
 	if !ok {
-		log.fatal("Failed to load the texture.")
+		log.fatal("Failed to load the block texture.")
 		return
 	}
-	defer if !ok do destroy_texture(&s_renderer.texture)
-	bind_texture(s_renderer.texture, 0)
-
-	// From this point onwards we cannot fail, so we don't have to set up any more cleanup.
-	create_vertex_array(&s_renderer.vertex_array)
-	set_vertex_array_format(s_renderer.vertex_array, VERTEX_FORMAT)
-	create_static_gl_buffer_with_data(&s_renderer.vertex_buffer, slice.to_bytes(cube_vertices[:]))
-	create_static_gl_buffer_with_data(&s_renderer.index_buffer, slice.to_bytes(cube_indices[:]))
-
-	bind_vertex_array(s_renderer.vertex_array)
-	bind_vertex_buffer(s_renderer.vertex_array, s_renderer.vertex_buffer, size_of(Vertex))
-	bind_index_buffer(s_renderer.vertex_array, s_renderer.index_buffer)
+	defer if !ok do destroy_texture(&s_renderer.block_texture)
 
 	ok = true
 	return
 }
 
 renderer_deinit :: proc() {
-	destroy_gl_buffer(&s_renderer.index_buffer)
-	destroy_gl_buffer(&s_renderer.vertex_buffer)
-	destroy_vertex_array(&s_renderer.vertex_array)
-	destroy_texture(&s_renderer.texture)
+	destroy_texture(&s_renderer.block_texture)
 	destroy_shader(s_renderer.shader)
 }
 
@@ -177,17 +102,27 @@ renderer_begin_frame :: proc(camera: Camera) {
 	set_uniform(s_renderer.projection_uniform, projection)
 }
 
-renderer_render_block :: proc(block: Block, block_coordinate: Block_World_Coordinate) {
-	if block == .Air do return
+renderer_render_mesh :: proc(mesh: Mesh) {
+	bind_mesh(mesh)
+	gl.DrawElements(gl.TRIANGLES,
+			i32(mesh.vertex_count),
+			mesh.index_type,
+			cast(rawptr)uintptr(mesh.index_data_offset))
+}
 
-	model := linalg.matrix4_translate(Vec3{ f32(block_coordinate.x),
-						f32(block_coordinate.y),
-						f32(block_coordinate.z) })
+renderer_render_chunk :: proc(chunk: Chunk) {
+	model := linalg.matrix4_translate(Vec3{ f32(chunk.coordinate.x * CHUNK_SIZE.x),
+						0,
+						f32(chunk.coordinate.z * CHUNK_SIZE.z) })
 
-	use_shader(s_renderer.shader)
 	set_uniform(s_renderer.model_uniform, model)
-	bind_vertex_array(s_renderer.vertex_array)
-	gl.DrawElements(gl.TRIANGLES, len(cube_indices), gl.UNSIGNED_SHORT, nil)
+	renderer_render_mesh(chunk.mesh)
+}
+
+renderer_render_world :: proc(world: World) {
+	use_shader(s_renderer.shader)
+	bind_texture(s_renderer.block_texture, 0)
+	for chunk in world.chunks do renderer_render_chunk(chunk)
 }
 
 SHADER_2D_VERTEX_SOURCE :: #load("2d_shader.vert", cstring)
@@ -202,6 +137,9 @@ VERTEX_2D_FORMAT :: [?]Vertex_Attribute {
 	.Float_2,
 	.Float_4,
 }
+
+@(rodata)
+vertex_2d_format := VERTEX_2D_FORMAT
 
 Renderer_2D :: struct {
 	shader: Shader,
@@ -227,11 +165,10 @@ renderer_2d_init :: proc() -> (ok := false) {
 
 	// From this point onwards we cannot fail, so we don't have to set up any more cleanup.
 	create_vertex_array(&s_renderer_2d.vertex_array)
-	set_vertex_array_format(s_renderer_2d.vertex_array, VERTEX_2D_FORMAT)
+	set_vertex_array_format(s_renderer_2d.vertex_array, vertex_2d_format[:])
 	create_dynamic_gl_buffer(&s_renderer_2d.vertex_buffer)
 	create_dynamic_gl_buffer(&s_renderer_2d.index_buffer)
 
-	bind_vertex_array(s_renderer_2d.vertex_array)
 	bind_vertex_buffer(s_renderer_2d.vertex_array, s_renderer_2d.vertex_buffer, size_of(Vertex_2D))
 	bind_index_buffer(s_renderer_2d.vertex_array, s_renderer_2d.index_buffer)
 
@@ -258,7 +195,7 @@ renderer_2d_render :: proc() {
 
 	use_shader(s_renderer_2d.shader)
 	bind_vertex_array(s_renderer_2d.vertex_array)
-	gl.DrawElements(gl.TRIANGLES, cast(i32)len(s_renderer_2d.indices), gl.UNSIGNED_INT, nil)
+	gl.DrawElements(gl.TRIANGLES, cast(i32)len(s_renderer_2d.indices), gl_index(u32), nil)
 
 	clear(&s_renderer_2d.vertices)
 	clear(&s_renderer_2d.indices)

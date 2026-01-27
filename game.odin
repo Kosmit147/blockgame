@@ -19,7 +19,7 @@ s_game: Game
 
 game_init :: proc() -> bool {
 	s_game.camera = Camera {
-		position = { 0, 0, 2 },
+		position = { 0, 0, 0 },
 		yaw = math.to_radians(f32(-90)),
 		pitch = math.to_radians(f32(0)),
 	}
@@ -58,20 +58,11 @@ game_update :: proc(dt: f32) {
 	if input_key_pressed(.S) do s_game.camera.position -= camera_vectors.forward * movement_speed * dt
 	if input_key_pressed(.A) do s_game.camera.position -= camera_vectors.right   * movement_speed * dt
 	if input_key_pressed(.D) do s_game.camera.position += camera_vectors.right   * movement_speed * dt
-
-	imgui.ShowDemoWindow()
 }
 
 game_render :: proc() {
 	renderer_clear()
 	renderer_begin_frame(s_game.camera)
-
-	for &chunk in s_game.world.chunks {
-		chunk_iterator := make_chunk_iterator(&chunk)
-		for block, block_coordinate in iterate_chunk(&chunk_iterator) {
-			renderer_render_block(block^, to_world_coordinate(block_coordinate, chunk.coordinate))
-		}
-	}
-
+	renderer_render_world(s_game.world)
 	renderer_2d_render()
 }

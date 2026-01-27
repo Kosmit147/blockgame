@@ -9,6 +9,18 @@ import "core:slice"
 import "core:image"
 import "core:image/png"
 
+gl_index :: proc($I: typeid) -> u32 {
+	when I == u8 {
+		return gl.UNSIGNED_BYTE
+	} else when I == u16 {
+		return gl.UNSIGNED_SHORT
+	} else when I == u32 {
+		return gl.UNSIGNED_INT
+	} else {
+		#panic("T cannot be used for indexing in OpenGL.")
+	}
+}
+
 Shader :: struct {
 	id: u32
 }
@@ -183,7 +195,7 @@ describe_vertex_attribute :: proc(attribute: Vertex_Attribute) -> Vertex_Attribu
 
 VERTEX_BUFFER_BINDING_INDEX :: 0
 
-set_vertex_array_format :: proc(va: Vertex_Array, $format: [$E]Vertex_Attribute) {
+set_vertex_array_format :: proc(va: Vertex_Array, format: []Vertex_Attribute) {
 	offset: u32 = 0
 
 	for attribute, index in format {
@@ -203,11 +215,16 @@ set_vertex_array_format :: proc(va: Vertex_Array, $format: [$E]Vertex_Attribute)
 }
 
 bind_vertex_buffer :: proc(va: Vertex_Array, buffer: Gl_Buffer, stride: i32) {
-	gl.VertexArrayVertexBuffer(va.id, VERTEX_BUFFER_BINDING_INDEX, buffer.id, 0, stride)
+	gl.VertexArrayVertexBuffer(va.id,
+				   bindingindex = VERTEX_BUFFER_BINDING_INDEX,
+				   buffer = buffer.id,
+				   offset = 0,
+				   stride = stride)
 }
 
 bind_index_buffer :: proc(va: Vertex_Array, buffer: Gl_Buffer) {
-	gl.VertexArrayElementBuffer(va.id, buffer.id)
+	gl.VertexArrayElementBuffer(va.id,
+				    buffer = buffer.id)
 }
 
 // Buffers can be either static or dynamic.
@@ -231,6 +248,12 @@ create_static_gl_buffer_with_data :: proc(buffer: ^Gl_Buffer, data: []byte) {
 	buffer.size = data_size
 }
 
+upload_static_gl_buffer_data :: proc(buffer: Gl_Buffer, data: []byte, offset := 0) {
+	data_size := slice.size(data)
+	assert(offset + data_size <= buffer.size)
+	gl.NamedBufferSubData(buffer.id, offset, data_size, raw_data(data))
+}
+
 create_dynamic_gl_buffer :: proc(buffer: ^Gl_Buffer, size := 0, usage: u32 = gl.DYNAMIC_DRAW) {
 	gl.CreateBuffers(1, &buffer.id)
 	gl.NamedBufferData(buffer.id, size, nil, usage)
@@ -244,9 +267,9 @@ create_dynamic_gl_buffer_with_data :: proc(buffer: ^Gl_Buffer, data: []byte, usa
 	buffer.size = data_size
 }
 
-upload_dynamic_gl_buffer_data :: proc(buffer: ^Gl_Buffer, data: []byte) {
+upload_dynamic_gl_buffer_data :: proc(buffer: ^Gl_Buffer, data: []byte, usage: u32 = gl.DYNAMIC_DRAW) {
 	data_size := slice.size(data)
-	reserve_dynamic_gl_buffer_size(buffer, data_size)
+	reserve_dynamic_gl_buffer_size(buffer, data_size, usage)
 	gl.NamedBufferSubData(buffer.id, 0, data_size, raw_data(data))
 }
 
@@ -300,14 +323,10 @@ Texture :: struct {
 create_texture_from_png_in_memory :: proc(png_file_data: []byte) -> (texture: Texture, ok := false) {
 	format_from_png_channels :: proc(#any_int channels: int) -> u32 {
 		switch channels {
-		case 1:
-			return gl.RED
-		case 2:
-			return gl.RG
-		case 3:
-			return gl.RGB
-		case 4:
-			return gl.RGBA
+		case 1: return gl.RED
+		case 2: return gl.RG
+		case 3: return gl.RGB
+		case 4: return gl.RGBA
 		}
 
 		assert(false)
