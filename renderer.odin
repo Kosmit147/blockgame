@@ -23,15 +23,6 @@ Standard_Vertex :: struct {
 	uv: Vec2,
 }
 
-STANDARD_VERTEX_FORMAT :: [?]Vertex_Attribute{
-	.Float_3,
-	.Float_3,
-	.Float_2,
-}
-
-@(rodata)
-standard_vertex_format := STANDARD_VERTEX_FORMAT
-
 Renderer :: struct {
 	shader: Shader,
 	model_uniform: Uniform(Mat4),

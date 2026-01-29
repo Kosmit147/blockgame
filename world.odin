@@ -162,7 +162,7 @@ create_chunk_mesh :: proc(blocks: ^Chunk_Blocks) -> Mesh {
 	create_mesh(&mesh,
 		    vertices = slice.to_bytes(vertices[:]),
 		    vertex_stride = size_of(Chunk_Mesh_Vertex),
-		    vertex_format = chunk_mesh_vertex_format[:],
+		    vertex_format = gl_vertex(Chunk_Mesh_Vertex),
 		    indices = slice.to_bytes(indices[:]),
 		    index_type = gl_index(Chunk_Mesh_Index))
 	return mesh
@@ -170,9 +170,6 @@ create_chunk_mesh :: proc(blocks: ^Chunk_Blocks) -> Mesh {
 
 Chunk_Mesh_Vertex :: Standard_Vertex
 Chunk_Mesh_Index :: u32
-
-@(rodata)
-chunk_mesh_vertex_format := STANDARD_VERTEX_FORMAT
 
 @(rodata)
 block_vertices := [24]Chunk_Mesh_Vertex{

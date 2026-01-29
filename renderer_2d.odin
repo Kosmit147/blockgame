@@ -15,14 +15,6 @@ Vertex_2D :: struct {
 	color: Vec4,
 }
 
-VERTEX_2D_FORMAT :: [?]Vertex_Attribute {
-	.Float_2,
-	.Float_4,
-}
-
-@(rodata)
-vertex_2d_format := VERTEX_2D_FORMAT
-
 Renderer_2D :: struct {
 	shader: Shader,
 
@@ -47,7 +39,7 @@ renderer_2d_init :: proc() -> (ok := false) {
 
 	// From this point onwards we cannot fail, so we don't have to set up any more cleanup.
 	create_vertex_array(&s_renderer_2d.vertex_array)
-	set_vertex_array_format(s_renderer_2d.vertex_array, vertex_2d_format[:])
+	set_vertex_array_format(s_renderer_2d.vertex_array, gl_vertex(Vertex_2D))
 	create_dynamic_gl_buffer(&s_renderer_2d.vertex_buffer)
 	create_dynamic_gl_buffer(&s_renderer_2d.index_buffer)
 

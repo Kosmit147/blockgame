@@ -2,12 +2,16 @@ package blockgame
 
 import gl "vendor:OpenGL"
 
+import "base:intrinsics"
+import "base:runtime"
+
 import "core:log"
 import "core:bytes"
 import "core:strings"
 import "core:slice"
 import "core:image"
 import "core:image/png"
+import "core:reflect"
 
 gl_index :: proc($I: typeid) -> u32 {
 	when I == u8 {
@@ -21,8 +25,38 @@ gl_index :: proc($I: typeid) -> u32 {
 	}
 }
 
+@(private="file")
+gl_vertex_attribute :: proc(type_info: ^runtime.Type_Info) -> Vertex_Attribute {
+	type_info := runtime.type_info_base(type_info)
+
+	ASSERT_MESSAGE :: "only arrays of 32-bit floats are supported"
+	array_type_info, is_array := type_info.variant.(runtime.Type_Info_Array)
+	assert(is_array, ASSERT_MESSAGE)
+	elem_type_info := runtime.type_info_base(array_type_info.elem)
+	assert(elem_type_info.size == size_of(f32), ASSERT_MESSAGE)
+	_, is_float := elem_type_info.variant.(runtime.Type_Info_Float)
+	assert(is_float, ASSERT_MESSAGE)
+
+	switch array_type_info.count {
+	case 1: return .Float_1
+	case 2: return .Float_2
+	case 3: return .Float_3
+	case 4: return .Float_4
+	}
+
+	assert(false, "shouldn't be possible to get here")
+	return nil
+}
+
+gl_vertex :: proc($V: typeid) -> []Vertex_Attribute {
+	@(static) attributes: [intrinsics.type_struct_field_count(V)]Vertex_Attribute
+	field_types := reflect.struct_field_types(V)
+	for type, i in field_types do attributes[i] = gl_vertex_attribute(type)
+	return attributes[:]
+}
+
 Shader :: struct {
-	id: u32
+	id: u32,
 }
 
 create_shader :: proc(vertex_source, fragment_source: cstring) -> (shader: Shader, ok := false) {
@@ -53,7 +87,7 @@ create_sub_shader :: proc(shader_source: cstring, shader_type: u32) -> (u32, boo
 		}
 
 		assert(false)
-		return "ERROR - Unknown shader type"
+		return "ERROR - unknown shader type"
 	}
 
 	sources_array := [1]cstring{ shader_source }
@@ -152,7 +186,7 @@ set_uniform :: proc(uniform: Uniform($T), value: T) {
 }
 
 Vertex_Array :: struct {
-	id: u32
+	id: u32,
 }
 
 create_vertex_array :: proc(va: ^Vertex_Array) {
@@ -168,6 +202,7 @@ bind_vertex_array :: proc(va: Vertex_Array) {
 }
 
 Vertex_Attribute :: enum {
+	Float_1,
 	Float_2,
 	Float_3,
 	Float_4,
@@ -181,6 +216,8 @@ Vertex_Attribute_Description :: struct {
 
 describe_vertex_attribute :: proc(attribute: Vertex_Attribute) -> Vertex_Attribute_Description {
 	switch attribute {
+	case .Float_1:
+		return { 1, gl.FLOAT, 1 * size_of(f32) }
 	case .Float_2:
 		return { 2, gl.FLOAT, 2 * size_of(f32) }
 	case .Float_3:

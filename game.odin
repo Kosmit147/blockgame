@@ -64,5 +64,12 @@ game_render :: proc() {
 	renderer_clear()
 	renderer_begin_frame(s_game.camera)
 	renderer_render_world(s_game.world)
+
+	renderer_2d_submit_quad(Quad {
+		position = { -0.9, 0.9 },
+		size = { 0.5, 0.5 },
+		color = GREEN,
+	})
+
 	renderer_2d_render()
 }
