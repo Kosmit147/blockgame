@@ -7,8 +7,8 @@ import "easy_font"
 import "core:log"
 import "core:slice"
 
-SHADER_2D_VERTEX_SOURCE :: #load("2d_shader.vert", cstring)
-SHADER_2D_FRAGMENT_SOURCE :: #load("2d_shader.frag", cstring)
+SHADER_2D_VERTEX_SOURCE :: #load("shaders/2d.vert", cstring)
+SHADER_2D_FRAGMENT_SOURCE :: #load("shaders/2d.frag", cstring)
 
 Vertex_2D :: struct {
 	position: Vec2,
