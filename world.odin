@@ -32,7 +32,7 @@ world_regenerate :: proc(world: ^World, world_size: i32) {
 
 Block :: enum u8 {
 	Air = 0,
-	Cobble,
+	Stone,
 }
 
 // Position of the block relative to the chunk that it is a part of.
@@ -65,7 +65,7 @@ create_chunk :: proc(coordinate: Chunk_Coordinate) -> (chunk: Chunk) {
 			height := get_height_at_world_coordinate({ coordinate.x * CHUNK_SIZE.x + block_x,
 								   coordinate.z * CHUNK_SIZE.z + block_z })
 			for block_y in 0..<height {
-				get_chunk_block(chunk.blocks, { block_x, block_y, block_z })^ = .Cobble
+				get_chunk_block(chunk.blocks, { block_x, block_y, block_z })^ = .Stone
 			}
 		}
 	}

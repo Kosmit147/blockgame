@@ -24,7 +24,7 @@ s_game: Game
 
 game_init :: proc() -> bool {
 	s_game.camera = Camera {
-		position = { 0, 0, 0 },
+		position = { 0, f32(CHUNK_SIZE.y) + 5, 0 },
 		yaw = math.to_radians(f32(-90)),
 		pitch = math.to_radians(f32(0)),
 	}

@@ -15,7 +15,7 @@ AmdPowerXpressRequestHighPerformance: u32 = 1
 BASE_SHADER_VERTEX_SOURCE :: #load("base_shader.vert", cstring)
 BASE_SHADER_FRAGMENT_SOURCE :: #load("base_shader.frag", cstring)
 
-COBBLE_TEXTURE_FILE_DATA :: #load("cobble.png")
+STONE_TEXTURE_FILE_DATA :: #load("textures/stone.png")
 
 Standard_Vertex :: struct {
 	position: Vec3,
@@ -53,7 +53,7 @@ renderer_init :: proc() -> (ok := false) {
 	s_renderer.view_uniform = get_uniform(s_renderer.shader, "view", Mat4)
 	s_renderer.projection_uniform = get_uniform(s_renderer.shader, "projection", Mat4)
 
-	s_renderer.block_texture, ok = create_texture_from_png_in_memory(COBBLE_TEXTURE_FILE_DATA)
+	s_renderer.block_texture, ok = create_texture_from_png_in_memory(STONE_TEXTURE_FILE_DATA)
 	if !ok {
 		log.fatal("Failed to load the block texture.")
 		return
