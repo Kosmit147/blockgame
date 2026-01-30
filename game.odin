@@ -6,7 +6,7 @@ import "core:fmt"
 import "core:math"
 import "core:log"
 
-MOUSE_SENSITIVITY :: 0.2
+MOUSE_SENSITIVITY :: 0.12
 BASE_MOVEMENT_SPEED :: 5
 SPRINT_MOVEMENT_SPEED :: 10
 
@@ -46,9 +46,12 @@ game_on_event :: proc(event: Event) {
 
 game_update :: proc(dt: f32) {
 	cursor_pos_delta := input_cursor_pos_delta()
-	s_game.camera.yaw += cursor_pos_delta.x * MOUSE_SENSITIVITY * dt
-	s_game.camera.pitch += -cursor_pos_delta.y * MOUSE_SENSITIVITY * dt
-	s_game.camera.pitch = clamp(s_game.camera.pitch, math.to_radians(f32(-89)), math.to_radians(f32(89)))
+
+	if !window_cursor_enabled() {
+		s_game.camera.yaw += cursor_pos_delta.x * MOUSE_SENSITIVITY * dt
+		s_game.camera.pitch += -cursor_pos_delta.y * MOUSE_SENSITIVITY * dt
+		s_game.camera.pitch = clamp(s_game.camera.pitch, math.to_radians(f32(-89)), math.to_radians(f32(89)))
+	}
 
 	camera_vectors := camera_vectors(s_game.camera)
 	movement_speed := f32(BASE_MOVEMENT_SPEED)

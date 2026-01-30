@@ -35,6 +35,8 @@ window_init :: proc(width, height: i32, title: cstring) -> (ok := false) {
 	glfw.WindowHint(glfw.OPENGL_PROFILE, glfw.OPENGL_CORE_PROFILE)
 	glfw.WindowHint(glfw.OPENGL_DEBUG_CONTEXT, glfw.TRUE when ODIN_DEBUG else glfw.FALSE)
 
+	glfw.WindowHint(glfw.MAXIMIZED, glfw.TRUE)
+
 	s_window.handle = glfw.CreateWindow(width, height, title, nil, nil)
 	if s_window.handle == nil {
 		log.fatalf("Failed to create a window.")
@@ -123,6 +125,10 @@ window_update_framebuffer_size :: proc() {
 
 window_handle :: proc() -> glfw.WindowHandle {
 	return s_window.handle
+}
+
+window_cursor_enabled :: proc() -> bool {
+	return s_window.cursor_enabled
 }
 
 window_set_cursor_enabled :: proc(cursor_enabled: bool) {
