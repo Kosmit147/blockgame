@@ -5,6 +5,8 @@ import "base:runtime"
 import "core:log"
 import "core:mem"
 
+import "vendor/dmon"
+
 g_context: runtime.Context
 
 main :: proc() {

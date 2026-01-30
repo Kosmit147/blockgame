@@ -1,3 +1,6 @@
 [submodule "vendor/imgui"]
 	path = vendor/imgui
 	url = https://gitlab.com/L-4/odin-imgui.git
+[submodule "vendor/dmon/dmon"]
+	path = vendor/dmon/dmon
+	url = https://github.com/septag/dmon.git
