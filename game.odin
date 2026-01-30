@@ -2,6 +2,7 @@ package blockgame
 
 import "vendor/imgui"
 
+import "core:fmt"
 import "core:math"
 import "core:log"
 
@@ -58,6 +59,13 @@ game_update :: proc(dt: f32) {
 	if input_key_pressed(.S) do s_game.camera.position -= camera_vectors.forward * movement_speed * dt
 	if input_key_pressed(.A) do s_game.camera.position -= camera_vectors.right   * movement_speed * dt
 	if input_key_pressed(.D) do s_game.camera.position += camera_vectors.right   * movement_speed * dt
+
+	{
+		io := imgui.GetIO()
+		imgui.Begin("Statistics")
+		imgui.TextUnformatted(fmt.ctprintf("FPS: %v", io.Framerate))
+		imgui.End()
+	}
 }
 
 game_render :: proc() {
