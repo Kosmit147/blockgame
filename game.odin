@@ -62,13 +62,6 @@ game_update :: proc(dt: f32) {
 	if input_key_pressed(.S) do s_game.camera.position -= camera_vectors.forward * movement_speed * dt
 	if input_key_pressed(.A) do s_game.camera.position -= camera_vectors.right   * movement_speed * dt
 	if input_key_pressed(.D) do s_game.camera.position += camera_vectors.right   * movement_speed * dt
-
-	{
-		io := imgui.GetIO()
-		imgui.Begin("Statistics")
-		imgui.TextUnformatted(fmt.ctprintf("FPS: %v", io.Framerate))
-		imgui.End()
-	}
 }
 
 game_render :: proc() {
@@ -81,6 +74,11 @@ game_render :: proc() {
 		size = { 0.5, 0.5 },
 		color = GREEN,
 	})
+
+	{
+		io := imgui.GetIO()
+		renderer_2d_submit_text(fmt.tprintf("FPS: %v", io.Framerate), { 5, 5 }, scale = 2)
+	}
 
 	renderer_2d_render()
 }
