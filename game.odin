@@ -10,9 +10,13 @@ MOUSE_SENSITIVITY :: 0.12
 BASE_MOVEMENT_SPEED :: 5
 SPRINT_MOVEMENT_SPEED :: 10
 
+WORLD_SIZE_MIN :: 1
+WORLD_SIZE_MAX :: 20
+
 Game :: struct {
 	camera: Camera,
 	world: World,
+	world_size: i32,
 }
 
 @(private="file")
@@ -25,7 +29,8 @@ game_init :: proc() -> bool {
 		pitch = math.to_radians(f32(0)),
 	}
 
-	world_init(&s_game.world)
+	s_game.world_size = 3
+	world_init(&s_game.world, s_game.world_size)
 	return true
 }
 
@@ -62,18 +67,20 @@ game_update :: proc(dt: f32) {
 	if input_key_pressed(.S) do s_game.camera.position -= camera_vectors.forward * movement_speed * dt
 	if input_key_pressed(.A) do s_game.camera.position -= camera_vectors.right   * movement_speed * dt
 	if input_key_pressed(.D) do s_game.camera.position += camera_vectors.right   * movement_speed * dt
+
+	{
+		imgui.Begin("World")
+		imgui.InputInt("World Size", &s_game.world_size)
+		s_game.world_size = clamp(s_game.world_size, WORLD_SIZE_MIN, WORLD_SIZE_MAX)
+		if imgui.Button("Regenerate") do world_regenerate(&s_game.world, s_game.world_size)
+		imgui.End()
+	}
 }
 
 game_render :: proc() {
 	renderer_clear()
 	renderer_begin_frame(s_game.camera)
 	renderer_render_world(s_game.world)
-
-	renderer_2d_submit_quad(Quad {
-		position = { -0.9, 0.9 },
-		size = { 0.5, 0.5 },
-		color = GREEN,
-	})
 
 	{
 		io := imgui.GetIO()

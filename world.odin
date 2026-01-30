@@ -10,20 +10,24 @@ World :: struct {
 	chunks: [dynamic]Chunk,
 }
 
-world_init :: proc(world: ^World, world_size := i32(3)) -> bool {
+world_init :: proc(world: ^World, world_size: i32) -> bool {
 	world.chunks = make([dynamic]Chunk, 0, world_size * world_size)
-	for x in 0..<world_size {
-		for z in 0..<world_size {
+	for x in -world_size..<world_size {
+		for z in -world_size..<world_size {
 			append(&world.chunks, create_chunk({ x, z }))
 		}
 	}
-	assert(len(world.chunks) == int(world_size * world_size))
 	return true
 }
 
 world_deinit :: proc(world: World) {
 	for &chunk in world.chunks do destroy_chunk(&chunk)
 	delete(world.chunks)
+}
+
+world_regenerate :: proc(world: ^World, world_size: i32) {
+	world_deinit(world^)
+	world_init(world, world_size)
 }
 
 Block :: enum u8 {

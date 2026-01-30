@@ -655,9 +655,9 @@ when ODIN_DEBUG {
 		switch severity {
 		case gl.DEBUG_SEVERITY_NOTIFICATION:
 			log.debugf("OpenGL Notification: %v", message)
-		case gl.DEBUG_SEVERITY_LOW:
+		case gl.DEBUG_SEVERITY_LOW, gl.DEBUG_SEVERITY_MEDIUM:
 			log.warnf("OpenGL Warning: %v", message)
-		case gl.DEBUG_SEVERITY_MEDIUM, gl.DEBUG_SEVERITY_HIGH:
+		case gl.DEBUG_SEVERITY_HIGH:
 			log.errorf("OpenGL Error: %v", message)
 		case:
 			assert(false)
