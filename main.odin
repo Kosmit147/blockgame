@@ -26,7 +26,7 @@ when HOT_RELOAD {
 		strings.write_string(&full_path_builder, string(filepath))
 
 		full_path := strings.to_string(full_path_builder)
-		reload_resource(full_path)
+		request_resource_reload(full_path)
 	}
 }
 
@@ -70,6 +70,9 @@ main :: proc() {
 	init_gl_context()
 	init_imgui()
 	defer deinit_imgui()
+
+	if !init_resources() do log.panic("Failed to initialize resources.")
+	defer deinit_resources()
 
 	if !renderer_init() do log.panic("Failed to initialize the renderer.")
 	defer renderer_deinit()

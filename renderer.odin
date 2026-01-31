@@ -2,7 +2,6 @@ package blockgame
 
 import gl "vendor:OpenGL"
 
-import "core:log"
 import "core:math/linalg"
 import "core:math"
 
@@ -19,12 +18,9 @@ Standard_Vertex :: struct {
 }
 
 Renderer :: struct {
-	shader: Shader,
 	model_uniform: Uniform(Mat4),
 	view_uniform: Uniform(Mat4),
 	projection_uniform: Uniform(Mat4),
-
-	stone_texture: Texture,
 }
 
 @(private="file")
@@ -37,67 +33,18 @@ renderer_init :: proc() -> (ok := false) {
 	gl.FrontFace(gl.CCW)
 	gl.Enable(gl.DEPTH_TEST)
 
-	s_renderer.shader, ok = create_shader(BASE_SHADER_VERTEX_SOURCE, BASE_SHADER_FRAGMENT_SOURCE)
-	if !ok {
-		log.fatal("Failed to compile the base shader.")
-		return
-	}
-	defer if !ok do destroy_shader(s_renderer.shader)
-
 	renderer_get_uniforms()
 
-	s_renderer.stone_texture, ok = create_texture_from_png_in_memory(STONE_TEXTURE_FILE_DATA)
-	if !ok {
-		log.fatal("Failed to load the block texture.")
-		return
-	}
-	defer if !ok do destroy_texture(&s_renderer.stone_texture)
-
-	ok = true
-	return
+	return true
 }
 
-renderer_deinit :: proc() {
-	destroy_texture(&s_renderer.stone_texture)
-	destroy_shader(s_renderer.shader)
-}
-
-when HOT_RELOAD {
-	renderer_reload_base_shader :: proc() -> (ok := false) {
-		reloaded_shader, reloaded_shader_ok := create_shader_from_files(BASE_SHADER_VERTEX_PATH,
-										BASE_SHADER_FRAGMENT_PATH)
-		if !reloaded_shader_ok {
-			log.error("Failed to compile the base shader.")
-			return
-		} else {
-			destroy_shader(s_renderer.shader)
-			s_renderer.shader = reloaded_shader
-		}
-
-		renderer_get_uniforms()
-		ok = true
-		return
-	}
-
-	renderer_reload_stone_texture :: proc() -> (ok := false) {
-		reloaded_texture, reloaded_texture_ok := create_texture_from_png_file(STONE_TEXTURE_PATH)
-		if !reloaded_texture_ok {
-			log.error("Failed to load stone texture.")
-			return
-		} else {
-			destroy_texture(&s_renderer.stone_texture)
-			s_renderer.stone_texture = reloaded_texture
-		}
-
-		ok = true
-		return
-	}
-}
+renderer_deinit :: proc() {}
 
 renderer_get_uniforms :: proc() {
-	s_renderer.model_uniform = get_uniform(s_renderer.shader, "model", Mat4)
-	s_renderer.view_uniform = get_uniform(s_renderer.shader, "view", Mat4)
-	s_renderer.projection_uniform = get_uniform(s_renderer.shader, "projection", Mat4)
+	shader := get_shader(.Base)
+	s_renderer.model_uniform = get_uniform(shader, "model", Mat4)
+	s_renderer.view_uniform = get_uniform(shader, "view", Mat4)
+	s_renderer.projection_uniform = get_uniform(shader, "projection", Mat4)
 }
 
 renderer_clear :: proc() {
@@ -116,7 +63,7 @@ renderer_begin_frame :: proc(camera: Camera) {
 						 near = 0.1,
 						 far = 100)
 
-	use_shader(s_renderer.shader)
+	use_shader(get_shader(.Base))
 	set_uniform(s_renderer.view_uniform, view)
 	set_uniform(s_renderer.projection_uniform, projection)
 }
@@ -139,7 +86,7 @@ renderer_render_chunk :: proc(chunk: Chunk) {
 }
 
 renderer_render_world :: proc(world: World) {
-	use_shader(s_renderer.shader)
-	bind_texture(s_renderer.stone_texture, 0)
+	use_shader(get_shader(.Base))
+	bind_texture(get_texture(.Stone), 0)
 	for chunk in world.chunks do renderer_render_chunk(chunk)
 }

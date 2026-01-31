@@ -4,7 +4,6 @@ import gl "vendor:OpenGL"
 
 import "easy_font"
 
-import "core:log"
 import "core:slice"
 
 Vertex_2D :: struct {
@@ -13,8 +12,6 @@ Vertex_2D :: struct {
 }
 
 Renderer_2D :: struct {
-	shader: Shader,
-
 	vertex_array: Vertex_Array,
 	vertex_buffer: Gl_Buffer,
 	index_buffer: Gl_Buffer,
@@ -26,14 +23,7 @@ Renderer_2D :: struct {
 @(private="file")
 s_renderer_2d: Renderer_2D
 
-renderer_2d_init :: proc() -> (ok := false) {
-	s_renderer_2d.shader, ok = create_shader(D2_SHADER_VERTEX_SOURCE, D2_SHADER_FRAGMENT_SOURCE)
-	if !ok {
-		log.fatal("Failed to compile the 2D shader.")
-		return
-	}
-	defer if !ok do destroy_shader(s_renderer_2d.shader)
-
+renderer_2d_init :: proc() -> bool {
 	create_vertex_array(&s_renderer_2d.vertex_array)
 	set_vertex_array_format(s_renderer_2d.vertex_array, gl_vertex(Vertex_2D))
 	create_dynamic_gl_buffer(&s_renderer_2d.vertex_buffer)
@@ -42,8 +32,7 @@ renderer_2d_init :: proc() -> (ok := false) {
 	bind_vertex_buffer(s_renderer_2d.vertex_array, s_renderer_2d.vertex_buffer, size_of(Vertex_2D))
 	bind_index_buffer(s_renderer_2d.vertex_array, s_renderer_2d.index_buffer)
 
-	ok = true
-	return
+	return true
 }
 
 renderer_2d_deinit :: proc() {
@@ -53,24 +42,6 @@ renderer_2d_deinit :: proc() {
 	destroy_gl_buffer(&s_renderer_2d.index_buffer)
 	destroy_gl_buffer(&s_renderer_2d.vertex_buffer)
 	destroy_vertex_array(&s_renderer_2d.vertex_array)
-	destroy_shader(s_renderer_2d.shader)
-}
-
-when HOT_RELOAD {
-	renderer_2d_reload_2d_shader :: proc() -> (ok := false) {
-		reloaded_shader, reloaded_shader_ok := create_shader_from_files(D2_SHADER_VERTEX_PATH,
-										D2_SHADER_FRAGMENT_PATH)
-		if !reloaded_shader_ok {
-			log.error("Failed to compile the 2D shader.")
-			return
-		} else {
-			destroy_shader(s_renderer_2d.shader)
-			s_renderer_2d.shader = reloaded_shader
-		}
-
-		ok = true
-		return
-	}
 }
 
 renderer_2d_render :: proc() {
@@ -80,7 +51,7 @@ renderer_2d_render :: proc() {
 	upload_dynamic_gl_buffer_data(&s_renderer_2d.vertex_buffer, slice.to_bytes(s_renderer_2d.vertices[:]))
 	upload_dynamic_gl_buffer_data(&s_renderer_2d.index_buffer, slice.to_bytes(s_renderer_2d.indices[:]))
 
-	use_shader(s_renderer_2d.shader)
+	use_shader(get_shader(.D2))
 	bind_vertex_array(s_renderer_2d.vertex_array)
 	gl.DrawElements(gl.TRIANGLES, cast(i32)len(s_renderer_2d.indices), gl_index(u32), nil)
 
