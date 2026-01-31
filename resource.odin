@@ -11,6 +11,9 @@ Shader_Id :: enum {
 }
 
 Texture_Id :: enum {
+	White,
+	Black,
+	Transparent,
 	Stone,
 }
 
@@ -133,7 +136,10 @@ when HOT_RELOAD {
 	@(private="file")
 	mark_texture_as_dirty :: proc(file_path: string) {
 		switch file_path {
-		case STONE_TEXTURE_PATH: s_dirty_textures += { .Stone }
+		case WHITE_TEXTURE_PATH:       s_dirty_textures += { .White }
+		case BLACK_TEXTURE_PATH:       s_dirty_textures += { .Black }
+		case TRANSPARENT_TEXTURE_PATH: s_dirty_textures += { .Transparent }
+		case STONE_TEXTURE_PATH:       s_dirty_textures += { .Stone }
 		case: log.warnf("Hot reload - unrecognized texture resource: %v", file_path)
 		}
 	}
@@ -168,6 +174,9 @@ D2_SHADER_VERTEX_PATH :: "shaders/2d.vert"
 D2_SHADER_FRAGMENT_PATH :: "shaders/2d.frag"
 
 TEXTURES_PATH :: "textures/"
+WHITE_TEXTURE_PATH :: "textures/white.png"
+BLACK_TEXTURE_PATH :: "textures/black.png"
+TRANSPARENT_TEXTURE_PATH :: "textures/transparent.png"
 STONE_TEXTURE_PATH :: "textures/stone.png"
 
 @(rodata, private="file")
@@ -178,6 +187,9 @@ shader_sources_map := [Shader_Id][2]string{
 
 @(rodata, private="file")
 texture_data_map := [Texture_Id][]byte{
+	.White = #load(WHITE_TEXTURE_PATH),
+	.Black = #load(BLACK_TEXTURE_PATH),
+	.Transparent = #load(TRANSPARENT_TEXTURE_PATH),
 	.Stone = #load(STONE_TEXTURE_PATH),
 }
 
@@ -190,6 +202,9 @@ when HOT_RELOAD {
 
 	@(rodata, private="file")
 	texture_file_paths_map := [Texture_Id]string{
+		.White = WHITE_TEXTURE_PATH,
+		.Black = BLACK_TEXTURE_PATH,
+		.Transparent = TRANSPARENT_TEXTURE_PATH,
 		.Stone = STONE_TEXTURE_PATH,
 	}
 }
