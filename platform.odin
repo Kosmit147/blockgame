@@ -643,7 +643,6 @@ imgui_render :: proc() {
 }
 
 when ODIN_DEBUG {
-
 	@(private="file")
 	gl_debug_message_callback :: proc "c" (
 		source, type, id, severity: u32,
@@ -664,5 +663,4 @@ when ODIN_DEBUG {
 			log.errorf("Unrecognized OpenGL debug message severity: %X", severity)
 		}
 	}
-
 }

@@ -102,8 +102,7 @@ create_sub_shader :: proc(shader_source: cstring, shader_type: u32) -> (u32, boo
 		info_log_length: i32
 		gl.GetShaderiv(shader, gl.INFO_LOG_LENGTH, &info_log_length)
 
-		info_log_buffer := make([]byte, info_log_length)
-		defer delete(info_log_buffer)
+		info_log_buffer := make([]byte, info_log_length, context.temp_allocator)
 
 		gl.GetShaderInfoLog(shader, info_log_length, nil, raw_data(info_log_buffer))
 		info_log := string(info_log_buffer)
@@ -132,8 +131,7 @@ link_shader_program :: proc(vertex_shader, fragment_shader: u32) -> (u32, bool) 
 		info_log_length: i32
 		gl.GetProgramiv(program, gl.INFO_LOG_LENGTH, &info_log_length)
 
-		info_log_buffer := make([]byte, info_log_length)
-		defer delete(info_log_buffer)
+		info_log_buffer := make([]byte, info_log_length, context.temp_allocator)
 
 		gl.GetProgramInfoLog(program, info_log_length, nil, raw_data(info_log_buffer))
 		info_log := string(info_log_buffer)

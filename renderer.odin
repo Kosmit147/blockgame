@@ -42,7 +42,7 @@ renderer_init :: proc() -> (ok := false) {
 	gl.FrontFace(gl.CCW)
 	gl.Enable(gl.DEPTH_TEST)
 
-	s_renderer.shader, ok = create_shader(BASE_SHADER_VERTEX_SOURCE, BASE_SHADER_FRAGMENT_SOURCE) 
+	s_renderer.shader, ok = create_shader(BASE_SHADER_VERTEX_SOURCE, BASE_SHADER_FRAGMENT_SOURCE)
 	if !ok {
 		log.fatal("Failed to compile the base shader.")
 		return

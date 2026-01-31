@@ -30,7 +30,7 @@ Renderer_2D :: struct {
 s_renderer_2d: Renderer_2D
 
 renderer_2d_init :: proc() -> (ok := false) {
-	s_renderer_2d.shader, ok = create_shader(SHADER_2D_VERTEX_SOURCE, SHADER_2D_FRAGMENT_SOURCE) 
+	s_renderer_2d.shader, ok = create_shader(SHADER_2D_VERTEX_SOURCE, SHADER_2D_FRAGMENT_SOURCE)
 	if !ok {
 		log.fatal("Failed to compile the 2D shader.")
 		return

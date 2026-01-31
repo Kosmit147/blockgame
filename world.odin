@@ -143,9 +143,7 @@ create_chunk_mesh :: proc(blocks: ^Chunk_Blocks) -> Mesh {
 	// TODO: Don't generate faces for blocks which are not visible.
 
 	vertices := make([dynamic]Standard_Vertex, context.temp_allocator)
-	defer delete(vertices)
 	indices := make([dynamic]u32, context.temp_allocator)
-	defer delete(indices)
 
 	chunk_iterator := make_chunk_iterator(blocks)
 	index_offset := u32(0)
