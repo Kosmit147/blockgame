@@ -63,7 +63,7 @@ renderer_begin_frame :: proc(camera: Camera) {
 						 near = 0.1,
 						 far = 100)
 
-	use_shader(get_shader(.Base))
+	use_shader(.Base)
 	set_uniform(s_renderer.view_uniform, view)
 	set_uniform(s_renderer.projection_uniform, projection)
 }
@@ -86,7 +86,7 @@ renderer_render_chunk :: proc(chunk: Chunk) {
 }
 
 renderer_render_world :: proc(world: World) {
-	use_shader(get_shader(.Base))
-	bind_texture(get_texture(.Stone), 0)
+	use_shader(.Base)
+	bind_texture(.Stone, 0)
 	for chunk in world.chunks do renderer_render_chunk(chunk)
 }

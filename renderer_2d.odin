@@ -51,7 +51,7 @@ renderer_2d_render :: proc() {
 	upload_dynamic_gl_buffer_data(&s_renderer_2d.vertex_buffer, slice.to_bytes(s_renderer_2d.vertices[:]))
 	upload_dynamic_gl_buffer_data(&s_renderer_2d.index_buffer, slice.to_bytes(s_renderer_2d.indices[:]))
 
-	use_shader(get_shader(.D2))
+	use_shader(.D2)
 	bind_vertex_array(s_renderer_2d.vertex_array)
 	gl.DrawElements(gl.TRIANGLES, cast(i32)len(s_renderer_2d.indices), gl_index(u32), nil)
 

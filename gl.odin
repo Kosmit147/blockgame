@@ -80,8 +80,12 @@ destroy_shader :: proc(shader: Shader) {
 	gl.DeleteProgram(shader.id)
 }
 
-use_shader :: proc(shader: Shader) {
+use_shader_object :: proc(shader: Shader) {
 	gl.UseProgram(shader.id)
+}
+
+use_shader :: proc(id: Shader_Id) {
+	use_shader_object(get_shader(id))
 }
 
 @(private="file")
@@ -419,6 +423,10 @@ destroy_texture :: proc(texture: ^Texture) {
 	gl.DeleteTextures(1, &texture.id)
 }
 
-bind_texture :: proc(texture: Texture, slot: u32) {
+bind_texture_object :: proc(texture: Texture, slot: u32) {
 	gl.BindTextureUnit(slot, texture.id)
+}
+
+bind_texture :: proc(id: Texture_Id, slot: u32) {
+	bind_texture_object(get_texture(id), slot)
 }
