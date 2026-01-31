@@ -12,11 +12,6 @@ NvOptimusEnablement: u32 = 1
 @(export, rodata)
 AmdPowerXpressRequestHighPerformance: u32 = 1
 
-BASE_SHADER_VERTEX_SOURCE :: #load("shaders/base.vert", cstring)
-BASE_SHADER_FRAGMENT_SOURCE :: #load("shaders/base.frag", cstring)
-
-STONE_TEXTURE_FILE_DATA :: #load("textures/stone.png")
-
 Standard_Vertex :: struct {
 	position: Vec3,
 	normal: Vec3,
