@@ -49,21 +49,13 @@ get_texture :: proc(id: Texture_Id) -> Texture {
 @(private="file")
 init_shaders :: proc() -> (ok := false) {
 	defer if !ok do deinit_shaders()
-	for &shader, shader_id in s_shaders do shader = create_shader(get_shader_sources(shader_id)) or_return
+	for &shader, shader_id in s_shaders {
+		vertex_source, fragment_source := shader_sources_map[shader_id][0], shader_sources_map[shader_id][1]
+		shader = create_shader(vertex_source, fragment_source) or_return
+	}
 
 	ok = true
 	return
-}
-
-@(private="file")
-get_shader_sources :: proc(id: Shader_Id) -> (string, string) {
-	switch id {
-	case .Base: return base_shader_vertex_source, base_shader_fragment_source
-	case .D2:   return d2_shader_vertex_source, d2_shader_fragment_source
-	}
-
-	assert(false)
-	return {}, {}
 }
 
 @(private="file")
@@ -75,21 +67,12 @@ deinit_shaders :: proc() {
 init_textures :: proc() -> (ok := false) {
 	defer if !ok do deinit_textures()
 	for &texture, texture_id in s_textures {
-		texture = create_texture_from_png_in_memory(get_texture_file_data(texture_id)) or_return
+		texture_file_data := texture_data_map[texture_id]
+		texture = create_texture_from_png_in_memory(texture_file_data) or_return
 	}
 
 	ok = true
 	return
-}
-
-@(private="file")
-get_texture_file_data :: proc(id: Texture_Id) -> []byte {
-	switch id {
-	case .Stone: return stone_texture_file_data
-	}
-
-	assert(false)
-	return {}
 }
 
 @(private="file")
@@ -103,6 +86,7 @@ when HOT_RELOAD {
 	@(private="file")
 	s_dirty_textures: bit_set[Texture_Id]
 
+	// Keep in mind that this will probably be called from a separate tread.
 	request_resource_reload :: proc(path: string) {
 		if strings.starts_with(path, SHADERS_PATH) {
 			mark_shader_as_dirty(path)
@@ -114,15 +98,27 @@ when HOT_RELOAD {
 	}
 
 	hot_reload :: proc() {
+		any_shader_reloaded := false
 		for dirty_shader in s_dirty_shaders {
-			if !reload_shader(dirty_shader) do log.errorf("Failed to reload shader %v", dirty_shader)
+			if reload_shader(dirty_shader) {
+				any_shader_reloaded = true
+				log.infof("Reloaded shader %v", dirty_shader)
+			} else {
+				log.errorf("Failed to reload shader %v", dirty_shader)
+			}
 		}
 		s_dirty_shaders = {}
 
 		for dirty_texture in s_dirty_textures {
-			if !reload_texture(dirty_texture) do log.errorf("Failed to reload texture %v", dirty_texture)
+			if reload_texture(dirty_texture) {
+				log.infof("Reloaded texture %v", dirty_texture)
+			} else {
+				log.errorf("Failed to reload texture %v", dirty_texture)
+			}
 		}
 		s_dirty_textures = {}
+
+		if any_shader_reloaded do renderer_get_uniforms()
 	}
 
 	@(private="file")
@@ -144,14 +140,7 @@ when HOT_RELOAD {
 
 	@(private="file")
 	reload_shader :: proc(id: Shader_Id) -> (ok := false) {
-		vertex_path, fragment_path: string
-
-		switch id {
-		case .Base: vertex_path, fragment_path = BASE_SHADER_VERTEX_PATH, BASE_SHADER_FRAGMENT_PATH
-		case .D2:   vertex_path, fragment_path = D2_SHADER_VERTEX_PATH, D2_SHADER_FRAGMENT_PATH
-		case:       assert(false)
-		}
-
+		vertex_path, fragment_path := shader_file_paths_map[id][0], shader_file_paths_map[id][1]
 		reloaded_shader := create_shader_from_files(vertex_path, fragment_path) or_return
 		destroy_shader(s_shaders[id])
 		s_shaders[id] = reloaded_shader
@@ -162,13 +151,7 @@ when HOT_RELOAD {
 
 	@(private="file")
 	reload_texture :: proc(id: Texture_Id) -> (ok := false) {
-		texture_path: string
-
-		switch id {
-		case .Stone: texture_path = STONE_TEXTURE_PATH
-		case:        assert(false)
-		}
-
+		texture_path := texture_file_paths_map[id]
 		reloaded_texture := create_texture_from_png_file(texture_path) or_return
 		destroy_texture(&s_textures[id])
 		s_textures[id] = reloaded_texture
@@ -179,17 +162,34 @@ when HOT_RELOAD {
 }
 
 SHADERS_PATH :: "shaders/"
-TEXTURES_PATH :: "textures/"
-
 BASE_SHADER_VERTEX_PATH :: "shaders/base.vert"
 BASE_SHADER_FRAGMENT_PATH :: "shaders/base.frag"
-@(rodata) base_shader_vertex_source := #load(BASE_SHADER_VERTEX_PATH, string)
-@(rodata) base_shader_fragment_source := #load(BASE_SHADER_FRAGMENT_PATH, string)
-
 D2_SHADER_VERTEX_PATH :: "shaders/2d.vert"
 D2_SHADER_FRAGMENT_PATH :: "shaders/2d.frag"
-@(rodata) d2_shader_vertex_source := #load(D2_SHADER_VERTEX_PATH, string)
-@(rodata) d2_shader_fragment_source := #load(D2_SHADER_FRAGMENT_PATH, string)
 
+TEXTURES_PATH :: "textures/"
 STONE_TEXTURE_PATH :: "textures/stone.png"
-@(rodata) stone_texture_file_data := #load(STONE_TEXTURE_PATH)
+
+@(rodata, private="file")
+shader_sources_map := [Shader_Id][2]string{
+	.Base = { #load(BASE_SHADER_VERTEX_PATH, string), #load(BASE_SHADER_FRAGMENT_PATH, string) },
+	.D2 = { #load(D2_SHADER_VERTEX_PATH, string), #load(D2_SHADER_FRAGMENT_PATH, string) },
+}
+
+@(rodata, private="file")
+texture_data_map := [Texture_Id][]byte{
+	.Stone = #load(STONE_TEXTURE_PATH),
+}
+
+when HOT_RELOAD {
+	@(rodata, private="file")
+	shader_file_paths_map := [Shader_Id][2]string{
+		.Base = { BASE_SHADER_VERTEX_PATH, BASE_SHADER_FRAGMENT_PATH },
+		.D2 = { D2_SHADER_VERTEX_PATH, D2_SHADER_FRAGMENT_PATH },
+	}
+
+	@(rodata, private="file")
+	texture_file_paths_map := [Texture_Id]string{
+		.Stone = STONE_TEXTURE_PATH,
+	}
+}

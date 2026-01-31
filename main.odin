@@ -11,6 +11,7 @@ import "vendor/dmon"
 HOT_RELOAD :: #config(HOT_RELOAD, false)
 
 when HOT_RELOAD {
+	// This callback gets called from a separate thread.
 	@(private="file")
 	watcher_callback :: proc "c" (watch_id: dmon.Watch_Id,
 				      action: dmon.Action,
@@ -24,7 +25,6 @@ when HOT_RELOAD {
 		defer strings.builder_destroy(&full_path_builder)
 		strings.write_string(&full_path_builder, string(rootdir))
 		strings.write_string(&full_path_builder, string(filepath))
-
 		full_path := strings.to_string(full_path_builder)
 		request_resource_reload(full_path)
 	}
