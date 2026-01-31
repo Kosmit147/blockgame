@@ -59,7 +59,7 @@ Shader :: struct {
 	id: u32,
 }
 
-create_shader :: proc(vertex_source, fragment_source: cstring) -> (shader: Shader, ok := false) {
+create_shader :: proc(vertex_source, fragment_source: string) -> (shader: Shader, ok := false) {
 	vertex_shader := create_sub_shader(vertex_source, gl.VERTEX_SHADER) or_return
 	defer gl.DeleteShader(vertex_shader)
 	fragment_shader := create_sub_shader(fragment_source, gl.FRAGMENT_SHADER) or_return
@@ -77,23 +77,22 @@ use_shader :: proc(shader: Shader) {
 }
 
 @(private="file")
-create_sub_shader :: proc(shader_source: cstring, shader_type: u32) -> (u32, bool) {
+create_sub_shader :: proc(shader_source: string, shader_type: u32) -> (u32, bool) {
 	shader_type_string :: proc(type: u32) -> string {
 		switch type {
-		case gl.VERTEX_SHADER:
-			return "vertex"
-		case gl.FRAGMENT_SHADER:
-			return "fragment"
+		case gl.VERTEX_SHADER: return "vertex"
+		case gl.FRAGMENT_SHADER: return "fragment"
 		}
 
 		assert(false)
 		return "ERROR - unknown shader type"
 	}
 
-	sources_array := [1]cstring{ shader_source }
+	sources_array := [1]cstring{ cast(cstring)raw_data(shader_source) }
+	lengths_array := [1]i32{ cast(i32)len(shader_source) }
 
 	shader := gl.CreateShader(shader_type)
-	gl.ShaderSource(shader, 1, raw_data(sources_array[:]), nil)
+	gl.ShaderSource(shader, 1, raw_data(sources_array[:]), raw_data(lengths_array[:]))
 
 	gl.CompileShader(shader)
 	is_compiled: i32
