@@ -4,7 +4,7 @@ import "base:runtime"
 
 import "core:log"
 import "core:mem"
-import "core:sync"
+import "core:strings"
 
 import "vendor/dmon"
 
@@ -12,21 +12,21 @@ HOT_RELOAD :: #config(HOT_RELOAD, false)
 
 when HOT_RELOAD {
 	@(private="file")
-	changed_files_mutex: sync.Mutex
-	@(private="file")
-	changed_files: [dynamic]cstring
-
-	@(private="file")
 	watcher_callback :: proc "c" (watch_id: dmon.Watch_Id,
 				      action: dmon.Action,
 				      rootdir: cstring,
 				      filepath: cstring,
 				      oldfilepath: cstring,
 				      user: rawptr) {
-		if sync.mutex_guard(&changed_files_mutex) {
-			context = runtime.default_context()
-			append(&changed_files, filepath)
-		}
+		context = g_context
+
+		full_path_builder := strings.builder_make(context.temp_allocator)
+		defer strings.builder_destroy(&full_path_builder)
+		strings.write_string(&full_path_builder, string(rootdir))
+		strings.write_string(&full_path_builder, string(filepath))
+
+		full_path := strings.to_string(full_path_builder)
+		reload_resource(full_path)
 	}
 }
 
@@ -60,8 +60,8 @@ main :: proc() {
 	when HOT_RELOAD {
 		dmon.init()
 		defer dmon.deinit()
-		dmon.watch("textures", watcher_callback, nil, nil)
-		dmon.watch("shaders", watcher_callback, nil, nil)
+		dmon.watch(TEXTURES_PATH, watcher_callback, nil, nil)
+		dmon.watch(SHADERS_PATH, watcher_callback, nil, nil)
 	}
 
 	if !window_init(1920, 1080, "Blockgame") do log.panic("Failed to create a window.")
@@ -84,12 +84,7 @@ main :: proc() {
 	prev_time := f32(window_time())
 
 	for !window_should_close() {
-		when HOT_RELOAD {
-			sync.mutex_lock(&changed_files_mutex)
-			for file in changed_files do log.infof("Changed file: %v", file)
-			clear(&changed_files)
-			sync.mutex_unlock(&changed_files_mutex)
-		}
+		when HOT_RELOAD { hot_reload() }
 
 		time := f32(window_time())
 		dt := min(time - prev_time, DELTA_TIME_LIMIT)

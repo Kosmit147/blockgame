@@ -27,14 +27,13 @@ Renderer_2D :: struct {
 s_renderer_2d: Renderer_2D
 
 renderer_2d_init :: proc() -> (ok := false) {
-	s_renderer_2d.shader, ok = create_shader(SHADER_2D_VERTEX_SOURCE, SHADER_2D_FRAGMENT_SOURCE)
+	s_renderer_2d.shader, ok = create_shader(D2_SHADER_VERTEX_SOURCE, D2_SHADER_FRAGMENT_SOURCE)
 	if !ok {
 		log.fatal("Failed to compile the 2D shader.")
 		return
 	}
 	defer if !ok do destroy_shader(s_renderer_2d.shader)
 
-	// From this point onwards we cannot fail, so we don't have to set up any more cleanup.
 	create_vertex_array(&s_renderer_2d.vertex_array)
 	set_vertex_array_format(s_renderer_2d.vertex_array, gl_vertex(Vertex_2D))
 	create_dynamic_gl_buffer(&s_renderer_2d.vertex_buffer)
@@ -55,6 +54,23 @@ renderer_2d_deinit :: proc() {
 	destroy_gl_buffer(&s_renderer_2d.vertex_buffer)
 	destroy_vertex_array(&s_renderer_2d.vertex_array)
 	destroy_shader(s_renderer_2d.shader)
+}
+
+when HOT_RELOAD {
+	renderer_2d_reload_2d_shader :: proc() -> (ok := false) {
+		reloaded_shader, reloaded_shader_ok := create_shader_from_files(D2_SHADER_VERTEX_PATH,
+										D2_SHADER_FRAGMENT_PATH)
+		if !reloaded_shader_ok {
+			log.error("Failed to compile the 2D shader.")
+			return
+		} else {
+			destroy_shader(s_renderer_2d.shader)
+			s_renderer_2d.shader = reloaded_shader
+		}
+
+		ok = true
+		return
+	}
 }
 
 renderer_2d_render :: proc() {

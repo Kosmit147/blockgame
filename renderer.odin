@@ -24,7 +24,7 @@ Renderer :: struct {
 	view_uniform: Uniform(Mat4),
 	projection_uniform: Uniform(Mat4),
 
-	block_texture: Texture,
+	stone_texture: Texture,
 }
 
 @(private="file")
@@ -44,24 +44,60 @@ renderer_init :: proc() -> (ok := false) {
 	}
 	defer if !ok do destroy_shader(s_renderer.shader)
 
-	s_renderer.model_uniform = get_uniform(s_renderer.shader, "model", Mat4)
-	s_renderer.view_uniform = get_uniform(s_renderer.shader, "view", Mat4)
-	s_renderer.projection_uniform = get_uniform(s_renderer.shader, "projection", Mat4)
+	renderer_get_uniforms()
 
-	s_renderer.block_texture, ok = create_texture_from_png_in_memory(STONE_TEXTURE_FILE_DATA)
+	s_renderer.stone_texture, ok = create_texture_from_png_in_memory(STONE_TEXTURE_FILE_DATA)
 	if !ok {
 		log.fatal("Failed to load the block texture.")
 		return
 	}
-	defer if !ok do destroy_texture(&s_renderer.block_texture)
+	defer if !ok do destroy_texture(&s_renderer.stone_texture)
 
 	ok = true
 	return
 }
 
 renderer_deinit :: proc() {
-	destroy_texture(&s_renderer.block_texture)
+	destroy_texture(&s_renderer.stone_texture)
 	destroy_shader(s_renderer.shader)
+}
+
+when HOT_RELOAD {
+	renderer_reload_base_shader :: proc() -> (ok := false) {
+		reloaded_shader, reloaded_shader_ok := create_shader_from_files(BASE_SHADER_VERTEX_PATH,
+										BASE_SHADER_FRAGMENT_PATH)
+		if !reloaded_shader_ok {
+			log.error("Failed to compile the base shader.")
+			return
+		} else {
+			destroy_shader(s_renderer.shader)
+			s_renderer.shader = reloaded_shader
+		}
+
+		renderer_get_uniforms()
+		ok = true
+		return
+	}
+
+	renderer_reload_stone_texture :: proc() -> (ok := false) {
+		reloaded_texture, reloaded_texture_ok := create_texture_from_png_file(STONE_TEXTURE_PATH)
+		if !reloaded_texture_ok {
+			log.error("Failed to load stone texture.")
+			return
+		} else {
+			destroy_texture(&s_renderer.stone_texture)
+			s_renderer.stone_texture = reloaded_texture
+		}
+
+		ok = true
+		return
+	}
+}
+
+renderer_get_uniforms :: proc() {
+	s_renderer.model_uniform = get_uniform(s_renderer.shader, "model", Mat4)
+	s_renderer.view_uniform = get_uniform(s_renderer.shader, "view", Mat4)
+	s_renderer.projection_uniform = get_uniform(s_renderer.shader, "projection", Mat4)
 }
 
 renderer_clear :: proc() {
@@ -104,6 +140,6 @@ renderer_render_chunk :: proc(chunk: Chunk) {
 
 renderer_render_world :: proc(world: World) {
 	use_shader(s_renderer.shader)
-	bind_texture(s_renderer.block_texture, 0)
+	bind_texture(s_renderer.stone_texture, 0)
 	for chunk in world.chunks do renderer_render_chunk(chunk)
 }

@@ -12,6 +12,8 @@ import "core:slice"
 import "core:image"
 import "core:image/png"
 import "core:reflect"
+import "core:os"
+import "core:path/filepath"
 
 gl_index :: proc($I: typeid) -> u32 {
 	when I == u8 {
@@ -66,6 +68,12 @@ create_shader :: proc(vertex_source, fragment_source: string) -> (shader: Shader
 	defer gl.DeleteShader(fragment_shader)
 	shader.id = link_shader_program(vertex_shader, fragment_shader) or_return
 	return shader, true
+}
+
+create_shader_from_files :: proc(vertex_path, fragment_path: string) -> (shader: Shader, ok := false) {
+	vertex_source := cast(string)os.read_entire_file(vertex_path, context.temp_allocator) or_return
+	fragment_source := cast(string)os.read_entire_file(fragment_path, context.temp_allocator) or_return
+	return create_shader(vertex_source, fragment_source)
 }
 
 destroy_shader :: proc(shader: Shader) {
@@ -399,6 +407,12 @@ create_texture_from_png_in_memory :: proc(png_file_data: []byte) -> (texture: Te
 
 	texture.width, texture.height = u32(img.width), u32(img.height)
 	return texture, true
+}
+
+create_texture_from_png_file :: proc(path: string) -> (texture: Texture, ok := false) {
+	file_data := os.read_entire_file(path, context.temp_allocator) or_return
+	assert(strings.to_lower(filepath.ext(path), context.temp_allocator) == ".png", "only png files are supported")
+	return create_texture_from_png_in_memory(file_data)
 }
 
 destroy_texture :: proc(texture: ^Texture) {
