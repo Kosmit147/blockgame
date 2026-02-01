@@ -5,6 +5,7 @@ import "vendor/imgui"
 import "core:fmt"
 import "core:math"
 import "core:log"
+import "core:time"
 
 MOUSE_SENSITIVITY :: 0.12
 BASE_MOVEMENT_SPEED :: 5
@@ -18,6 +19,7 @@ Game :: struct {
 	world: World,
 	world_size: i32,
 	world_generator_params: World_Generator_Params,
+	world_generation_time: time.Duration,
 }
 
 @(private="file")
@@ -33,12 +35,15 @@ game_init :: proc() -> bool {
 	s_game.world_size = 3
 	s_game.world_generator_params = default_world_generator_params()
 	set_world_generator_params(s_game.world_generator_params)
+	stopwatch: time.Stopwatch
+	time.stopwatch_start(&stopwatch)
 	world_init(&s_game.world, s_game.world_size)
+	s_game.world_generation_time = time.stopwatch_duration(stopwatch)
 	return true
 }
 
 game_deinit :: proc() {
-	world_deinit(s_game.world)
+	world_deinit(&s_game.world)
 }
 
 game_on_event :: proc(event: Event) {
@@ -82,7 +87,13 @@ game_update :: proc(dt: f32) {
 				     v_max = 1) {
 			set_world_generator_params(s_game.world_generator_params)
 		}
-		if imgui.Button("Regenerate") do world_regenerate(&s_game.world, s_game.world_size)
+		if imgui.Button("Regenerate") {
+			stopwatch: time.Stopwatch
+			time.stopwatch_start(&stopwatch)
+			world_regenerate(&s_game.world, s_game.world_size)
+			s_game.world_generation_time = time.stopwatch_duration(stopwatch)
+		}
+		imgui.TextUnformatted(fmt.ctprintf("Time to initialize world: %v", s_game.world_generation_time))
 		imgui.End()
 	}
 }

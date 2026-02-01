@@ -1,7 +1,11 @@
 package blockgame
 
+import "base:runtime"
+
 import "core:math/noise"
 import "core:slice"
+import "core:thread"
+import "core:os"
 
 WORLD_ORIGIN :: Vec3{ 0, 0, 0 }
 WORLD_UP :: Vec3{ 0, 1, 0 }
@@ -23,28 +27,73 @@ set_world_generator_params :: proc(params: World_Generator_Params) {
 	s_world_generator_params = params
 }
 
+// World is not allowed to change address after it is initialized (because of the thread pool).
 World :: struct {
 	chunk_map: map[Chunk_Coordinate]Chunk,
+	thread_pool: thread.Pool,
+	allocator: runtime.Allocator,
+}
+
+// Chunk generation needs to happen in two steps, because an OpenGL mesh can only be created on the main thread.
+// So we need to generate the chunk mesh data first on the thread performing the task, and then create the mesh using
+// that data on the main thread.
+Generate_Chunk_Task_Data :: struct {
+	chunk_coordinate: Chunk_Coordinate,
+	blocks: ^Chunk_Blocks,
+	mesh_data: Chunk_Mesh_Data, // Needs to be freed after the task is complete.
+}
+
+generate_chunk_task :: proc(task: thread.Task) {
+	data := cast(^Generate_Chunk_Task_Data)task.data
+	data.blocks = generate_chunk_blocks(data.chunk_coordinate, task.allocator)
+	data.mesh_data = generate_chunk_mesh(data.blocks, task.allocator)
 }
 
 world_init :: proc(world: ^World, world_size: i32) -> bool {
+	// We want to use a thread-safe heap allocator because the lifetimes of chunks are arbitrary and they are
+	// handled from multiple threads.
+	world.allocator = runtime.heap_allocator()
 	world_side_length := world_size * 2 + 1
-	world.chunk_map = make(map[Chunk_Coordinate]Chunk, world_side_length * world_side_length)
+	total_chunk_count := world_side_length * world_side_length
+	world.chunk_map = make(map[Chunk_Coordinate]Chunk, total_chunk_count, world.allocator)
+
+	MIN_THREAD_COUNT :: 4
+	thread.pool_init(&world.thread_pool, world.allocator, max(os.processor_core_count() - 1, MIN_THREAD_COUNT))
+	thread.pool_start(&world.thread_pool)
+
 	for x in -world_size..=world_size {
 		for z in -world_size..=world_size {
-			world.chunk_map[{ x, z }] = create_chunk({ x, z })
+			task_data := new(Generate_Chunk_Task_Data, world.allocator)
+			task_data.chunk_coordinate = { x, z }
+			thread.pool_add_task(&world.thread_pool,
+					     world.allocator,
+					     generate_chunk_task,
+					     task_data)
 		}
 	}
+
+	thread.pool_finish(&world.thread_pool)
+
+	for task in thread.pool_pop_done(&world.thread_pool) {
+		data := cast(^Generate_Chunk_Task_Data)task.data
+		world.chunk_map[data.chunk_coordinate] = create_chunk(data.chunk_coordinate,
+								      data.blocks,
+								      data.mesh_data)
+		delete_chunk_mesh_data(data.mesh_data)
+		free(data, world.allocator)
+	}
+
 	return true
 }
 
-world_deinit :: proc(world: World) {
-	for _, &chunk in world.chunk_map do destroy_chunk(&chunk)
+world_deinit :: proc(world: ^World) {
+	thread.pool_destroy(&world.thread_pool)
+	for _, &chunk in world.chunk_map do destroy_chunk(&chunk, world.allocator)
 	delete(world.chunk_map)
 }
 
 world_regenerate :: proc(world: ^World, world_size: i32) {
-	world_deinit(world^)
+	world_deinit(world)
 	world_init(world, world_size)
 }
 
@@ -74,27 +123,37 @@ Chunk_Coordinate :: struct {
 	z: i32,
 }
 
-create_chunk :: proc(coordinate: Chunk_Coordinate) -> (chunk: Chunk) {
-	chunk.blocks = new(Chunk_Blocks)
-	chunk.coordinate = coordinate
+// This function can be called from the main thread only because it makes OpenGL calls.
+create_chunk :: proc(coordinate: Chunk_Coordinate, blocks: ^Chunk_Blocks, mesh_data: Chunk_Mesh_Data) -> (chunk: Chunk) {
+	return Chunk{ blocks, coordinate, create_chunk_mesh(mesh_data) }
+}
 
+destroy_chunk :: proc(chunk: ^Chunk, allocator: runtime.Allocator) {
+	destroy_mesh(&chunk.mesh)
+	free(chunk.blocks, allocator)
+}
+
+generate_chunk_blocks :: proc(coordinate: Chunk_Coordinate, allocator: runtime.Allocator) -> (blocks: ^Chunk_Blocks) {
+	blocks = new(Chunk_Blocks, allocator)
 	for block_x in i32(0)..<CHUNK_SIZE.x {
 		for block_z in i32(0)..<CHUNK_SIZE.z {
 			height := get_height_at_world_coordinate({ coordinate.x * CHUNK_SIZE.x + block_x,
 								   coordinate.z * CHUNK_SIZE.z + block_z })
 			for block_y in 0..<height {
-				get_chunk_block(chunk.blocks, { block_x, block_y, block_z })^ = .Stone
+				get_chunk_block(blocks, { block_x, block_y, block_z })^ = .Stone
 			}
 		}
 	}
-
-	chunk.mesh = create_chunk_mesh(chunk.blocks)
-	return chunk
+	return
 }
 
-destroy_chunk :: proc(chunk: ^Chunk) {
-	destroy_mesh(&chunk.mesh)
-	free(chunk.blocks)
+@(private="file")
+get_height_at_world_coordinate :: proc(coordinate: [2]i32) -> i32 {
+	noise_coordinate := noise.Vec2{ f64(coordinate.x), f64(coordinate.y) } * s_world_generator_params.smoothness
+	noise := noise.noise_2d(CHUNK_GENERATOR_SEED, noise_coordinate)
+	linear := noise * 0.5 + 0.5
+	height := i32(linear * f32(CHUNK_SIZE.y))
+	return clamp(height, 0, CHUNK_SIZE.y)
 }
 
 get_chunk_block :: proc(blocks: ^Chunk_Blocks, coordinate: Block_Chunk_Coordinate) -> ^Block {
@@ -148,20 +207,32 @@ iterate_chunk :: proc(iterator: ^Chunk_Iterator) -> (^Block, Block_Chunk_Coordin
 	return block, block_coordinate, true
 }
 
-@(private="file")
-get_height_at_world_coordinate :: proc(coordinate: [2]i32) -> i32 {
-	noise_coordinate := noise.Vec2{ f64(coordinate.x), f64(coordinate.y) } * s_world_generator_params.smoothness
-	noise := noise.noise_2d(CHUNK_GENERATOR_SEED, noise_coordinate)
-	linear := noise * 0.5 + 0.5
-	height := i32(linear * f32(CHUNK_SIZE.y))
-	return clamp(height, 0, CHUNK_SIZE.y)
+Chunk_Mesh_Data :: struct {
+	vertices: [dynamic]Chunk_Mesh_Vertex,
+	indices: [dynamic]Chunk_Mesh_Index,
 }
 
-create_chunk_mesh :: proc(blocks: ^Chunk_Blocks) -> Mesh {
-	// TODO: Don't generate faces for blocks which are not visible.
+delete_chunk_mesh_data :: proc(mesh_data: Chunk_Mesh_Data) {
+	delete(mesh_data.vertices)
+	delete(mesh_data.indices)
+}
 
-	vertices := make([dynamic]Standard_Vertex, context.temp_allocator)
-	indices := make([dynamic]u32, context.temp_allocator)
+// This function can be called from the main thread only because it makes OpenGL calls.
+create_chunk_mesh :: proc(mesh_data: Chunk_Mesh_Data) -> (mesh: Mesh) {
+	create_mesh(&mesh,
+		    vertices = slice.to_bytes(mesh_data.vertices[:]),
+		    vertex_stride = size_of(Chunk_Mesh_Vertex),
+		    vertex_format = gl_vertex(Chunk_Mesh_Vertex),
+		    indices = slice.to_bytes(mesh_data.indices[:]),
+		    index_type = gl_index(Chunk_Mesh_Index))
+	return
+}
+
+generate_chunk_mesh :: proc(blocks: ^Chunk_Blocks, allocator: runtime.Allocator) -> (mesh: Chunk_Mesh_Data) {
+	// TODO: Don't generate vertices for faces which are not visible.
+
+	mesh.vertices = make([dynamic]Standard_Vertex, allocator)
+	mesh.indices = make([dynamic]u32, allocator)
 
 	chunk_iterator := make_chunk_iterator(blocks)
 	index_offset := u32(0)
@@ -170,22 +241,15 @@ create_chunk_mesh :: proc(blocks: ^Chunk_Blocks) -> Mesh {
 		for vertex in block_vertices {
 			vertex := vertex
 			vertex.position += Vec3{ f32(block_coordinate.x), f32(block_coordinate.y), f32(block_coordinate.z) }
-			append(&vertices, vertex)
+			append(&mesh.vertices, vertex)
 		}
 		for index in block_indices {
-			append(&indices, index_offset + index)
+			append(&mesh.indices, index_offset + index)
 		}
 		index_offset += len(block_vertices)
 	}
 
-	mesh: Mesh
-	create_mesh(&mesh,
-		    vertices = slice.to_bytes(vertices[:]),
-		    vertex_stride = size_of(Chunk_Mesh_Vertex),
-		    vertex_format = gl_vertex(Chunk_Mesh_Vertex),
-		    indices = slice.to_bytes(indices[:]),
-		    index_type = gl_index(Chunk_Mesh_Index))
-	return mesh
+	return
 }
 
 Chunk_Mesh_Vertex :: Standard_Vertex
