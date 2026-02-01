@@ -6,10 +6,6 @@ import "core:slice"
 WORLD_ORIGIN :: Vec3{ 0, 0, 0 }
 WORLD_UP :: Vec3{ 0, 1, 0 }
 
-World :: struct {
-	chunks: [dynamic]Chunk,
-}
-
 World_Generator_Params :: struct {
 	smoothness: f64,
 }
@@ -27,19 +23,24 @@ set_world_generator_params :: proc(params: World_Generator_Params) {
 	s_world_generator_params = params
 }
 
+World :: struct {
+	chunk_map: map[Chunk_Coordinate]Chunk,
+}
+
 world_init :: proc(world: ^World, world_size: i32) -> bool {
-	world.chunks = make([dynamic]Chunk, 0, world_size * world_size)
-	for x in -world_size..<world_size {
-		for z in -world_size..<world_size {
-			append(&world.chunks, create_chunk({ x, z }))
+	world_side_length := world_size * 2 + 1
+	world.chunk_map = make(map[Chunk_Coordinate]Chunk, world_side_length * world_side_length)
+	for x in -world_size..=world_size {
+		for z in -world_size..=world_size {
+			world.chunk_map[{ x, z }] = create_chunk({ x, z })
 		}
 	}
 	return true
 }
 
 world_deinit :: proc(world: World) {
-	for &chunk in world.chunks do destroy_chunk(&chunk)
-	delete(world.chunks)
+	for _, &chunk in world.chunk_map do destroy_chunk(&chunk)
+	delete(world.chunk_map)
 }
 
 world_regenerate :: proc(world: ^World, world_size: i32) {
