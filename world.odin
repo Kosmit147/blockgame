@@ -10,6 +10,23 @@ World :: struct {
 	chunks: [dynamic]Chunk,
 }
 
+World_Generator_Params :: struct {
+	smoothness: f64,
+}
+
+default_world_generator_params :: proc "contextless" () -> World_Generator_Params {
+	return World_Generator_Params {
+		smoothness = 0.01,
+	}
+}
+
+@(private="file")
+s_world_generator_params := default_world_generator_params()
+
+set_world_generator_params :: proc(params: World_Generator_Params) {
+	s_world_generator_params = params
+}
+
 world_init :: proc(world: ^World, world_size: i32) -> bool {
 	world.chunks = make([dynamic]Chunk, 0, world_size * world_size)
 	for x in -world_size..<world_size {
@@ -132,7 +149,7 @@ iterate_chunk :: proc(iterator: ^Chunk_Iterator) -> (^Block, Block_Chunk_Coordin
 
 @(private="file")
 get_height_at_world_coordinate :: proc(coordinate: [2]i32) -> i32 {
-	noise_coordinate := noise.Vec2{ f64(coordinate.x), f64(coordinate.y) }
+	noise_coordinate := noise.Vec2{ f64(coordinate.x), f64(coordinate.y) } * s_world_generator_params.smoothness
 	noise := noise.noise_2d(CHUNK_GENERATOR_SEED, noise_coordinate)
 	linear := noise * 0.5 + 0.5
 	height := i32(linear * f32(CHUNK_SIZE.y))

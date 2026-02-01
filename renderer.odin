@@ -63,7 +63,7 @@ renderer_begin_frame :: proc(camera: Camera) {
 	projection := linalg.matrix4_perspective(fovy = math.to_radians(f32(45)),
 						 aspect = window_aspect_ratio(),
 						 near = 0.1,
-						 far = 100)
+						 far = 1000)
 
 	use_shader(.Base)
 	set_uniform(s_renderer.view_uniform, view)
