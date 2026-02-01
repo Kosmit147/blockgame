@@ -7,8 +7,8 @@ import "core:c"
 imgui_drag_double :: proc(label: cstring,
 			  v: ^c.double,
 			  v_speed := f32(1),
-			  v_min := f32(0),
-			  v_max := f32(0),
+			  v_min := f64(0),
+			  v_max := f64(0),
 			  format := cstring("%.3f"),
 			  flags := imgui.SliderFlags{}) -> bool {
 	v_min, v_max := v_min, v_max
