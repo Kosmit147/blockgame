@@ -4,6 +4,7 @@ import gl "vendor:OpenGL"
 
 import "core:math/linalg"
 import "core:math"
+import "core:mem"
 
 // These symbols tell GPU drivers to use the dedicated graphics card.
 @(export, rodata)
@@ -17,10 +18,11 @@ Standard_Vertex :: struct {
 	uv: Vec2,
 }
 
+VIEW_PROJECTION_UNIFORM_BUFFER_BINDING_POINT :: 0
+
 Renderer :: struct {
+	view_projection_uniform_buffer: Gl_Buffer,
 	model_uniform: Uniform(Mat4),
-	view_uniform: Uniform(Mat4),
-	projection_uniform: Uniform(Mat4),
 }
 
 @(private="file")
@@ -35,18 +37,20 @@ renderer_init :: proc() -> (ok := false) {
 	gl.Enable(gl.BLEND)
 	gl.BlendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA)
 
+	create_static_gl_buffer(&s_renderer.view_projection_uniform_buffer, size_of(View_Projection_Uniform_Buffer_Data))
+	bind_uniform_buffer(s_renderer.view_projection_uniform_buffer, VIEW_PROJECTION_UNIFORM_BUFFER_BINDING_POINT)
 	renderer_get_uniforms()
 
 	return true
 }
 
-renderer_deinit :: proc() {}
+renderer_deinit :: proc() {
+	destroy_gl_buffer(&s_renderer.view_projection_uniform_buffer)
+}
 
 renderer_get_uniforms :: proc() {
 	shader := get_shader(.Base)
 	s_renderer.model_uniform = get_uniform(shader, "model", Mat4)
-	s_renderer.view_uniform = get_uniform(shader, "view", Mat4)
-	s_renderer.projection_uniform = get_uniform(shader, "projection", Mat4)
 }
 
 renderer_clear :: proc() {
@@ -65,9 +69,9 @@ renderer_begin_frame :: proc(camera: Camera) {
 						 near = 0.1,
 						 far = 1000)
 
-	use_shader(.Base)
-	set_uniform(s_renderer.view_uniform, view)
-	set_uniform(s_renderer.projection_uniform, projection)
+	view_projection_uniform_buffer_data := View_Projection_Uniform_Buffer_Data { view, projection }
+	upload_static_gl_buffer_data(s_renderer.view_projection_uniform_buffer,
+				     mem.any_to_bytes(view_projection_uniform_buffer_data))
 }
 
 renderer_render_mesh :: proc(mesh: Mesh) {
@@ -91,4 +95,9 @@ renderer_render_world :: proc(world: World) {
 	use_shader(.Base)
 	bind_texture(.Stone, 0)
 	for _, &chunk in world.chunk_map do renderer_render_chunk(chunk)
+}
+
+View_Projection_Uniform_Buffer_Data :: struct {
+	view: Mat4,
+	projection: Mat4,
 }

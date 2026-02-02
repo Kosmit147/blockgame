@@ -278,7 +278,7 @@ bind_index_buffer :: proc(va: Vertex_Array, buffer: Gl_Buffer) {
 // Dynamic buffers have a dynamic size.
 Gl_Buffer :: struct {
 	id: u32,
-	size: int
+	size: int,
 }
 
 create_static_gl_buffer :: proc(buffer: ^Gl_Buffer, size: int) {
@@ -358,6 +358,10 @@ reserve_dynamic_gl_buffer_size :: proc(buffer: ^Gl_Buffer, min_size: int, usage:
 
 destroy_gl_buffer :: proc(buffer: ^Gl_Buffer) {
 	gl.DeleteBuffers(1, &buffer.id)
+}
+
+bind_uniform_buffer :: proc(buffer: Gl_Buffer, binding_point: u32) {
+	gl.BindBufferBase(gl.UNIFORM_BUFFER, binding_point, buffer.id)
 }
 
 Texture :: struct {
