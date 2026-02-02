@@ -6,7 +6,7 @@ import "core:log"
 import "core:strings"
 
 Shader_Id :: enum {
-	Base,
+	Block,
 	D2,
 }
 
@@ -127,8 +127,8 @@ when HOT_RELOAD {
 	@(private="file")
 	mark_shader_as_dirty :: proc(file_path: string) {
 		switch file_path {
-		case BASE_SHADER_VERTEX_PATH, BASE_SHADER_FRAGMENT_PATH: s_dirty_shaders += { .Base }
-		case D2_SHADER_VERTEX_PATH, D2_SHADER_FRAGMENT_PATH:     s_dirty_shaders += { .D2 }
+		case BLOCK_SHADER_VERTEX_PATH, BLOCK_SHADER_FRAGMENT_PATH: s_dirty_shaders += { .Block }
+		case D2_SHADER_VERTEX_PATH, D2_SHADER_FRAGMENT_PATH:       s_dirty_shaders += { .D2 }
 		case: log.warnf("Hot reload - unrecognized shader resource: %v", file_path)
 		}
 	}
@@ -168,8 +168,8 @@ when HOT_RELOAD {
 }
 
 SHADERS_PATH :: "shaders/"
-BASE_SHADER_VERTEX_PATH :: "shaders/base.vert"
-BASE_SHADER_FRAGMENT_PATH :: "shaders/base.frag"
+BLOCK_SHADER_VERTEX_PATH :: "shaders/block.vert"
+BLOCK_SHADER_FRAGMENT_PATH :: "shaders/block.frag"
 D2_SHADER_VERTEX_PATH :: "shaders/2d.vert"
 D2_SHADER_FRAGMENT_PATH :: "shaders/2d.frag"
 
@@ -181,7 +181,7 @@ STONE_TEXTURE_PATH :: "textures/stone.png"
 
 @(rodata, private="file")
 shader_sources_map := [Shader_Id][2]string{
-	.Base = { #load(BASE_SHADER_VERTEX_PATH, string), #load(BASE_SHADER_FRAGMENT_PATH, string) },
+	.Block = { #load(BLOCK_SHADER_VERTEX_PATH, string), #load(BLOCK_SHADER_FRAGMENT_PATH, string) },
 	.D2 = { #load(D2_SHADER_VERTEX_PATH, string), #load(D2_SHADER_FRAGMENT_PATH, string) },
 }
 
@@ -196,7 +196,7 @@ texture_data_map := [Texture_Id][]byte{
 when HOT_RELOAD {
 	@(rodata, private="file")
 	shader_file_paths_map := [Shader_Id][2]string{
-		.Base = { BASE_SHADER_VERTEX_PATH, BASE_SHADER_FRAGMENT_PATH },
+		.Block = { BLOCK_SHADER_VERTEX_PATH, BLOCK_SHADER_FRAGMENT_PATH },
 		.D2 = { D2_SHADER_VERTEX_PATH, D2_SHADER_FRAGMENT_PATH },
 	}
 

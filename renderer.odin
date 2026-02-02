@@ -49,7 +49,7 @@ renderer_deinit :: proc() {
 }
 
 renderer_get_uniforms :: proc() {
-	shader := get_shader(.Base)
+	shader := get_shader(.Block)
 	s_renderer.model_uniform = get_uniform(shader, "model", Mat4)
 }
 
@@ -92,7 +92,7 @@ renderer_render_chunk :: proc(chunk: Chunk) {
 }
 
 renderer_render_world :: proc(world: World) {
-	use_shader(.Base)
+	use_shader(.Block)
 	bind_texture(.Stone, 0)
 	for _, &chunk in world.chunk_map do renderer_render_chunk(chunk)
 }
