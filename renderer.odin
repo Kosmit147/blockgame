@@ -102,7 +102,7 @@ renderer_render_chunk :: proc(chunk: Chunk) {
 
 renderer_render_world :: proc(world: World) {
 	use_shader(.Block)
-	bind_texture(.Stone, 0)
+	bind_texture(.Blocks, 0)
 	for _, &chunk in world.chunk_map do renderer_render_chunk(chunk)
 }
 
