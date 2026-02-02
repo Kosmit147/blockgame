@@ -5,21 +5,20 @@ import "vendor/imgui"
 import "core:fmt"
 import "core:math"
 import "core:log"
-import "core:time"
 
 MOUSE_SENSITIVITY :: 0.12
 BASE_MOVEMENT_SPEED :: 5
 SPRINT_MOVEMENT_SPEED :: 15
 
-WORLD_SIZE_MIN :: 1
-WORLD_SIZE_MAX :: 20
+// Currently, setting the world size to a big value makes the game unplayable, so limit it to 20 for now.
+UI_WORLD_SIZE_MIN :: 1
+UI_WORLD_SIZE_MAX :: 20
 
 Game :: struct {
 	camera: Camera,
 	world: World,
 	world_size: i32,
 	world_generator_params: World_Generator_Params,
-	world_generation_time: time.Duration,
 }
 
 @(private="file")
@@ -35,10 +34,7 @@ game_init :: proc() -> bool {
 	s_game.world_size = 3
 	s_game.world_generator_params = default_world_generator_params()
 	set_world_generator_params(s_game.world_generator_params)
-	stopwatch: time.Stopwatch
-	time.stopwatch_start(&stopwatch)
 	world_init(&s_game.world, s_game.world_size)
-	s_game.world_generation_time = time.stopwatch_duration(stopwatch)
 	return true
 }
 
@@ -58,6 +54,7 @@ game_on_event :: proc(event: Event) {
 }
 
 game_update :: proc(dt: f32) {
+	world_update(&s_game.world)
 	cursor_pos_delta := input_cursor_pos_delta()
 
 	if !window_cursor_enabled() {
@@ -76,26 +73,23 @@ game_update :: proc(dt: f32) {
 	if input_key_pressed(.A) do s_game.camera.position -= camera_vectors.right   * movement_speed * dt
 	if input_key_pressed(.D) do s_game.camera.position += camera_vectors.right   * movement_speed * dt
 
-	{
-		imgui.Begin("World")
-		imgui.InputInt("World Size", &s_game.world_size)
-		s_game.world_size = clamp(s_game.world_size, WORLD_SIZE_MIN, WORLD_SIZE_MAX)
-		if imgui_drag_double("Smoothness",
-				     &s_game.world_generator_params.smoothness,
-				     v_speed = 0.001,
-				     v_min = 0.000001,
-				     v_max = 1) {
-			set_world_generator_params(s_game.world_generator_params)
-		}
-		if imgui.Button("Regenerate") {
-			stopwatch: time.Stopwatch
-			time.stopwatch_start(&stopwatch)
-			world_regenerate(&s_game.world, s_game.world_size)
-			s_game.world_generation_time = time.stopwatch_duration(stopwatch)
-		}
-		imgui.TextUnformatted(fmt.ctprintf("Time to initialize world: %v", s_game.world_generation_time))
-		imgui.End()
+	game_ui()
+}
+
+@(private="file")
+game_ui :: proc() {
+	imgui.Begin("World")
+	imgui.InputInt("World Size", &s_game.world_size)
+	s_game.world_size = clamp(s_game.world_size, UI_WORLD_SIZE_MIN, UI_WORLD_SIZE_MAX)
+	if imgui_drag_double("Smoothness",
+			     &s_game.world_generator_params.smoothness,
+			     v_speed = 0.001,
+			     v_min = 0.000001,
+			     v_max = 1) {
+		set_world_generator_params(s_game.world_generator_params)
 	}
+	if imgui.Button("Regenerate") do world_regenerate(&s_game.world, s_game.world_size)
+	imgui.End()
 }
 
 game_render :: proc() {

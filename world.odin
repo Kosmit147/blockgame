@@ -57,8 +57,10 @@ world_init :: proc(world: ^World, world_size: i32) -> bool {
 	total_chunk_count := world_side_length * world_side_length
 	world.chunk_map = make(map[Chunk_Coordinate]Chunk, total_chunk_count, world.allocator)
 
-	MIN_THREAD_COUNT :: 4
-	thread.pool_init(&world.thread_pool, world.allocator, max(os.processor_core_count() - 1, MIN_THREAD_COUNT))
+	MIN_CHUNK_GENERATION_THREADS :: 4
+	thread.pool_init(&world.thread_pool,
+			 world.allocator,
+			 max(os.processor_core_count() - 1, MIN_CHUNK_GENERATION_THREADS))
 	thread.pool_start(&world.thread_pool)
 
 	for x in -world_size..=world_size {
@@ -72,9 +74,30 @@ world_init :: proc(world: ^World, world_size: i32) -> bool {
 		}
 	}
 
-	thread.pool_finish(&world.thread_pool)
+	return true
+}
 
+world_deinit :: proc(world: ^World) {
+	for task in thread.pool_pop_waiting(&world.thread_pool) {
+		data := cast(^Generate_Chunk_Task_Data)task.data
+		free(data, world.allocator)
+	}
+	thread.pool_finish(&world.thread_pool)
 	for task in thread.pool_pop_done(&world.thread_pool) {
+		data := cast(^Generate_Chunk_Task_Data)task.data
+		free(data.blocks, world.allocator)
+		delete_chunk_mesh_data(data.mesh_data)
+		free(data, world.allocator)
+	}
+	thread.pool_destroy(&world.thread_pool)
+	for _, &chunk in world.chunk_map do destroy_chunk(&chunk, world.allocator)
+	delete(world.chunk_map)
+}
+
+world_update :: proc(world: ^World) {
+	MAX_CHUNKS_ADDED_PER_UPDATE :: 1
+	for _ in 0..<MAX_CHUNKS_ADDED_PER_UPDATE {
+		task := thread.pool_pop_done(&world.thread_pool) or_break
 		data := cast(^Generate_Chunk_Task_Data)task.data
 		world.chunk_map[data.chunk_coordinate] = create_chunk(data.chunk_coordinate,
 								      data.blocks,
@@ -82,14 +105,6 @@ world_init :: proc(world: ^World, world_size: i32) -> bool {
 		delete_chunk_mesh_data(data.mesh_data)
 		free(data, world.allocator)
 	}
-
-	return true
-}
-
-world_deinit :: proc(world: ^World) {
-	thread.pool_destroy(&world.thread_pool)
-	for _, &chunk in world.chunk_map do destroy_chunk(&chunk, world.allocator)
-	delete(world.chunk_map)
 }
 
 world_regenerate :: proc(world: ^World, world_size: i32) {
