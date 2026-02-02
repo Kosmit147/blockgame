@@ -114,7 +114,7 @@ world_regenerate :: proc(world: ^World, world_size: i32) {
 }
 
 world_get_light_direction :: proc() -> Vec3 {
-	return linalg.normalize(Vec3{ -1, -1, -1 })
+	return linalg.normalize(Vec3{ -1, 0, 0 })
 }
 
 Block :: enum u8 {
@@ -278,40 +278,40 @@ Chunk_Mesh_Index :: u32
 @(rodata)
 block_vertices := [24]Chunk_Mesh_Vertex{
 	// Front wall.
-	{ position = { 0.0, 0.0, 1.0 }, normal = {  0,  0,  1 }, uv = { 0, 0 } },
-	{ position = { 1.0, 0.0, 1.0 }, normal = {  0,  0,  1 }, uv = { 1, 0 } },
-	{ position = { 1.0, 1.0, 1.0 }, normal = {  0,  0,  1 }, uv = { 1, 1 } },
-	{ position = { 0.0, 1.0, 1.0 }, normal = {  0,  0,  1 }, uv = { 0, 1 } },
+	{ position = { 0, 0, 1 }, normal = {  0,  0,  1 }, uv = { 0, 0 } },
+	{ position = { 1, 0, 1 }, normal = {  0,  0,  1 }, uv = { 1, 0 } },
+	{ position = { 1, 1, 1 }, normal = {  0,  0,  1 }, uv = { 1, 1 } },
+	{ position = { 0, 1, 1 }, normal = {  0,  0,  1 }, uv = { 0, 1 } },
 
 	// Back wall.
-	{ position = { 0.0, 0.0, 0.0 }, normal = {  0,  0, -1 }, uv = { 0, 0 } },
-	{ position = { 0.0, 1.0, 0.0 }, normal = {  0,  0, -1 }, uv = { 0, 1 } },
-	{ position = { 1.0, 1.0, 0.0 }, normal = {  0,  0, -1 }, uv = { 1, 1 } },
-	{ position = { 1.0, 0.0, 0.0 }, normal = {  0,  0, -1 }, uv = { 1, 0 } },
+	{ position = { 0, 0, 0 }, normal = {  0,  0, -1 }, uv = { 0, 0 } },
+	{ position = { 0, 1, 0 }, normal = {  0,  0, -1 }, uv = { 0, 1 } },
+	{ position = { 1, 1, 0 }, normal = {  0,  0, -1 }, uv = { 1, 1 } },
+	{ position = { 1, 0, 0 }, normal = {  0,  0, -1 }, uv = { 1, 0 } },
 
 	// Left wall.
-	{ position = { 0.0, 1.0, 1.0 }, normal = { -1,  0,  0 }, uv = { 1, 0 } },
-	{ position = { 0.0, 1.0, 0.0 }, normal = { -1,  0,  0 }, uv = { 1, 1 } },
-	{ position = { 0.0, 0.0, 0.0 }, normal = { -1,  0,  0 }, uv = { 0, 1 } },
-	{ position = { 0.0, 0.0, 1.0 }, normal = { -1,  0,  0 }, uv = { 0, 0 } },
+	{ position = { 0, 1, 1 }, normal = { -1,  0,  0 }, uv = { 1, 1 } },
+	{ position = { 0, 1, 0 }, normal = { -1,  0,  0 }, uv = { 0, 1 } },
+	{ position = { 0, 0, 0 }, normal = { -1,  0,  0 }, uv = { 0, 0 } },
+	{ position = { 0, 0, 1 }, normal = { -1,  0,  0 }, uv = { 1, 0 } },
 
 	// Right wall.
-	{ position = { 1.0, 1.0, 1.0 }, normal = {  1,  0,  0 }, uv = { 1, 0 } },
-	{ position = { 1.0, 0.0, 1.0 }, normal = {  1,  0,  0 }, uv = { 0, 0 } },
-	{ position = { 1.0, 0.0, 0.0 }, normal = {  1,  0,  0 }, uv = { 0, 1 } },
-	{ position = { 1.0, 1.0, 0.0 }, normal = {  1,  0,  0 }, uv = { 1, 1 } },
+	{ position = { 1, 1, 1 }, normal = {  1,  0,  0 }, uv = { 0, 1 } },
+	{ position = { 1, 0, 1 }, normal = {  1,  0,  0 }, uv = { 0, 0 } },
+	{ position = { 1, 0, 0 }, normal = {  1,  0,  0 }, uv = { 1, 0 } },
+	{ position = { 1, 1, 0 }, normal = {  1,  0,  0 }, uv = { 1, 1 } },
 
 	// Bottom wall.
-	{ position = { 0.0, 0.0, 0.0 }, normal = {  0, -1,  0 }, uv = { 0, 1 } },
-	{ position = { 1.0, 0.0, 0.0 }, normal = {  0, -1,  0 }, uv = { 1, 1 } },
-	{ position = { 1.0, 0.0, 1.0 }, normal = {  0, -1,  0 }, uv = { 1, 0 } },
-	{ position = { 0.0, 0.0, 1.0 }, normal = {  0, -1,  0 }, uv = { 0, 0 } },
+	{ position = { 0, 0, 0 }, normal = {  0, -1,  0 }, uv = { 0, 1 } },
+	{ position = { 1, 0, 0 }, normal = {  0, -1,  0 }, uv = { 1, 1 } },
+	{ position = { 1, 0, 1 }, normal = {  0, -1,  0 }, uv = { 1, 0 } },
+	{ position = { 0, 0, 1 }, normal = {  0, -1,  0 }, uv = { 0, 0 } },
 
 	// Top wall.
-	{ position = { 0.0, 1.0, 0.0 }, normal = {  0,  1,  0 }, uv = { 0, 1 } },
-	{ position = { 0.0, 1.0, 1.0 }, normal = {  0,  1,  0 }, uv = { 0, 0 } },
-	{ position = { 1.0, 1.0, 1.0 }, normal = {  0,  1,  0 }, uv = { 1, 0 } },
-	{ position = { 1.0, 1.0, 0.0 }, normal = {  0,  1,  0 }, uv = { 1, 1 } },
+	{ position = { 0, 1, 0 }, normal = {  0,  1,  0 }, uv = { 0, 1 } },
+	{ position = { 0, 1, 1 }, normal = {  0,  1,  0 }, uv = { 0, 0 } },
+	{ position = { 1, 1, 1 }, normal = {  0,  1,  0 }, uv = { 1, 0 } },
+	{ position = { 1, 1, 0 }, normal = {  0,  1,  0 }, uv = { 1, 1 } },
 }
 
 @(rodata)

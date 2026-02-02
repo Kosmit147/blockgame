@@ -176,7 +176,7 @@ get_uniform :: proc(shader: Shader, uniform: cstring, $T: typeid) -> (Uniform(T)
 
 set_uniform :: proc(uniform: Uniform($T), value: T) {
 	location := uniform.location
-	assert(location != -1)
+	when ODIN_DEBUG { assert(location != -1) }
 
 	when T == i32 {
 		gl.Uniform1i(location, value)
