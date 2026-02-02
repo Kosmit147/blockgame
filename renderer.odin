@@ -19,9 +19,11 @@ Standard_Vertex :: struct {
 }
 
 VIEW_PROJECTION_UNIFORM_BUFFER_BINDING_POINT :: 0
+LIGHT_DATA_UNIFORM_BUFFER_BINDING_POINT :: 1
 
 Renderer :: struct {
 	view_projection_uniform_buffer: Gl_Buffer,
+	light_data_uniform_buffer: Gl_Buffer,
 	model_uniform: Uniform(Mat4),
 }
 
@@ -39,6 +41,9 @@ renderer_init :: proc() -> (ok := false) {
 
 	create_static_gl_buffer(&s_renderer.view_projection_uniform_buffer, size_of(View_Projection_Uniform_Buffer_Data))
 	bind_uniform_buffer(s_renderer.view_projection_uniform_buffer, VIEW_PROJECTION_UNIFORM_BUFFER_BINDING_POINT)
+	create_static_gl_buffer(&s_renderer.light_data_uniform_buffer, size_of(Light_Data_Uniform_Buffer_Data))
+	bind_uniform_buffer(s_renderer.light_data_uniform_buffer, LIGHT_DATA_UNIFORM_BUFFER_BINDING_POINT)
+
 	renderer_get_uniforms()
 
 	return true
@@ -46,6 +51,7 @@ renderer_init :: proc() -> (ok := false) {
 
 renderer_deinit :: proc() {
 	destroy_gl_buffer(&s_renderer.view_projection_uniform_buffer)
+	destroy_gl_buffer(&s_renderer.light_data_uniform_buffer)
 }
 
 renderer_get_uniforms :: proc() {
@@ -57,7 +63,7 @@ renderer_clear :: proc() {
 	gl.Clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
 }
 
-renderer_begin_frame :: proc(camera: Camera) {
+renderer_begin_frame :: proc(camera: Camera, light_direction: Vec3) {
 	camera_vectors := camera_vectors(camera)
 
 	view := linalg.matrix4_look_at(eye = camera.position,
@@ -72,6 +78,9 @@ renderer_begin_frame :: proc(camera: Camera) {
 	view_projection_uniform_buffer_data := View_Projection_Uniform_Buffer_Data { view, projection }
 	upload_static_gl_buffer_data(s_renderer.view_projection_uniform_buffer,
 				     mem.any_to_bytes(view_projection_uniform_buffer_data))
+	light_data_uniform_buffer_data := Light_Data_Uniform_Buffer_Data{ light_direction }
+	upload_static_gl_buffer_data(s_renderer.light_data_uniform_buffer,
+				     mem.any_to_bytes(light_data_uniform_buffer_data))
 }
 
 renderer_render_mesh :: proc(mesh: Mesh) {
@@ -100,4 +109,8 @@ renderer_render_world :: proc(world: World) {
 View_Projection_Uniform_Buffer_Data :: struct {
 	view: Mat4,
 	projection: Mat4,
+}
+
+Light_Data_Uniform_Buffer_Data :: struct {
+	light_direction: Vec3,
 }

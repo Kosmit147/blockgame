@@ -3,6 +3,7 @@ package blockgame
 import "base:runtime"
 
 import "core:math/noise"
+import "core:math/linalg"
 import "core:slice"
 import "core:thread"
 import "core:os"
@@ -110,6 +111,10 @@ world_update :: proc(world: ^World) {
 world_regenerate :: proc(world: ^World, world_size: i32) {
 	world_deinit(world)
 	world_init(world, world_size)
+}
+
+world_get_light_direction :: proc() -> Vec3 {
+	return linalg.normalize(Vec3{ -1, -1, -1 })
 }
 
 Block :: enum u8 {

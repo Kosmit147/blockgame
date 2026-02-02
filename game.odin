@@ -30,7 +30,6 @@ game_init :: proc() -> bool {
 		yaw = math.to_radians(f32(-90)),
 		pitch = math.to_radians(f32(0)),
 	}
-
 	s_game.world_size = 3
 	s_game.world_generator_params = default_world_generator_params()
 	set_world_generator_params(s_game.world_generator_params)
@@ -94,7 +93,7 @@ game_ui :: proc() {
 
 game_render :: proc() {
 	renderer_clear()
-	renderer_begin_frame(s_game.camera)
+	renderer_begin_frame(s_game.camera, world_get_light_direction())
 	renderer_render_world(s_game.world)
 
 	{
