@@ -114,12 +114,13 @@ world_regenerate :: proc(world: ^World, world_size: i32) {
 }
 
 world_get_light_direction :: proc() -> Vec3 {
-	return linalg.normalize(Vec3{ -1, 0, 0 })
+	return linalg.normalize(Vec3{ -1, -1, -1 })
 }
 
 Block :: enum u8 {
 	Air = 0,
 	Stone,
+	Dirt,
 }
 
 // Position of the block relative to the chunk that it is a part of.
@@ -162,6 +163,8 @@ generate_chunk_blocks :: proc(coordinate: Chunk_Coordinate, allocator: runtime.A
 			for block_y in 0..<height {
 				get_chunk_block(blocks, { block_x, block_y, block_z })^ = .Stone
 			}
+
+			if height > 0 do get_chunk_block(blocks, { block_x, height - 1, block_z })^ = .Dirt
 		}
 	}
 	return
@@ -248,6 +251,7 @@ create_chunk_mesh :: proc(mesh_data: Chunk_Mesh_Data) -> (mesh: Mesh) {
 	return
 }
 
+// TODO: Optimize mesh generation.
 generate_chunk_mesh :: proc(blocks: ^Chunk_Blocks, allocator: runtime.Allocator) -> (mesh: Chunk_Mesh_Data) {
 	// TODO: Don't generate vertices for faces which are not visible.
 
@@ -258,79 +262,95 @@ generate_chunk_mesh :: proc(blocks: ^Chunk_Blocks, allocator: runtime.Allocator)
 	index_offset := u32(0)
 	for block, block_coordinate in iterate_chunk(&chunk_iterator) {
 		if block^ == .Air do continue
-		for vertex in block_vertices {
-			vertex := vertex
-			vertex.position += Vec3{ f32(block_coordinate.x), f32(block_coordinate.y), f32(block_coordinate.z) }
-			append(&mesh.vertices, vertex)
+		for face in block_faces {
+			vertex_position_offset := Vec3{ f32(block_coordinate.x), f32(block_coordinate.y), f32(block_coordinate.z) }
+			face_vertices := face
+			for &vertex in face_vertices {
+				vertex.position += vertex_position_offset
+				vertex.uv = map_block_uv_to_atlas(vertex.uv, block^)
+			}
+			indices := block_indices
+			for &index in indices do index += index_offset
+			append(&mesh.vertices, ..face_vertices[:])
+			append(&mesh.indices, ..indices[:])
+			index_offset += len(face_vertices)
 		}
-		for index in block_indices {
-			append(&mesh.indices, index_offset + index)
-		}
-		index_offset += len(block_vertices)
 	}
 
 	return
 }
 
+@(private="file")
+map_block_uv_to_atlas :: proc(uv: Vec2, block: Block) -> Vec2 {
+	atlas_rect_origin: Vec2
+	atlas_rect_size := Vec2{ 0.5, 0.5 }
+
+	switch block {
+	case .Air:
+	case .Stone: atlas_rect_origin = Vec2{ 0.0, 0.0 }
+	case .Dirt:  atlas_rect_origin = Vec2{ 0.5, 0.0 }
+	}
+
+	return atlas_rect_origin + uv * atlas_rect_size
+}
+
 Chunk_Mesh_Vertex :: Standard_Vertex
 Chunk_Mesh_Index :: u32
 
-@(rodata)
-block_vertices := [24]Chunk_Mesh_Vertex{
+Block_Face :: [4]Chunk_Mesh_Vertex
+
+@(private="file", rodata)
+block_faces := [6]Block_Face{
 	// Front wall.
-	{ position = { 0, 0, 1 }, normal = {  0,  0,  1 }, uv = { 0, 0 } },
-	{ position = { 1, 0, 1 }, normal = {  0,  0,  1 }, uv = { 1, 0 } },
-	{ position = { 1, 1, 1 }, normal = {  0,  0,  1 }, uv = { 1, 1 } },
-	{ position = { 0, 1, 1 }, normal = {  0,  0,  1 }, uv = { 0, 1 } },
+	{
+		{ position = { 0, 0, 1 }, normal = {  0,  0,  1 }, uv = { 0, 1 } },
+		{ position = { 1, 0, 1 }, normal = {  0,  0,  1 }, uv = { 1, 1 } },
+		{ position = { 1, 1, 1 }, normal = {  0,  0,  1 }, uv = { 1, 0 } },
+		{ position = { 0, 1, 1 }, normal = {  0,  0,  1 }, uv = { 0, 0 } },
+	},
 
 	// Back wall.
-	{ position = { 0, 0, 0 }, normal = {  0,  0, -1 }, uv = { 0, 0 } },
-	{ position = { 0, 1, 0 }, normal = {  0,  0, -1 }, uv = { 0, 1 } },
-	{ position = { 1, 1, 0 }, normal = {  0,  0, -1 }, uv = { 1, 1 } },
-	{ position = { 1, 0, 0 }, normal = {  0,  0, -1 }, uv = { 1, 0 } },
+	{
+		{ position = { 0, 0, 0 }, normal = {  0,  0, -1 }, uv = { 0, 1 } },
+		{ position = { 0, 1, 0 }, normal = {  0,  0, -1 }, uv = { 0, 0 } },
+		{ position = { 1, 1, 0 }, normal = {  0,  0, -1 }, uv = { 1, 0 } },
+		{ position = { 1, 0, 0 }, normal = {  0,  0, -1 }, uv = { 1, 1 } },
+	},
 
 	// Left wall.
-	{ position = { 0, 1, 1 }, normal = { -1,  0,  0 }, uv = { 1, 1 } },
-	{ position = { 0, 1, 0 }, normal = { -1,  0,  0 }, uv = { 0, 1 } },
-	{ position = { 0, 0, 0 }, normal = { -1,  0,  0 }, uv = { 0, 0 } },
-	{ position = { 0, 0, 1 }, normal = { -1,  0,  0 }, uv = { 1, 0 } },
+	{
+		{ position = { 0, 1, 1 }, normal = { -1,  0,  0 }, uv = { 1, 0 } },
+		{ position = { 0, 1, 0 }, normal = { -1,  0,  0 }, uv = { 0, 0 } },
+		{ position = { 0, 0, 0 }, normal = { -1,  0,  0 }, uv = { 0, 1 } },
+		{ position = { 0, 0, 1 }, normal = { -1,  0,  0 }, uv = { 1, 1 } },
+	},
 
 	// Right wall.
-	{ position = { 1, 1, 1 }, normal = {  1,  0,  0 }, uv = { 0, 1 } },
-	{ position = { 1, 0, 1 }, normal = {  1,  0,  0 }, uv = { 0, 0 } },
-	{ position = { 1, 0, 0 }, normal = {  1,  0,  0 }, uv = { 1, 0 } },
-	{ position = { 1, 1, 0 }, normal = {  1,  0,  0 }, uv = { 1, 1 } },
+	{
+		{ position = { 1, 1, 1 }, normal = {  1,  0,  0 }, uv = { 0, 0 } },
+		{ position = { 1, 0, 1 }, normal = {  1,  0,  0 }, uv = { 0, 1 } },
+		{ position = { 1, 0, 0 }, normal = {  1,  0,  0 }, uv = { 1, 1 } },
+		{ position = { 1, 1, 0 }, normal = {  1,  0,  0 }, uv = { 1, 0 } },
+	},
 
 	// Bottom wall.
-	{ position = { 0, 0, 0 }, normal = {  0, -1,  0 }, uv = { 0, 1 } },
-	{ position = { 1, 0, 0 }, normal = {  0, -1,  0 }, uv = { 1, 1 } },
-	{ position = { 1, 0, 1 }, normal = {  0, -1,  0 }, uv = { 1, 0 } },
-	{ position = { 0, 0, 1 }, normal = {  0, -1,  0 }, uv = { 0, 0 } },
+	{
+		{ position = { 0, 0, 0 }, normal = {  0, -1,  0 }, uv = { 0, 0 } },
+		{ position = { 1, 0, 0 }, normal = {  0, -1,  0 }, uv = { 1, 0 } },
+		{ position = { 1, 0, 1 }, normal = {  0, -1,  0 }, uv = { 1, 1 } },
+		{ position = { 0, 0, 1 }, normal = {  0, -1,  0 }, uv = { 0, 1 } },
+	},
 
 	// Top wall.
-	{ position = { 0, 1, 0 }, normal = {  0,  1,  0 }, uv = { 0, 1 } },
-	{ position = { 0, 1, 1 }, normal = {  0,  1,  0 }, uv = { 0, 0 } },
-	{ position = { 1, 1, 1 }, normal = {  0,  1,  0 }, uv = { 1, 0 } },
-	{ position = { 1, 1, 0 }, normal = {  0,  1,  0 }, uv = { 1, 1 } },
+	{
+		{ position = { 0, 1, 0 }, normal = {  0,  1,  0 }, uv = { 0, 0 } },
+		{ position = { 0, 1, 1 }, normal = {  0,  1,  0 }, uv = { 0, 1 } },
+		{ position = { 1, 1, 1 }, normal = {  0,  1,  0 }, uv = { 1, 1 } },
+		{ position = { 1, 1, 0 }, normal = {  0,  1,  0 }, uv = { 1, 0 } },
+	},
 }
 
 @(rodata)
-block_indices := [36]Chunk_Mesh_Index{
-	// Front wall.
+block_indices := [6]Chunk_Mesh_Index{
 	0, 1, 2, 0, 2, 3,
-
-	// Back wall.
-	4, 5, 6, 4, 6, 7,
-
-	// Left wall.
-	8, 9, 10, 8, 10, 11,
-
-	// Right wall.
-	12, 13, 14, 12, 14, 15,
-
-	// Bottom wall.
-	16, 17, 18, 16, 18, 19,
-
-	// Top wall.
-	20, 21, 22, 20, 22, 23,
 }
