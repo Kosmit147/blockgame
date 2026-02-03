@@ -4,3 +4,6 @@
 [submodule "vendor/dmon/dmon"]
 	path = vendor/dmon/dmon
 	url = https://github.com/septag/dmon.git
+[submodule "vendor/odin-aseprite"]
+	path = vendor/odin-aseprite
+	url = https://github.com/blob1807/odin-aseprite.git
