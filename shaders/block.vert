@@ -10,6 +10,8 @@ layout (std140, binding = 0) uniform View_Projection {
 };
 
 layout (std140, binding = 1) uniform Light_Data {
+	vec3 light_ambient;
+	vec3 light_color;
 	vec3 light_direction;
 };
 
@@ -18,19 +20,15 @@ uniform mat4 model;
 out flat vec3 Light;
 out vec2 UV;
 
-vec3 ambient() {
-	return vec3(0.3);
-}
-
-vec3 diffuse() {
+float diffuse() {
 	float strength = dot(-light_direction, in_normal);
 	strength = max(strength, 0.0);
-	return vec3(strength);
+	return strength;
 }
 
 // Gourard lighting with no specular component.
 vec3 flat_gourard() {
-	return ambient() + diffuse();
+	return light_ambient + diffuse() * light_color;
 }
 
 void main() {

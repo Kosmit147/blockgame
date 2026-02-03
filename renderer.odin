@@ -31,7 +31,7 @@ Renderer :: struct {
 s_renderer: Renderer
 
 renderer_init :: proc() -> (ok := false) {
-	gl.ClearColor(0.7, 0.95, 1, 1)
+	gl.ClearColor(0, 0, 0, 1)
 	gl.Enable(gl.CULL_FACE)
 	gl.CullFace(gl.BACK)
 	gl.FrontFace(gl.CCW)
@@ -59,17 +59,20 @@ renderer_get_uniforms :: proc() {
 	s_renderer.model_uniform = get_uniform(shader, "model", Mat4)
 }
 
+renderer_set_clear_color :: proc(color: Vec4) {
+	gl.ClearColor(color.r, color.g, color.b, color.a)
+}
+
 renderer_clear :: proc() {
 	gl.Clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
 }
 
-renderer_begin_frame :: proc(camera: Camera, light_direction: Vec3) {
+renderer_begin_frame :: proc(camera: Camera, light: Directional_Light) {
 	camera_vectors := camera_vectors(camera)
 
 	view := linalg.matrix4_look_at(eye = camera.position,
 				       centre = camera.position + camera_vectors.forward,
 				       up = camera_vectors.up)
-
 	projection := linalg.matrix4_perspective(fovy = math.to_radians(f32(45)),
 						 aspect = window_aspect_ratio(),
 						 near = 0.1,
@@ -78,7 +81,11 @@ renderer_begin_frame :: proc(camera: Camera, light_direction: Vec3) {
 	view_projection_uniform_buffer_data := View_Projection_Uniform_Buffer_Data { view, projection }
 	upload_static_gl_buffer_data(s_renderer.view_projection_uniform_buffer,
 				     mem.any_to_bytes(view_projection_uniform_buffer_data))
-	light_data_uniform_buffer_data := Light_Data_Uniform_Buffer_Data{ light_direction }
+	light_data_uniform_buffer_data := Light_Data_Uniform_Buffer_Data {
+		light_ambient = light.ambient,
+		light_color = light.color,
+		light_direction = light.direction,
+	}
 	upload_static_gl_buffer_data(s_renderer.light_data_uniform_buffer,
 				     mem.any_to_bytes(light_data_uniform_buffer_data))
 }
@@ -112,5 +119,9 @@ View_Projection_Uniform_Buffer_Data :: struct {
 }
 
 Light_Data_Uniform_Buffer_Data :: struct {
+	light_ambient: Vec3,
+	_: [4]byte,
+	light_color: Vec3,
+	_: [4]byte,
 	light_direction: Vec3,
 }
