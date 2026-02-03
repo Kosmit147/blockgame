@@ -17,7 +17,7 @@ World_Generator_Params :: struct {
 
 default_world_generator_params :: proc "contextless" () -> World_Generator_Params {
 	return World_Generator_Params {
-		smoothness = 0.01,
+		smoothness = 0.021,
 	}
 }
 
@@ -121,6 +121,7 @@ Block :: enum u8 {
 	Air = 0,
 	Stone,
 	Dirt,
+	Grass,
 }
 
 // Position of the block relative to the chunk that it is a part of.
@@ -164,7 +165,8 @@ generate_chunk_blocks :: proc(coordinate: Chunk_Coordinate, allocator: runtime.A
 				get_chunk_block(blocks, { block_x, block_y, block_z })^ = .Stone
 			}
 
-			if height > 0 do get_chunk_block(blocks, { block_x, height - 1, block_z })^ = .Dirt
+			if height > 0 do get_chunk_block(blocks, { block_x, height - 1, block_z })^ = .Grass
+			if height > 1 do get_chunk_block(blocks, { block_x, height - 2, block_z })^ = .Dirt
 		}
 	}
 	return
@@ -262,18 +264,20 @@ generate_chunk_mesh :: proc(blocks: ^Chunk_Blocks, allocator: runtime.Allocator)
 	index_offset := u32(0)
 	for block, block_coordinate in iterate_chunk(&chunk_iterator) {
 		if block^ == .Air do continue
-		for face in block_faces {
-			vertex_position_offset := Vec3{ f32(block_coordinate.x), f32(block_coordinate.y), f32(block_coordinate.z) }
-			face_vertices := face
-			for &vertex in face_vertices {
+		for face, face_index in block_faces {
+			vertex_position_offset := Vec3{ f32(block_coordinate.x),
+							f32(block_coordinate.y),
+							f32(block_coordinate.z) }
+			vertices := face.vertices
+			for &vertex in vertices {
 				vertex.position += vertex_position_offset
-				vertex.uv = map_block_uv_to_atlas(vertex.uv, block^)
+				vertex.uv = map_block_uv_to_atlas(vertex.uv, block^, face.facing)
 			}
 			indices := block_indices
 			for &index in indices do index += index_offset
-			append(&mesh.vertices, ..face_vertices[:])
+			append(&mesh.vertices, ..vertices[:])
 			append(&mesh.indices, ..indices[:])
-			index_offset += len(face_vertices)
+			index_offset += len(vertices)
 		}
 	}
 
@@ -281,7 +285,7 @@ generate_chunk_mesh :: proc(blocks: ^Chunk_Blocks, allocator: runtime.Allocator)
 }
 
 @(private="file")
-map_block_uv_to_atlas :: proc(uv: Vec2, block: Block) -> Vec2 {
+map_block_uv_to_atlas :: proc(uv: Vec2, block: Block, block_facing: Block_Facing) -> Vec2 {
 	atlas_rect_origin: Vec2
 	atlas_rect_size := Vec2{ 0.5, 0.5 }
 
@@ -289,64 +293,97 @@ map_block_uv_to_atlas :: proc(uv: Vec2, block: Block) -> Vec2 {
 	case .Air:
 	case .Stone: atlas_rect_origin = Vec2{ 0.0, 0.0 }
 	case .Dirt:  atlas_rect_origin = Vec2{ 0.5, 0.0 }
+	case .Grass:
+		switch block_facing {
+		case .Up:          atlas_rect_origin = Vec2{ 0.0, 0.5 }
+		case .Down:        atlas_rect_origin = Vec2{ 0.5, 0.0 }
+		case .Side:        atlas_rect_origin = Vec2{ 0.5, 0.5 }
+		}
 	}
 
 	return atlas_rect_origin + uv * atlas_rect_size
 }
 
+Block_Facing :: enum {
+	Up,
+	Down,
+	Side,
+}
+
 Chunk_Mesh_Vertex :: Standard_Vertex
 Chunk_Mesh_Index :: u32
 
-Block_Face :: [4]Chunk_Mesh_Vertex
+Block_Face :: struct {
+	facing: Block_Facing,
+	vertices: [4]Chunk_Mesh_Vertex
+}
 
 @(private="file", rodata)
 block_faces := [6]Block_Face{
 	// Front wall.
 	{
-		{ position = { 0, 0, 1 }, normal = {  0,  0,  1 }, uv = { 0, 1 } },
-		{ position = { 1, 0, 1 }, normal = {  0,  0,  1 }, uv = { 1, 1 } },
-		{ position = { 1, 1, 1 }, normal = {  0,  0,  1 }, uv = { 1, 0 } },
-		{ position = { 0, 1, 1 }, normal = {  0,  0,  1 }, uv = { 0, 0 } },
+		.Side,
+		{
+			{ position = { 0, 0, 1 }, normal = {  0,  0,  1 }, uv = { 0, 1 } },
+			{ position = { 1, 0, 1 }, normal = {  0,  0,  1 }, uv = { 1, 1 } },
+			{ position = { 1, 1, 1 }, normal = {  0,  0,  1 }, uv = { 1, 0 } },
+			{ position = { 0, 1, 1 }, normal = {  0,  0,  1 }, uv = { 0, 0 } },
+		},
 	},
 
 	// Back wall.
 	{
-		{ position = { 0, 0, 0 }, normal = {  0,  0, -1 }, uv = { 0, 1 } },
-		{ position = { 0, 1, 0 }, normal = {  0,  0, -1 }, uv = { 0, 0 } },
-		{ position = { 1, 1, 0 }, normal = {  0,  0, -1 }, uv = { 1, 0 } },
-		{ position = { 1, 0, 0 }, normal = {  0,  0, -1 }, uv = { 1, 1 } },
+		.Side,
+		{
+			{ position = { 0, 0, 0 }, normal = {  0,  0, -1 }, uv = { 0, 1 } },
+			{ position = { 0, 1, 0 }, normal = {  0,  0, -1 }, uv = { 0, 0 } },
+			{ position = { 1, 1, 0 }, normal = {  0,  0, -1 }, uv = { 1, 0 } },
+			{ position = { 1, 0, 0 }, normal = {  0,  0, -1 }, uv = { 1, 1 } },
+		},
 	},
 
 	// Left wall.
 	{
-		{ position = { 0, 1, 1 }, normal = { -1,  0,  0 }, uv = { 1, 0 } },
-		{ position = { 0, 1, 0 }, normal = { -1,  0,  0 }, uv = { 0, 0 } },
-		{ position = { 0, 0, 0 }, normal = { -1,  0,  0 }, uv = { 0, 1 } },
-		{ position = { 0, 0, 1 }, normal = { -1,  0,  0 }, uv = { 1, 1 } },
+		.Side,
+		{
+			{ position = { 0, 1, 1 }, normal = { -1,  0,  0 }, uv = { 1, 0 } },
+			{ position = { 0, 1, 0 }, normal = { -1,  0,  0 }, uv = { 0, 0 } },
+			{ position = { 0, 0, 0 }, normal = { -1,  0,  0 }, uv = { 0, 1 } },
+			{ position = { 0, 0, 1 }, normal = { -1,  0,  0 }, uv = { 1, 1 } },
+		},
 	},
 
 	// Right wall.
 	{
-		{ position = { 1, 1, 1 }, normal = {  1,  0,  0 }, uv = { 0, 0 } },
-		{ position = { 1, 0, 1 }, normal = {  1,  0,  0 }, uv = { 0, 1 } },
-		{ position = { 1, 0, 0 }, normal = {  1,  0,  0 }, uv = { 1, 1 } },
-		{ position = { 1, 1, 0 }, normal = {  1,  0,  0 }, uv = { 1, 0 } },
+		.Side,
+		{
+			{ position = { 1, 1, 1 }, normal = {  1,  0,  0 }, uv = { 0, 0 } },
+			{ position = { 1, 0, 1 }, normal = {  1,  0,  0 }, uv = { 0, 1 } },
+			{ position = { 1, 0, 0 }, normal = {  1,  0,  0 }, uv = { 1, 1 } },
+			{ position = { 1, 1, 0 }, normal = {  1,  0,  0 }, uv = { 1, 0 } },
+		},
 	},
 
 	// Bottom wall.
 	{
-		{ position = { 0, 0, 0 }, normal = {  0, -1,  0 }, uv = { 0, 0 } },
-		{ position = { 1, 0, 0 }, normal = {  0, -1,  0 }, uv = { 1, 0 } },
-		{ position = { 1, 0, 1 }, normal = {  0, -1,  0 }, uv = { 1, 1 } },
-		{ position = { 0, 0, 1 }, normal = {  0, -1,  0 }, uv = { 0, 1 } },
+		.Down,
+		{
+			{ position = { 0, 0, 0 }, normal = {  0, -1,  0 }, uv = { 0, 0 } },
+			{ position = { 1, 0, 0 }, normal = {  0, -1,  0 }, uv = { 1, 0 } },
+			{ position = { 1, 0, 1 }, normal = {  0, -1,  0 }, uv = { 1, 1 } },
+			{ position = { 0, 0, 1 }, normal = {  0, -1,  0 }, uv = { 0, 1 } },
+		},
 	},
 
 	// Top wall.
 	{
-		{ position = { 0, 1, 0 }, normal = {  0,  1,  0 }, uv = { 0, 0 } },
-		{ position = { 0, 1, 1 }, normal = {  0,  1,  0 }, uv = { 0, 1 } },
-		{ position = { 1, 1, 1 }, normal = {  0,  1,  0 }, uv = { 1, 1 } },
-		{ position = { 1, 1, 0 }, normal = {  0,  1,  0 }, uv = { 1, 0 } },
+		.Up,
+		{
+			{ position = { 0, 1, 0 }, normal = {  0,  1,  0 }, uv = { 0, 0 } },
+			{ position = { 0, 1, 1 }, normal = {  0,  1,  0 }, uv = { 0, 1 } },
+			{ position = { 1, 1, 1 }, normal = {  0,  1,  0 }, uv = { 1, 1 } },
+			{ position = { 1, 1, 0 }, normal = {  0,  1,  0 }, uv = { 1, 0 } },
+		},
 	},
 }
 

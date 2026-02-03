@@ -30,7 +30,7 @@ game_init :: proc() -> bool {
 		yaw = math.to_radians(f32(-90)),
 		pitch = math.to_radians(f32(0)),
 	}
-	s_game.world_size = 3
+	s_game.world_size = 6
 	s_game.world_generator_params = default_world_generator_params()
 	set_world_generator_params(s_game.world_generator_params)
 	world_init(&s_game.world, s_game.world_size)
