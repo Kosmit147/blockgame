@@ -1,6 +1,8 @@
 package blockgame
 
 import gl "vendor:OpenGL"
+import ase "vendor/odin-aseprite"
+import ase_utils "vendor/odin-aseprite/utils"
 
 import "base:intrinsics"
 import "base:runtime"
@@ -370,26 +372,8 @@ Texture :: struct {
 	height: u32,
 }
 
-create_texture_from_png_in_memory :: proc(png_file_data: []byte) -> (texture: Texture, ok := false) {
-	format_from_png_channels :: proc(#any_int channels: int) -> u32 {
-		switch channels {
-		case 1: return gl.RED
-		case 2: return gl.RG
-		case 3: return gl.RGB
-		case 4: return gl.RGBA
-		}
-
-		assert(false)
-		return gl.NONE
-	}
-
-	img, error := image.load(png_file_data)
-	if error != nil {
-		log.errorf("Failed to load image from file in memory: %v", error)
-		return
-	}
-	defer image.destroy(img)
-
+create_texture :: proc(width, height: u32, channels: int, pixels: []byte) -> (texture: Texture) {
+	assert(slice.size(pixels) == int(width) * int(height) * channels * size_of(byte))
 	gl.CreateTextures(gl.TEXTURE_2D, 1, &texture.id)
 
 	gl.TextureParameteri(texture.id, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE)
@@ -400,27 +384,69 @@ create_texture_from_png_in_memory :: proc(png_file_data: []byte) -> (texture: Te
 	gl.TextureStorage2D(texture.id,
 			    levels = 1,
 			    internalformat = gl.RGBA8,
-			    width = i32(img.width),
-			    height = i32(img.height))
+			    width = i32(width),
+			    height = i32(height))
 
 	gl.TextureSubImage2D(texture.id,
 			     level = 0,
 			     xoffset = 0,
 			     yoffset = 0,
-			     width = i32(img.width),
-			     height = i32(img.height),
-			     format = format_from_png_channels(img.channels),
+			     width = i32(width),
+			     height = i32(height),
+			     format = gl_texture_format_from_channels(channels),
 			     type = gl.UNSIGNED_BYTE,
-			     pixels = raw_data(bytes.buffer_to_bytes(&img.pixels)))
+			     pixels = raw_data(pixels))
 
-	texture.width, texture.height = u32(img.width), u32(img.height)
-	return texture, true
+	texture.width, texture.height = width, height
+	return texture
+}
+
+create_texture_from_png_in_memory :: proc(png_file_data: []byte) -> (texture: Texture, ok := false) {
+	img, error := image.load(png_file_data)
+	if error != nil {
+		log.errorf("Failed to load image from png file in memory: %v", error)
+		return
+	}
+	defer image.destroy(img)
+
+	texture = create_texture(u32(img.width), u32(img.height), img.channels, bytes.buffer_to_bytes(&img.pixels))
+	ok = true
+	return
+}
+
+create_texture_from_aseprite_in_memory :: proc(aseprite_file_data: []byte) -> (texture: Texture, ok := false) {
+	document: ase.Document
+	defer ase.destroy_doc(&document)
+	unmarshal_error := ase.unmarshal(&document, aseprite_file_data)
+	if unmarshal_error != nil {
+		log.errorf("Failed to unmarshal aseprite file in memory: %v", unmarshal_error)
+		return
+	}
+	image, image_error := ase_utils.get_image(&document)
+	if image_error != nil {
+		log.errorf("Failed to get aseprite image: %v", image_error)
+		return
+	}
+	defer ase_utils.destroy(image)
+
+	texture = create_texture(u32(image.width),
+				 u32(image.height),
+				 channels_from_aseprite_bpp(image.bpp),
+				 image.data)
+	ok = true
+	return
 }
 
 create_texture_from_png_file :: proc(path: string) -> (texture: Texture, ok := false) {
 	file_data := os.read_entire_file(path, context.temp_allocator) or_return
-	assert(strings.to_lower(filepath.ext(path), context.temp_allocator) == ".png", "only png files are supported")
+	assert(strings.to_lower(filepath.ext(path), context.temp_allocator) == ".png", "expected a png file")
 	return create_texture_from_png_in_memory(file_data)
+}
+
+create_texture_from_aseprite_file :: proc(path: string) -> (texture: Texture, ok := false) {
+	file_data := os.read_entire_file(path, context.temp_allocator) or_return
+	assert(strings.to_lower(filepath.ext(path), context.temp_allocator) == ".aseprite", "expected an aseprite file")
+	return create_texture_from_aseprite_in_memory(file_data)
 }
 
 destroy_texture :: proc(texture: ^Texture) {
@@ -433,4 +459,29 @@ bind_texture_object :: proc(texture: Texture, slot: u32) {
 
 bind_texture :: proc(id: Texture_Id, slot: u32) {
 	bind_texture_object(get_texture(id), slot)
+}
+
+@(private="file")
+gl_texture_format_from_channels :: proc(#any_int channels: int) -> u32 {
+	switch channels {
+	case 1: return gl.RED
+	case 2: return gl.RG
+	case 3: return gl.RGB
+	case 4: return gl.RGBA
+	}
+
+	assert(false)
+	return gl.NONE
+}
+
+@(private="file")
+channels_from_aseprite_bpp :: proc(depth: ase_utils.Pixel_Depth) -> int {
+	switch depth {
+	case .Indexed:   return 1
+	case .Grayscale: return 2
+	case .RGBA:      return 4
+	}
+
+	assert(false)
+	return 0
 }

@@ -71,7 +71,7 @@ init_textures :: proc() -> (ok := false) {
 	defer if !ok do deinit_textures()
 	for &texture, texture_id in s_textures {
 		texture_file_data := texture_data_map[texture_id]
-		texture = create_texture_from_png_in_memory(texture_file_data) or_return
+		texture = create_texture_from_aseprite_in_memory(texture_file_data) or_return
 	}
 
 	ok = true
@@ -158,7 +158,7 @@ when HOT_RELOAD {
 	@(private="file")
 	reload_texture :: proc(id: Texture_Id) -> (ok := false) {
 		texture_path := texture_file_paths_map[id]
-		reloaded_texture := create_texture_from_png_file(texture_path) or_return
+		reloaded_texture := create_texture_from_aseprite_file(texture_path) or_return
 		destroy_texture(&s_textures[id])
 		s_textures[id] = reloaded_texture
 
@@ -174,10 +174,10 @@ D2_SHADER_VERTEX_PATH :: "shaders/2d.vert"
 D2_SHADER_FRAGMENT_PATH :: "shaders/2d.frag"
 
 TEXTURES_PATH :: "textures/"
-WHITE_TEXTURE_PATH :: "textures/white.png"
-BLACK_TEXTURE_PATH :: "textures/black.png"
-TRANSPARENT_TEXTURE_PATH :: "textures/transparent.png"
-BLOCKS_TEXTURE_PATH :: "textures/blocks.png"
+WHITE_TEXTURE_PATH :: "textures/white.aseprite"
+BLACK_TEXTURE_PATH :: "textures/black.aseprite"
+TRANSPARENT_TEXTURE_PATH :: "textures/transparent.aseprite"
+BLOCKS_TEXTURE_PATH :: "textures/blocks.aseprite"
 
 @(rodata, private="file")
 shader_sources_map := [Shader_Id][2]string{
