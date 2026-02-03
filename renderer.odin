@@ -31,7 +31,7 @@ Renderer :: struct {
 s_renderer: Renderer
 
 renderer_init :: proc() -> (ok := false) {
-	gl.ClearColor(0, 0, 0, 1)
+	gl.ClearColor(0.7, 0.95, 1, 1)
 	gl.Enable(gl.CULL_FACE)
 	gl.CullFace(gl.BACK)
 	gl.FrontFace(gl.CCW)
