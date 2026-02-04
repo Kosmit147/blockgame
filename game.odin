@@ -7,14 +7,14 @@ import "core:math"
 import "core:math/linalg"
 import "core:log"
 
-MOUSE_SENSITIVITY :: 1
-BASE_MOVEMENT_SPEED :: 5
+MOUSE_SENSITIVITY     :: 1
+BASE_MOVEMENT_SPEED   :: 5
 SPRINT_MOVEMENT_SPEED :: 15
 
 // Currently, setting the world size to a big value makes the game unplayable, so limit it to 20 for now.
 DEFAULT_WORLD_SIZE :: 6
-UI_WORLD_SIZE_MIN :: 1
-UI_WORLD_SIZE_MAX :: 20
+UI_WORLD_SIZE_MIN  :: 1
+UI_WORLD_SIZE_MAX  :: 20
 
 DEFAULT_SKY_COLOR :: Vec3{ 0.7, 0.95, 1 }
 DEFAULT_DIRECTIONAL_LIGHT :: Directional_Light {
@@ -23,8 +23,13 @@ DEFAULT_DIRECTIONAL_LIGHT :: Directional_Light {
 	direction = Vec3{ -0.5774, -0.5774, -0.5774 },
 }
 
-CROSSHAIR_SIZE :: 0.03
+CROSSHAIR_SIZE  :: 0.03
 CROSSHAIR_COLOR :: BLACK
+
+QUIT_GAME_KEY     :: Key.Escape
+SPRINT_KEY        :: Key.Left_Shift
+DEBUG_UI_KEY      :: Key.F_1
+TOGGLE_CURSOR_KEY :: Key.Left_Control
 
 Game :: struct {
 	camera: Camera,
@@ -35,6 +40,7 @@ Game :: struct {
 	sky_color: Vec3,
 	directional_light: Directional_Light,
 
+	debug_ui_enabled: bool,
 	v_sync_mode: V_Sync_Mode,
 }
 
@@ -57,6 +63,7 @@ game_init :: proc() -> bool {
 	s_game.directional_light = DEFAULT_DIRECTIONAL_LIGHT
 	s_game.directional_light.direction = linalg.normalize(s_game.directional_light.direction)
 
+	s_game.debug_ui_enabled = true
 	s_game.v_sync_mode = window_vsync_mode()
 
 	return true
@@ -70,8 +77,11 @@ game_on_event :: proc(event: Event) {
 	switch event in event {
 	case Key_Pressed_Event:
 		log.debugf("%v key pressed.", event.key)
-		if event.key == .Escape do window_close()
-		else if event.key == .Left_Control do window_toggle_cursor()
+		#partial switch event.key {
+		case QUIT_GAME_KEY:     window_close()
+		case TOGGLE_CURSOR_KEY: window_toggle_cursor()
+		case DEBUG_UI_KEY:      game_toggle_debug_ui()
+		}
 	case Mouse_Button_Pressed_Event:
 		log.debugf("%v mouse button pressed.", event.button)
 	}
@@ -88,18 +98,51 @@ game_update :: proc(dt: f32) {
 	}
 
 	camera_vectors := camera_vectors(s_game.camera)
-	movement_speed := f32(SPRINT_MOVEMENT_SPEED) if input_key_pressed(.Left_Shift) else BASE_MOVEMENT_SPEED
+	movement_speed := f32(SPRINT_MOVEMENT_SPEED) if input_key_pressed(SPRINT_KEY) else BASE_MOVEMENT_SPEED
 
 	if input_key_pressed(.W) do s_game.camera.position += camera_vectors.forward * movement_speed * dt
 	if input_key_pressed(.S) do s_game.camera.position -= camera_vectors.forward * movement_speed * dt
 	if input_key_pressed(.A) do s_game.camera.position -= camera_vectors.right   * movement_speed * dt
 	if input_key_pressed(.D) do s_game.camera.position += camera_vectors.right   * movement_speed * dt
 
-	game_ui()
+	game_debug_ui()
+}
+
+game_render :: proc() {
+	renderer_clear()
+	renderer_begin_frame(s_game.camera, s_game.directional_light)
+	renderer_render_world(s_game.world)
+
+	{
+		io := imgui.GetIO()
+		renderer_2d_submit_text(fmt.tprintf("FPS: %v", io.Framerate), { 5, 5 }, scale = 2)
+	}
+
+	{
+	 	window_size := window_size()
+	 	window_width, window_height := f32(window_size.x), f32(window_size.y)
+		aspect_ratio := window_aspect_ratio()
+
+		crosshair_position := Vec2{ 0.0 - CROSSHAIR_SIZE / 2.0, 0.0 + CROSSHAIR_SIZE / 2.0 }
+		crosshair_position.x /= aspect_ratio
+		crosshair_size := Vec2{ CROSSHAIR_SIZE, CROSSHAIR_SIZE }
+		crosshair_size.x /= aspect_ratio
+		crosshair_color := CROSSHAIR_COLOR
+
+		renderer_2d_submit_textured_quad(Quad {
+			position = crosshair_position,
+			size = crosshair_size,
+			color = crosshair_color,
+		}, .Crosshair)
+	}
+
+	renderer_2d_render()
 }
 
 @(private="file")
-game_ui :: proc() {
+game_debug_ui :: proc() {
+	if !s_game.debug_ui_enabled do return
+
 	imgui.Begin("World")
 	if imgui.BeginTabBar("World Tab Bar") {
 		if imgui.BeginTabItem("Generator") {
@@ -140,33 +183,6 @@ game_ui :: proc() {
 	imgui.End()
 }
 
-game_render :: proc() {
-	renderer_clear()
-	renderer_begin_frame(s_game.camera, s_game.directional_light)
-	renderer_render_world(s_game.world)
-
-	{
-		io := imgui.GetIO()
-		renderer_2d_submit_text(fmt.tprintf("FPS: %v", io.Framerate), { 5, 5 }, scale = 2)
-	}
-
-	{
-	 	window_size := window_size()
-	 	window_width, window_height := f32(window_size.x), f32(window_size.y)
-		aspect_ratio := window_aspect_ratio()
-
-		crosshair_position := Vec2{ 0.0 - CROSSHAIR_SIZE / 2.0, 0.0 + CROSSHAIR_SIZE / 2.0 }
-		crosshair_position.x /= aspect_ratio
-		crosshair_size := Vec2{ CROSSHAIR_SIZE, CROSSHAIR_SIZE }
-		crosshair_size.x /= aspect_ratio
-		crosshair_color := CROSSHAIR_COLOR
-
-		renderer_2d_submit_textured_quad(Quad {
-			position = crosshair_position,
-			size = crosshair_size,
-			color = crosshair_color,
-		}, .Crosshair)
-	}
-
-	renderer_2d_render()
+game_toggle_debug_ui :: proc() {
+	s_game.debug_ui_enabled = !s_game.debug_ui_enabled
 }
