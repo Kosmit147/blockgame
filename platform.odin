@@ -141,6 +141,10 @@ window_toggle_cursor :: proc() {
 	window_set_cursor_enabled(!s_window.cursor_enabled)
 }
 
+window_is_minimized :: proc() -> bool {
+	return glfw.GetWindowAttrib(s_window.handle, glfw.ICONIFIED) != 0
+}
+
 normalize_screen_position_i :: proc(screen_position: [2]i32) -> Vec2 {
 	screen_position := Vec2{ f32(screen_position.x), f32(screen_position.y) }
 	return normalize_screen_position_f(screen_position)

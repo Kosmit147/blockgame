@@ -99,7 +99,7 @@ main :: proc() {
 		imgui_new_frame()
 
 		game_update(dt)
-		game_render()
+		if !window_is_minimized() do game_render()
 
 		imgui_render()
 
