@@ -7,7 +7,8 @@ import "core:strings"
 
 Shader_Id :: enum {
 	Block,
-	D2,
+	Quad,
+	Textured_Quad,
 }
 
 Texture_Id :: enum {
@@ -15,6 +16,7 @@ Texture_Id :: enum {
 	Black,
 	Transparent,
 	Blocks,
+	Crosshair,
 }
 
 @(private="file")
@@ -172,19 +174,23 @@ when HOT_RELOAD {
 SHADERS_PATH :: "shaders/"
 BLOCK_SHADER_VERTEX_PATH :: "shaders/block.vert"
 BLOCK_SHADER_FRAGMENT_PATH :: "shaders/block.frag"
-D2_SHADER_VERTEX_PATH :: "shaders/2d.vert"
-D2_SHADER_FRAGMENT_PATH :: "shaders/2d.frag"
+QUAD_SHADER_VERTEX_PATH :: "shaders/quad.vert"
+QUAD_SHADER_FRAGMENT_PATH :: "shaders/quad.frag"
+TEXTURED_QUAD_SHADER_VERTEX_PATH :: "shaders/textured_quad.vert"
+TEXTURED_QUAD_SHADER_FRAGMENT_PATH :: "shaders/textured_quad.frag"
 
 TEXTURES_PATH :: "textures/"
 WHITE_TEXTURE_PATH :: "textures/white.aseprite"
 BLACK_TEXTURE_PATH :: "textures/black.aseprite"
 TRANSPARENT_TEXTURE_PATH :: "textures/transparent.aseprite"
 BLOCKS_TEXTURE_PATH :: "textures/blocks.aseprite"
+CROSSHAIR_TEXTURE_PATH :: "textures/crosshair.aseprite"
 
 @(rodata, private="file")
 shader_sources_map := [Shader_Id][2]string{
 	.Block = { #load(BLOCK_SHADER_VERTEX_PATH, string), #load(BLOCK_SHADER_FRAGMENT_PATH, string) },
-	.D2 = { #load(D2_SHADER_VERTEX_PATH, string), #load(D2_SHADER_FRAGMENT_PATH, string) },
+	.Quad = { #load(QUAD_SHADER_VERTEX_PATH, string), #load(QUAD_SHADER_FRAGMENT_PATH, string) },
+	.Textured_Quad = { #load(TEXTURED_QUAD_SHADER_VERTEX_PATH, string), #load(TEXTURED_QUAD_SHADER_FRAGMENT_PATH, string) },
 }
 
 @(rodata, private="file")
@@ -193,13 +199,15 @@ texture_data_map := [Texture_Id][]byte{
 	.Black = #load(BLACK_TEXTURE_PATH),
 	.Transparent = #load(TRANSPARENT_TEXTURE_PATH),
 	.Blocks = #load(BLOCKS_TEXTURE_PATH),
+	.Crosshair = #load(CROSSHAIR_TEXTURE_PATH)
 }
 
 when HOT_RELOAD {
 	@(rodata, private="file")
 	shader_file_paths_map := [Shader_Id][2]string{
 		.Block = { BLOCK_SHADER_VERTEX_PATH, BLOCK_SHADER_FRAGMENT_PATH },
-		.D2 = { D2_SHADER_VERTEX_PATH, D2_SHADER_FRAGMENT_PATH },
+		.Quad = { QUAD_SHADER_VERTEX_PATH, QUAD_SHADER_FRAGMENT_PATH },
+		.Textured_Quad = { TEXTURED_QUAD_SHADER_VERTEX_PATH, TEXTURED_QUAD_SHADER_FRAGMENT_PATH },
 	}
 
 	@(rodata, private="file")
@@ -208,5 +216,6 @@ when HOT_RELOAD {
 		.Black = BLACK_TEXTURE_PATH,
 		.Transparent = TRANSPARENT_TEXTURE_PATH,
 		.Blocks = BLOCKS_TEXTURE_PATH,
+		.Crosshair = CROSSHAIR_TEXTURE_PATH,
 	}
 }

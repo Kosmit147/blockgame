@@ -23,6 +23,9 @@ DEFAULT_DIRECTIONAL_LIGHT :: Directional_Light {
 	direction = Vec3{ -0.5774, -0.5774, -0.5774 },
 }
 
+CROSSHAIR_SIZE :: 0.03
+CROSSHAIR_COLOR :: BLACK
+
 Game :: struct {
 	camera: Camera,
 	world: World,
@@ -145,6 +148,24 @@ game_render :: proc() {
 	{
 		io := imgui.GetIO()
 		renderer_2d_submit_text(fmt.tprintf("FPS: %v", io.Framerate), { 5, 5 }, scale = 2)
+	}
+
+	{
+	 	window_size := window_size()
+	 	window_width, window_height := f32(window_size.x), f32(window_size.y)
+		aspect_ratio := window_aspect_ratio()
+
+		crosshair_position := Vec2{ 0.0 - CROSSHAIR_SIZE / 2.0, 0.0 + CROSSHAIR_SIZE / 2.0 }
+		crosshair_position.x /= aspect_ratio
+		crosshair_size := Vec2{ CROSSHAIR_SIZE, CROSSHAIR_SIZE }
+		crosshair_size.x /= aspect_ratio
+		crosshair_color := CROSSHAIR_COLOR
+
+		renderer_2d_submit_textured_quad(Quad {
+			position = crosshair_position,
+			size = crosshair_size,
+			color = crosshair_color,
+		}, .Crosshair)
 	}
 
 	renderer_2d_render()
