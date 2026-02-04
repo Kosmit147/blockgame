@@ -18,6 +18,7 @@ Window :: struct {
 	size: [2]i32,
 	framebuffer_size: [2]i32,
 	cursor_enabled: bool,
+	v_sync_mode: V_Sync_Mode,
 }
 
 @(private="file")
@@ -48,6 +49,8 @@ window_init :: proc(width, height: i32, title: cstring) -> (ok := false) {
 	input_update_cursor_pos()
 
 	glfw.MakeContextCurrent(s_window.handle)
+	window_platform_init()
+	window_set_vsync_mode(.Enabled)
 
 	window_init_event_queue()
 	glfw.SetWindowSizeCallback(s_window.handle, glfw_window_size_callback)
@@ -85,6 +88,21 @@ window_poll_events :: proc() {
 
 window_swap_buffers :: proc() {
 	glfw.SwapBuffers(s_window.handle)
+}
+
+V_Sync_Mode :: enum {
+	Adaptive = -1,
+	Disabled = 0,
+	Enabled = 1,
+}
+
+window_set_vsync_mode :: proc(mode: V_Sync_Mode) {
+	window_platform_set_vsync_mode(mode)
+	s_window.v_sync_mode = mode
+}
+
+window_vsync_mode :: proc() -> V_Sync_Mode {
+	return s_window.v_sync_mode
 }
 
 window_time :: proc() -> f64 {
@@ -127,14 +145,14 @@ window_handle :: proc() -> glfw.WindowHandle {
 	return s_window.handle
 }
 
-window_cursor_enabled :: proc() -> bool {
-	return s_window.cursor_enabled
-}
-
 window_set_cursor_enabled :: proc(cursor_enabled: bool) {
 	glfw.SetInputMode(s_window.handle, glfw.CURSOR, glfw.CURSOR_NORMAL if cursor_enabled else glfw.CURSOR_DISABLED)
 	s_window.cursor_enabled = cursor_enabled
 	input_update_cursor_pos()
+}
+
+window_cursor_enabled :: proc() -> bool {
+	return s_window.cursor_enabled
 }
 
 window_toggle_cursor :: proc() {

@@ -31,6 +31,8 @@ Game :: struct {
 
 	sky_color: Vec3,
 	directional_light: Directional_Light,
+
+	v_sync_mode: V_Sync_Mode,
 }
 
 @(private="file")
@@ -51,6 +53,8 @@ game_init :: proc() -> bool {
 	renderer_set_clear_color(Vec4{ s_game.sky_color.r, s_game.sky_color.g, s_game.sky_color.b, 1 })
 	s_game.directional_light = DEFAULT_DIRECTIONAL_LIGHT
 	s_game.directional_light.direction = linalg.normalize(s_game.directional_light.direction)
+
+	s_game.v_sync_mode = window_vsync_mode()
 
 	return true
 }
@@ -126,6 +130,10 @@ game_ui :: proc() {
 		}
 		imgui.EndTabBar()
 	}
+	imgui.End()
+
+	imgui.Begin("Window")
+	if imgui_select_enum("Vertical Sync", &s_game.v_sync_mode) do window_set_vsync_mode(s_game.v_sync_mode)
 	imgui.End()
 }
 

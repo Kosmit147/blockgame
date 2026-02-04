@@ -2,7 +2,10 @@ package blockgame
 
 import "vendor/imgui"
 
+import "base:intrinsics"
+
 import "core:c"
+import "core:fmt"
 
 imgui_drag_double :: proc(label: cstring,
 			  v: ^c.double,
@@ -20,4 +23,20 @@ imgui_drag_double :: proc(label: cstring,
 				p_max = &v_max,
 				format = format,
 				flags = flags)
+}
+
+imgui_select_enum :: proc(label: cstring, value: ^$E) -> bool where intrinsics.type_is_enum(E) {
+	value_changed := false
+	if imgui.BeginCombo(label, fmt.ctprintf("%v", value^)) {
+		for enum_value in E {
+			is_selected := enum_value == value^
+			if imgui.Selectable(fmt.ctprintf("%v", enum_value), is_selected) {
+				value^ = enum_value
+				value_changed = true
+			}
+			if is_selected do imgui.SetItemDefaultFocus()
+		}
+		imgui.EndCombo()
+	}
+	return value_changed
 }
