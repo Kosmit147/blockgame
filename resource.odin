@@ -126,22 +126,24 @@ when HOT_RELOAD {
 
 	@(private="file")
 	mark_shader_as_dirty :: proc(file_path: string) {
-		switch file_path {
-		case BLOCK_SHADER_VERTEX_PATH, BLOCK_SHADER_FRAGMENT_PATH: s_dirty_shaders += { .Block }
-		case D2_SHADER_VERTEX_PATH, D2_SHADER_FRAGMENT_PATH:       s_dirty_shaders += { .D2 }
-		case: log.warnf("Hot reload - unrecognized shader resource: %v", file_path)
+		for path, shader_id in shader_file_paths_map {
+			if path == file_path {
+				s_dirty_shaders += { shader_id }
+				return
+			}
 		}
+		log.warnf("Hot reload - unrecognized shader resource: %v", file_path)
 	}
 
 	@(private="file")
 	mark_texture_as_dirty :: proc(file_path: string) {
-		switch file_path {
-		case WHITE_TEXTURE_PATH:       s_dirty_textures += { .White }
-		case BLACK_TEXTURE_PATH:       s_dirty_textures += { .Black }
-		case TRANSPARENT_TEXTURE_PATH: s_dirty_textures += { .Transparent }
-		case BLOCKS_TEXTURE_PATH:      s_dirty_textures += { .Blocks }
-		case: log.warnf("Hot reload - unrecognized texture resource: %v", file_path)
+		for path, texture_id in texture_file_paths_map {
+			if path == file_path {
+				s_dirty_textures += { texture_id }
+				return
+			}
 		}
+		log.warnf("Hot reload - unrecognized texture resource: %v", file_path)
 	}
 
 	@(private="file")
