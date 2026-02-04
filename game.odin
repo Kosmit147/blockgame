@@ -7,7 +7,7 @@ import "core:math"
 import "core:math/linalg"
 import "core:log"
 
-MOUSE_SENSITIVITY :: 0.12
+MOUSE_SENSITIVITY :: 1
 BASE_MOVEMENT_SPEED :: 5
 SPRINT_MOVEMENT_SPEED :: 15
 
@@ -75,15 +75,13 @@ game_update :: proc(dt: f32) {
 	cursor_pos_delta := input_cursor_pos_delta()
 
 	if !window_cursor_enabled() {
-		s_game.camera.yaw += cursor_pos_delta.x * MOUSE_SENSITIVITY * dt
-		s_game.camera.pitch += -cursor_pos_delta.y * MOUSE_SENSITIVITY * dt
+		s_game.camera.yaw += cursor_pos_delta.x * MOUSE_SENSITIVITY * 0.001
+		s_game.camera.pitch += -cursor_pos_delta.y * MOUSE_SENSITIVITY * 0.001
 		s_game.camera.pitch = clamp(s_game.camera.pitch, math.to_radians(f32(-89)), math.to_radians(f32(89)))
 	}
 
 	camera_vectors := camera_vectors(s_game.camera)
-	movement_speed := f32(BASE_MOVEMENT_SPEED)
-
-	if input_key_pressed(.Left_Shift) do movement_speed = SPRINT_MOVEMENT_SPEED
+	movement_speed := f32(SPRINT_MOVEMENT_SPEED) if input_key_pressed(.Left_Shift) else BASE_MOVEMENT_SPEED
 
 	if input_key_pressed(.W) do s_game.camera.position += camera_vectors.forward * movement_speed * dt
 	if input_key_pressed(.S) do s_game.camera.position -= camera_vectors.forward * movement_speed * dt

@@ -530,7 +530,7 @@ glfw_key_callback :: proc "c" (window_handle: glfw.WindowHandle, key, scancode, 
 	if action == glfw.PRESS {
 		s_input.pressed_keys += { key }
 		window_push_event(Key_Pressed_Event{ key })
-	} else if action == glfw.RELEASE { 
+	} else if action == glfw.RELEASE {
 		s_input.pressed_keys -= { key }
 	}
 }
@@ -550,7 +550,7 @@ Mouse_Button_Pressed_Event :: struct {
 glfw_mouse_button_callback :: proc "c" (window_handle: glfw.WindowHandle, button, action, mods: i32) {
 	context = g_context
 	button := map_glfw_mouse_button(button)
-	if action == glfw.PRESS { 
+	if action == glfw.PRESS {
 		s_input.pressed_mouse_buttons += { button }
 		window_push_event(Mouse_Button_Pressed_Event{ button })
 	} else if action == glfw.RELEASE {
