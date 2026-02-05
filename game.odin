@@ -79,16 +79,13 @@ game_deinit :: proc() {
 }
 
 game_on_event :: proc(event: Event) {
-	switch event in event {
+	#partial switch event in event {
 	case Key_Pressed_Event:
-		log.debugf("%v key pressed.", event.key)
 		#partial switch event.key {
-		case QUIT_GAME_KEY:     window_close()
-		case TOGGLE_CURSOR_KEY: window_toggle_cursor()
-		case DEBUG_UI_KEY:      game_toggle_debug_ui()
+		case QUIT_GAME_KEY:      window_close()
+		case TOGGLE_CURSOR_KEY:  window_toggle_cursor()
+		case DEBUG_UI_KEY:       game_toggle_debug_ui()
 		}
-	case Mouse_Button_Pressed_Event:
-		log.debugf("%v mouse button pressed.", event.button)
 	}
 }
 
