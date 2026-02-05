@@ -7,6 +7,7 @@ import "core:strings"
 
 Shader_Id :: enum {
 	Block,
+	Flat,
 	Quad,
 	Textured_Quad,
 }
@@ -174,6 +175,8 @@ when HOT_RELOAD {
 SHADERS_PATH :: "shaders/"
 BLOCK_SHADER_VERTEX_PATH :: "shaders/block.vert"
 BLOCK_SHADER_FRAGMENT_PATH :: "shaders/block.frag"
+FLAT_SHADER_VERTEX_PATH :: "shaders/flat.vert"
+FLAT_SHADER_FRAGMENT_PATH :: "shaders/flat.frag"
 QUAD_SHADER_VERTEX_PATH :: "shaders/quad.vert"
 QUAD_SHADER_FRAGMENT_PATH :: "shaders/quad.frag"
 TEXTURED_QUAD_SHADER_VERTEX_PATH :: "shaders/textured_quad.vert"
@@ -189,6 +192,7 @@ CROSSHAIR_TEXTURE_PATH :: "textures/crosshair.aseprite"
 @(rodata, private="file")
 shader_sources_map := [Shader_Id][2]string{
 	.Block = { #load(BLOCK_SHADER_VERTEX_PATH, string), #load(BLOCK_SHADER_FRAGMENT_PATH, string) },
+	.Flat = { #load(FLAT_SHADER_VERTEX_PATH, string), #load(FLAT_SHADER_FRAGMENT_PATH, string) },
 	.Quad = { #load(QUAD_SHADER_VERTEX_PATH, string), #load(QUAD_SHADER_FRAGMENT_PATH, string) },
 	.Textured_Quad = { #load(TEXTURED_QUAD_SHADER_VERTEX_PATH, string), #load(TEXTURED_QUAD_SHADER_FRAGMENT_PATH, string) },
 }
@@ -206,6 +210,7 @@ when HOT_RELOAD {
 	@(rodata, private="file")
 	shader_file_paths_map := [Shader_Id][2]string{
 		.Block = { BLOCK_SHADER_VERTEX_PATH, BLOCK_SHADER_FRAGMENT_PATH },
+		.Flat = { FLAT_SHADER_VERTEX_PATH, FLAT_SHADER_FRAGMENT_PATH },
 		.Quad = { QUAD_SHADER_VERTEX_PATH, QUAD_SHADER_FRAGMENT_PATH },
 		.Textured_Quad = { TEXTURED_QUAD_SHADER_VERTEX_PATH, TEXTURED_QUAD_SHADER_FRAGMENT_PATH },
 	}

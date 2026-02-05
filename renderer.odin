@@ -13,6 +13,10 @@ NvOptimusEnablement: u32 = 1
 @(export, rodata)
 AmdPowerXpressRequestHighPerformance: u32 = 1
 
+Flat_Vertex :: struct {
+	position: Vec3,
+}
+
 Standard_Vertex :: struct {
 	position: Vec3,
 	normal: Vec3,
@@ -25,8 +29,12 @@ LIGHT_DATA_UNIFORM_BUFFER_BINDING_POINT :: 1
 Renderer :: struct {
 	view_projection_uniform_buffer: Gl_Buffer,
 	light_data_uniform_buffer: Gl_Buffer,
-	model_uniform: Uniform(Mat4),
-	cube_mesh: Mesh,
+
+	block_shader_model_uniform: Uniform(Mat4),
+	flat_shader_model_uniform: Uniform(Mat4),
+	flat_shader_color_uniform: Uniform(Vec4),
+
+	flat_cube_mesh: Mesh,
 }
 
 @(private="file")
@@ -48,25 +56,28 @@ renderer_init :: proc() -> (ok := false) {
 
 	renderer_get_uniforms()
 
-	create_mesh(&s_renderer.cube_mesh,
-		    vertices = slice.to_bytes(cube_vertices[:]),
-		    vertex_stride = size_of(Cube_Mesh_Vertex),
-		    vertex_format = gl_vertex(Cube_Mesh_Vertex),
-		    indices = slice.to_bytes(cube_indices[:]),
-		    index_type = gl_index(Cube_Mesh_Index))
+	create_mesh(&s_renderer.flat_cube_mesh,
+		    vertices = slice.to_bytes(flat_cube_vertices[:]),
+		    vertex_stride = size_of(Flat_Cube_Mesh_Vertex),
+		    vertex_format = gl_vertex(Flat_Cube_Mesh_Vertex),
+		    indices = slice.to_bytes(flat_cube_indices[:]),
+		    index_type = gl_index(Flat_Cube_Mesh_Index))
 
 	return true
 }
 
 renderer_deinit :: proc() {
-	destroy_mesh(&s_renderer.cube_mesh)
+	destroy_mesh(&s_renderer.flat_cube_mesh)
 	destroy_gl_buffer(&s_renderer.view_projection_uniform_buffer)
 	destroy_gl_buffer(&s_renderer.light_data_uniform_buffer)
 }
 
 renderer_get_uniforms :: proc() {
-	shader := get_shader(.Block)
-	s_renderer.model_uniform = get_uniform(shader, "model", Mat4)
+	block_shader := get_shader(.Block)
+	s_renderer.block_shader_model_uniform = get_uniform(block_shader, "model", Mat4)
+	flat_shader := get_shader(.Flat)
+	s_renderer.flat_shader_model_uniform = get_uniform(flat_shader, "model", Mat4)
+	s_renderer.flat_shader_color_uniform = get_uniform(flat_shader, "color", Vec4)
 }
 
 renderer_set_clear_color :: proc(color: Vec4) {
@@ -113,7 +124,7 @@ renderer_render_chunk :: proc(chunk: Chunk) {
 						0,
 						f32(chunk.coordinate.z * CHUNK_SIZE.z) })
 
-	set_uniform(s_renderer.model_uniform, model)
+	set_uniform(s_renderer.block_shader_model_uniform, model)
 	renderer_render_mesh(chunk.mesh)
 }
 
@@ -123,27 +134,19 @@ renderer_render_world :: proc(world: World) {
 	for _, &chunk in world.chunk_map do renderer_render_chunk(chunk)
 }
 
-// TODO: Do block highlight properly.
 renderer_render_block_highlight :: proc(coordinate: Block_World_Coordinate) {
+	HIGHLIGHT_COLOR :: WHITE
+
 	gl.Disable(gl.DEPTH_TEST)
 	defer gl.Enable(gl.DEPTH_TEST)
 	gl.PolygonMode(gl.FRONT_AND_BACK, gl.LINE)
 	defer gl.PolygonMode(gl.FRONT_AND_BACK, gl.FILL)
 
-	// TODO: Remove this lighting hack; use a flat color shader.
-	light_data_uniform_buffer_data := Light_Data_Uniform_Buffer_Data {
-		light_ambient = WHITE.rgb,
-		light_color = WHITE.rgb,
-		light_direction = WORLD_DOWN,
-	}
-	upload_static_gl_buffer_data(s_renderer.light_data_uniform_buffer,
-				     mem.any_to_bytes(light_data_uniform_buffer_data))
-
-	use_shader(.Block)
-	bind_texture(.White, 0)
+	use_shader(.Flat)
 	model := linalg.matrix4_translate(linalg.array_cast(coordinate, f32))
-	set_uniform(s_renderer.model_uniform, model)
-	renderer_render_mesh(s_renderer.cube_mesh)
+	set_uniform(s_renderer.flat_shader_model_uniform, model)
+	set_uniform(s_renderer.flat_shader_color_uniform, HIGHLIGHT_COLOR)
+	renderer_render_mesh(s_renderer.flat_cube_mesh)
 }
 
 View_Projection_Uniform_Buffer_Data :: struct {
@@ -203,6 +206,69 @@ cube_vertices := [24]Cube_Mesh_Vertex{
 
 @(private="file", rodata)
 cube_indices := [36]Cube_Mesh_Index{
+	// Front wall.
+	0, 1, 2, 0, 2, 3,
+
+	// Back wall.
+	4, 5, 6, 4, 6, 7,
+
+	// Left wall.
+	8, 9, 10, 8, 10, 11,
+
+	// Right wall.
+	12, 13, 14, 12, 14, 15,
+
+	// Bottom wall.
+	16, 17, 18, 16, 18, 19,
+
+	// Top wall.
+	20, 21, 22, 20, 22, 23,
+}
+
+Flat_Cube_Mesh_Vertex :: Flat_Vertex
+Flat_Cube_Mesh_Index  :: u8
+
+@(private="file", rodata)
+flat_cube_vertices := [24]Flat_Cube_Mesh_Vertex{
+	// Front wall.
+	{ position = { 0, 0, 1 } },
+	{ position = { 1, 0, 1 } },
+	{ position = { 1, 1, 1 } },
+	{ position = { 0, 1, 1 } },
+
+	// Back wall.
+	{ position = { 0, 0, 0 } },
+	{ position = { 0, 1, 0 } },
+	{ position = { 1, 1, 0 } },
+	{ position = { 1, 0, 0 } },
+
+	// Left wall.
+	{ position = { 0, 1, 1 } },
+	{ position = { 0, 1, 0 } },
+	{ position = { 0, 0, 0 } },
+	{ position = { 0, 0, 1 } },
+
+	// Right wall.
+	{ position = { 1, 1, 1 } },
+	{ position = { 1, 0, 1 } },
+	{ position = { 1, 0, 0 } },
+	{ position = { 1, 1, 0 } },
+
+	// Bottom wall.
+	{ position = { 0, 0, 0 } },
+	{ position = { 1, 0, 0 } },
+	{ position = { 1, 0, 1 } },
+	{ position = { 0, 0, 1 } },
+
+	// Top wall.
+	{ position = { 0, 1, 0 } },
+	{ position = { 0, 1, 1 } },
+	{ position = { 1, 1, 1 } },
+	{ position = { 1, 1, 0 } },
+}
+
+@(private="file", rodata)
+flat_cube_indices := [36]Flat_Cube_Mesh_Index{
 	// Front wall.
 	0, 1, 2, 0, 2, 3,
 
