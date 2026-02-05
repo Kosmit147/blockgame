@@ -5,6 +5,7 @@ import gl "vendor:OpenGL"
 import "core:math/linalg"
 import "core:math"
 import "core:mem"
+import "core:slice"
 
 // These symbols tell GPU drivers to use the dedicated graphics card.
 @(export, rodata)
@@ -25,6 +26,7 @@ Renderer :: struct {
 	view_projection_uniform_buffer: Gl_Buffer,
 	light_data_uniform_buffer: Gl_Buffer,
 	model_uniform: Uniform(Mat4),
+	cube_mesh: Mesh,
 }
 
 @(private="file")
@@ -46,10 +48,18 @@ renderer_init :: proc() -> (ok := false) {
 
 	renderer_get_uniforms()
 
+	create_mesh(&s_renderer.cube_mesh,
+		    vertices = slice.to_bytes(cube_vertices[:]),
+		    vertex_stride = size_of(Cube_Mesh_Vertex),
+		    vertex_format = gl_vertex(Cube_Mesh_Vertex),
+		    indices = slice.to_bytes(cube_indices[:]),
+		    index_type = gl_index(Cube_Mesh_Index))
+
 	return true
 }
 
 renderer_deinit :: proc() {
+	destroy_mesh(&s_renderer.cube_mesh)
 	destroy_gl_buffer(&s_renderer.view_projection_uniform_buffer)
 	destroy_gl_buffer(&s_renderer.light_data_uniform_buffer)
 }
@@ -113,6 +123,29 @@ renderer_render_world :: proc(world: World) {
 	for _, &chunk in world.chunk_map do renderer_render_chunk(chunk)
 }
 
+// TODO: Do block highlight properly.
+renderer_render_block_highlight :: proc(coordinate: Block_World_Coordinate) {
+	gl.Disable(gl.DEPTH_TEST)
+	defer gl.Enable(gl.DEPTH_TEST)
+	gl.PolygonMode(gl.FRONT_AND_BACK, gl.LINE)
+	defer gl.PolygonMode(gl.FRONT_AND_BACK, gl.FILL)
+
+	// TODO: Remove this lighting hack; use a flat color shader.
+	light_data_uniform_buffer_data := Light_Data_Uniform_Buffer_Data {
+		light_ambient = WHITE.rgb,
+		light_color = WHITE.rgb,
+		light_direction = WORLD_DOWN,
+	}
+	upload_static_gl_buffer_data(s_renderer.light_data_uniform_buffer,
+				     mem.any_to_bytes(light_data_uniform_buffer_data))
+
+	use_shader(.Block)
+	bind_texture(.White, 0)
+	model := linalg.matrix4_translate(linalg.array_cast(coordinate, f32))
+	set_uniform(s_renderer.model_uniform, model)
+	renderer_render_mesh(s_renderer.cube_mesh)
+}
+
 View_Projection_Uniform_Buffer_Data :: struct {
 	view: Mat4,
 	projection: Mat4,
@@ -124,4 +157,67 @@ Light_Data_Uniform_Buffer_Data :: struct {
 	light_color: Vec3,
 	_: [4]byte,
 	light_direction: Vec3,
+}
+
+Cube_Mesh_Vertex :: Standard_Vertex
+Cube_Mesh_Index  :: u8
+
+@(private="file", rodata)
+cube_vertices := [24]Cube_Mesh_Vertex{
+	// Front wall.
+	{ position = { 0, 0, 1 }, normal = {  0,  0,  1 }, uv = { 0, 1 } },
+	{ position = { 1, 0, 1 }, normal = {  0,  0,  1 }, uv = { 1, 1 } },
+	{ position = { 1, 1, 1 }, normal = {  0,  0,  1 }, uv = { 1, 0 } },
+	{ position = { 0, 1, 1 }, normal = {  0,  0,  1 }, uv = { 0, 0 } },
+
+	// Back wall.
+	{ position = { 0, 0, 0 }, normal = {  0,  0, -1 }, uv = { 0, 1 } },
+	{ position = { 0, 1, 0 }, normal = {  0,  0, -1 }, uv = { 0, 0 } },
+	{ position = { 1, 1, 0 }, normal = {  0,  0, -1 }, uv = { 1, 0 } },
+	{ position = { 1, 0, 0 }, normal = {  0,  0, -1 }, uv = { 1, 1 } },
+
+	// Left wall.
+	{ position = { 0, 1, 1 }, normal = { -1,  0,  0 }, uv = { 1, 0 } },
+	{ position = { 0, 1, 0 }, normal = { -1,  0,  0 }, uv = { 0, 0 } },
+	{ position = { 0, 0, 0 }, normal = { -1,  0,  0 }, uv = { 0, 1 } },
+	{ position = { 0, 0, 1 }, normal = { -1,  0,  0 }, uv = { 1, 1 } },
+
+	// Right wall.
+	{ position = { 1, 1, 1 }, normal = {  1,  0,  0 }, uv = { 0, 0 } },
+	{ position = { 1, 0, 1 }, normal = {  1,  0,  0 }, uv = { 0, 1 } },
+	{ position = { 1, 0, 0 }, normal = {  1,  0,  0 }, uv = { 1, 1 } },
+	{ position = { 1, 1, 0 }, normal = {  1,  0,  0 }, uv = { 1, 0 } },
+
+	// Bottom wall.
+	{ position = { 0, 0, 0 }, normal = {  0, -1,  0 }, uv = { 0, 0 } },
+	{ position = { 1, 0, 0 }, normal = {  0, -1,  0 }, uv = { 1, 0 } },
+	{ position = { 1, 0, 1 }, normal = {  0, -1,  0 }, uv = { 1, 1 } },
+	{ position = { 0, 0, 1 }, normal = {  0, -1,  0 }, uv = { 0, 1 } },
+
+	// Top wall.
+	{ position = { 0, 1, 0 }, normal = {  0,  1,  0 }, uv = { 0, 0 } },
+	{ position = { 0, 1, 1 }, normal = {  0,  1,  0 }, uv = { 0, 1 } },
+	{ position = { 1, 1, 1 }, normal = {  0,  1,  0 }, uv = { 1, 1 } },
+	{ position = { 1, 1, 0 }, normal = {  0,  1,  0 }, uv = { 1, 0 } },
+}
+
+@(private="file", rodata)
+cube_indices := [36]Cube_Mesh_Index{
+	// Front wall.
+	0, 1, 2, 0, 2, 3,
+
+	// Back wall.
+	4, 5, 6, 4, 6, 7,
+
+	// Left wall.
+	8, 9, 10, 8, 10, 11,
+
+	// Right wall.
+	12, 13, 14, 12, 14, 15,
+
+	// Bottom wall.
+	16, 17, 18, 16, 18, 19,
+
+	// Top wall.
+	20, 21, 22, 20, 22, 23,
 }

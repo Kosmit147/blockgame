@@ -10,6 +10,7 @@ import "core:log"
 MOUSE_SENSITIVITY     :: 1
 BASE_MOVEMENT_SPEED   :: 5
 SPRINT_MOVEMENT_SPEED :: 15
+PLAYER_REACH          :: 7
 
 // Currently, setting the world size to a big value makes the game unplayable, so limit it to 20 for now.
 DEFAULT_WORLD_SIZE :: 6
@@ -37,6 +38,8 @@ Game :: struct {
 	world_size: i32,
 	world_generator_params: World_Generator_Params,
 
+	selected_block_coordinate: Maybe(Block_World_Coordinate),
+
 	sky_color: Vec3,
 	directional_light: Directional_Light,
 
@@ -49,7 +52,7 @@ s_game: Game
 
 game_init :: proc() -> bool {
 	s_game.camera = Camera {
-		position = { 0, f32(CHUNK_SIZE.y) + 5, 0 },
+		position = { 0, f32(CHUNK_SIZE.y) - 20, 0 },
 		yaw = math.to_radians(f32(-90)),
 		pitch = math.to_radians(f32(0)),
 	}
@@ -57,6 +60,8 @@ game_init :: proc() -> bool {
 	s_game.world_generator_params = default_world_generator_params()
 	set_world_generator_params(s_game.world_generator_params)
 	world_init(&s_game.world, s_game.world_size)
+
+	s_game.selected_block_coordinate = nil
 
 	s_game.sky_color = DEFAULT_SKY_COLOR
 	renderer_set_clear_color(Vec4{ s_game.sky_color.r, s_game.sky_color.g, s_game.sky_color.b, 1 })
@@ -105,6 +110,11 @@ game_update :: proc(dt: f32) {
 	if input_key_pressed(.A) do s_game.camera.position -= camera_vectors.right   * movement_speed * dt
 	if input_key_pressed(.D) do s_game.camera.position += camera_vectors.right   * movement_speed * dt
 
+	ray := Ray { origin = s_game.camera.position, direction = camera_vectors.forward }
+	_, block_coordinate, block_hit := world_raycast(s_game.world, ray, PLAYER_REACH)
+	if block_hit do s_game.selected_block_coordinate = block_coordinate
+	else do s_game.selected_block_coordinate = nil
+
 	game_debug_ui()
 }
 
@@ -112,6 +122,9 @@ game_render :: proc() {
 	renderer_clear()
 	renderer_begin_frame(s_game.camera, s_game.directional_light)
 	renderer_render_world(s_game.world)
+
+	selected_block_coordinate, selected := s_game.selected_block_coordinate.?
+	if selected do renderer_render_block_highlight(selected_block_coordinate)
 
 	{
 		io := imgui.GetIO()
@@ -180,6 +193,10 @@ game_debug_ui :: proc() {
 
 	imgui.Begin("Window")
 	if imgui_select_enum("Vertical Sync", &s_game.v_sync_mode) do window_set_vsync_mode(s_game.v_sync_mode)
+	imgui.End()
+
+	imgui.Begin("Player")
+	imgui.Text(fmt.ctprintf("Position: %v", s_game.camera.position))
 	imgui.End()
 }
 

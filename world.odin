@@ -2,13 +2,16 @@ package blockgame
 
 import "base:runtime"
 
+import "core:math/bits"
 import "core:math/noise"
+import "core:math/linalg"
 import "core:slice"
 import "core:thread"
 import "core:os"
 
-WORLD_ORIGIN :: Vec3{ 0, 0, 0 }
-WORLD_UP :: Vec3{ 0, 1, 0 }
+WORLD_ORIGIN :: Vec3{  0,  0,  0 }
+WORLD_UP     :: Vec3{  0,  1,  0 }
+WORLD_DOWN   :: Vec3{  0, -1,  0 }
 
 World_Generator_Params :: struct {
 	smoothness: f64,
@@ -112,6 +115,66 @@ world_regenerate :: proc(world: ^World, world_size: i32) {
 	world_init(world, world_size)
 }
 
+world_raycast :: proc(world: World, ray: Ray, max_distance: f32) -> (block: ^Block,
+								     block_coordinate: Block_World_Coordinate,
+								     hit := false) {
+	grid_traversal_direction := [3]i32{ 1 if ray.direction.x >= 0 else -1,
+					    1 if ray.direction.y >= 0 else -1,
+					    1 if ray.direction.z >= 0 else -1 }
+
+	grid_boundary_increment := [3]i32{ 1 if ray.direction.x >= 0 else 0,
+					   1 if ray.direction.y >= 0 else 0,
+					   1 if ray.direction.z >= 0 else 0 }
+
+	origin_block := linalg.array_cast(linalg.floor(ray.origin), i32)
+	current_block := [3]i32{ 0, 0, 0 }
+	delta_fractional := linalg.fract(ray.origin)
+
+	for {
+		delta := linalg.array_cast(current_block + grid_boundary_increment, f32) - delta_fractional
+		t := delta / ray.direction
+		when ODIN_DEBUG { assert(t.x >= 0 && t.y >= 0 && t.z >= 0) }
+
+		min_t: f32
+		if (t.x <= t.y && t.x <= t.z) {
+			current_block.x += grid_traversal_direction.x
+			min_t = t.x
+		} else if (t.y <= t.x && t.y <= t.z) {
+			current_block.y += grid_traversal_direction.y
+			min_t = t.y
+		} else if (t.z <= t.x && t.z <= t.y) {
+			current_block.z += grid_traversal_direction.z
+			min_t = t.z
+		}
+
+		if linalg.length(ray.direction * min_t) > max_distance do return
+
+		block_coordinate = Block_World_Coordinate(origin_block + current_block)
+		block_ok: bool
+		block, block_ok = world_get_block(world, block_coordinate)
+
+		if block_ok && block^ != .Air {
+			hit = true
+			return
+		}
+	}
+}
+
+world_get_block :: proc(world: World, coordinate: Block_World_Coordinate) -> (^Block, bool) {
+	when ODIN_DEBUG { assert(bits.is_power_of_two(CHUNK_SIZE.x)) }
+	when ODIN_DEBUG { assert(bits.is_power_of_two(CHUNK_SIZE.z)) }
+
+	chunk_coordinate := Chunk_Coordinate {
+		x = (coordinate.x & ~(CHUNK_SIZE.x - 1)) / CHUNK_SIZE.x,
+		z = (coordinate.z & ~(CHUNK_SIZE.z - 1)) / CHUNK_SIZE.z,
+	}
+
+	chunk, chunk_ok := world.chunk_map[chunk_coordinate]
+	if !chunk_ok do return nil, false
+
+	return get_chunk_block_safe(chunk.blocks, to_chunk_coordinate(coordinate))
+}
+
 Block :: enum u8 {
 	Air = 0,
 	Stone,
@@ -178,6 +241,14 @@ get_height_at_world_coordinate :: proc(coordinate: [2]i32) -> i32 {
 
 get_chunk_block :: proc(blocks: ^Chunk_Blocks, coordinate: Block_Chunk_Coordinate) -> ^Block {
 	return &blocks[coordinate.y][coordinate.x][coordinate.z]
+}
+
+get_chunk_block_safe :: proc(blocks: ^Chunk_Blocks, coordinate: Block_Chunk_Coordinate) -> (^Block, bool) {
+	x_in_bounds := coordinate.x >= 0 && coordinate.x < CHUNK_SIZE.x
+	y_in_bounds := coordinate.y >= 0 && coordinate.y < CHUNK_SIZE.y
+	z_in_bounds := coordinate.z >= 0 && coordinate.z < CHUNK_SIZE.z
+	if !x_in_bounds || !y_in_bounds || !z_in_bounds do return nil, false
+	return get_chunk_block(blocks, coordinate), true
 }
 
 to_chunk_coordinate :: proc(block_coordinate: Block_World_Coordinate) -> Block_Chunk_Coordinate {
@@ -260,9 +331,7 @@ generate_chunk_mesh :: proc(blocks: ^Chunk_Blocks, allocator: runtime.Allocator)
 	for block, block_coordinate in iterate_chunk(&chunk_iterator) {
 		if block^ == .Air do continue
 		for face, face_index in block_faces {
-			vertex_position_offset := Vec3{ f32(block_coordinate.x),
-							f32(block_coordinate.y),
-							f32(block_coordinate.z) }
+			vertex_position_offset := linalg.array_cast(block_coordinate, f32)
 			vertices := face.vertices
 			for &vertex in vertices {
 				vertex.position += vertex_position_offset
