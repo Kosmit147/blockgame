@@ -131,7 +131,9 @@ world_raycast :: proc(world: World, ray: Ray, max_distance: f32) -> (block: ^Blo
 	delta_fractional := linalg.fract(ray.origin)
 
 	for {
+		// delta is the distance from the origin to the next grid boundary.
 		delta := linalg.array_cast(current_block + grid_boundary_increment, f32) - delta_fractional
+		// t is the length that we have to travel along the ray to reach the next grid boundary.
 		t := delta / ray.direction
 		when ODIN_DEBUG { assert(t.x >= 0 && t.y >= 0 && t.z >= 0) }
 
