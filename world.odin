@@ -147,7 +147,7 @@ world_raycast :: proc(world: World, ray: Ray, max_distance: f32) -> (block: ^Blo
 			min_t = t.z
 		}
 
-		if linalg.length(ray.direction * min_t) > max_distance do return
+		if min_t > max_distance do return
 
 		block_coordinate = Block_World_Coordinate(origin_block + current_block)
 		block_ok: bool
