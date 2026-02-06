@@ -109,6 +109,7 @@ world_regenerate :: proc(world: ^World, world_size: i32) {
 
 world_raycast :: proc(world: World, ray: Ray, max_distance: f32) -> (block: ^Block,
 								     block_coordinate: Block_World_Coordinate,
+								     place_block_offset: [3]i32,
 								     hit := false) {
 	grid_traversal_direction := [3]i32{ 1 if ray.direction.x >= 0 else -1,
 					    1 if ray.direction.y >= 0 else -1,
@@ -132,12 +133,15 @@ world_raycast :: proc(world: World, ray: Ray, max_distance: f32) -> (block: ^Blo
 		min_t: f32
 		if (t.x <= t.y && t.x <= t.z) {
 			current_block.x += grid_traversal_direction.x
+			place_block_offset = { -grid_traversal_direction.x, 0, 0 }
 			min_t = t.x
 		} else if (t.y <= t.x && t.y <= t.z) {
 			current_block.y += grid_traversal_direction.y
+			place_block_offset = { 0, -grid_traversal_direction.y, 0 }
 			min_t = t.y
 		} else if (t.z <= t.x && t.z <= t.y) {
 			current_block.z += grid_traversal_direction.z
+			place_block_offset = { 0, 0, -grid_traversal_direction.z }
 			min_t = t.z
 		}
 
@@ -154,19 +158,52 @@ world_raycast :: proc(world: World, ray: Ray, max_distance: f32) -> (block: ^Blo
 	}
 }
 
-world_get_block :: proc(world: World, coordinate: Block_World_Coordinate) -> (^Block, bool) {
+world_get_block :: proc(world: World, block_coordinate: Block_World_Coordinate) -> (block: ^Block, ok := false) {
+	chunk := world_get_block_owner(world, block_coordinate) or_return
+	return get_chunk_block_safe(chunk.blocks, to_chunk_coordinate(block_coordinate))
+}
+
+world_get_block_owner :: proc(world: World, block_coordinate: Block_World_Coordinate) -> (^Chunk, bool) {
+	return &world.chunk_map[world_get_block_owner_coordinate(world, block_coordinate)]
+}
+
+world_get_block_owner_coordinate :: proc(world: World, block_coordinate: Block_World_Coordinate) -> Chunk_Coordinate {
 	when ODIN_DEBUG { assert(bits.is_power_of_two(CHUNK_SIZE.x)) }
 	when ODIN_DEBUG { assert(bits.is_power_of_two(CHUNK_SIZE.z)) }
-
-	chunk_coordinate := Chunk_Coordinate {
-		x = (coordinate.x & ~(CHUNK_SIZE.x - 1)) / CHUNK_SIZE.x,
-		z = (coordinate.z & ~(CHUNK_SIZE.z - 1)) / CHUNK_SIZE.z,
+	return Chunk_Coordinate {
+		x = (block_coordinate.x & ~(CHUNK_SIZE.x - 1)) / CHUNK_SIZE.x,
+		z = (block_coordinate.z & ~(CHUNK_SIZE.z - 1)) / CHUNK_SIZE.z,
 	}
+}
 
-	chunk, chunk_ok := world.chunk_map[chunk_coordinate]
-	if !chunk_ok do return nil, false
+world_destroy_block :: proc(world: World, block_coordinate: Block_World_Coordinate) -> (block_destroyed := false) {
+	block := world_get_block(world, block_coordinate) or_return
+	if block_can_be_destroyed(block^) {
+		block^ = .Air
+		block_destroyed = true
+		world_update_chunk_mesh(world, world_get_block_owner_coordinate(world, block_coordinate))
+		return
+	}
+	return
+}
 
-	return get_chunk_block_safe(chunk.blocks, to_chunk_coordinate(coordinate))
+world_place_block :: proc(world: World, place_coordinate: Block_World_Coordinate, block: Block) -> (block_placed := false) {
+	replaced_block := world_get_block(world, place_coordinate) or_return
+	if block_can_be_placed_over(replaced_block^) {
+		replaced_block^ = block
+		block_placed = true
+		world_update_chunk_mesh(world, world_get_block_owner_coordinate(world, place_coordinate))
+		return
+	}
+	return
+}
+
+world_update_chunk_mesh :: proc(world: World, chunk_coordinate: Chunk_Coordinate) -> bool {
+	chunk := (&world.chunk_map[chunk_coordinate]) or_return
+	mesh_data := generate_chunk_mesh(chunk.blocks, context.temp_allocator)
+	destroy_mesh(&chunk.mesh)
+	chunk.mesh = create_chunk_mesh(mesh_data)
+	return true
 }
 
 Block :: enum u8 {
@@ -195,6 +232,16 @@ block_is_fully_opaque :: proc(block: Block) -> bool {
 @(require_results)
 block_ignores_raycast :: proc(block: Block) -> bool {
 	return block == .Air
+}
+
+@(require_results)
+block_can_be_placed_over :: proc(block: Block) -> bool {
+	return block == .Air
+}
+
+@(require_results)
+block_can_be_destroyed :: proc(block: Block) -> bool {
+	return true
 }
 
 Chunk :: struct {
