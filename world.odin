@@ -147,7 +147,7 @@ world_raycast :: proc(world: World, ray: Ray, max_distance: f32) -> (block: ^Blo
 		block_ok: bool
 		block, block_ok = world_get_block(world, block_coordinate)
 
-		if block_ok && block^ != .Air {
+		if block_ok && !block_ignores_raycast(block^) {
 			hit = true
 			return
 		}
@@ -180,6 +180,21 @@ Block :: enum u8 {
 Block_Chunk_Coordinate :: distinct [3]i32
 // Position of the block relative to the world origin.
 Block_World_Coordinate :: distinct [3]i32
+
+@(require_results)
+block_is_invisible :: proc(block: Block) -> bool {
+	return block == .Air
+}
+
+@(require_results)
+block_is_fully_opaque :: proc(block: Block) -> bool {
+	return block != .Air
+}
+
+@(require_results)
+block_ignores_raycast :: proc(block: Block) -> bool {
+	return block == .Air
+}
 
 Chunk :: struct {
 	blocks: ^Chunk_Blocks,
@@ -298,7 +313,7 @@ generate_chunk_mesh :: proc(blocks: ^Chunk_Blocks, allocator: runtime.Allocator)
 	chunk_iterator := make_chunk_iterator(blocks)
 	index_offset := u32(0)
 	for block, block_coordinate in iterate_chunk(&chunk_iterator) {
-		if block^ == .Air do continue
+		if block_is_invisible(block^) do continue
 		visible_faces_directions := visible_faces(blocks, block_coordinate)
 		for face_vertices, facing_direction in block_faces {
 			if facing_direction not_in visible_faces_directions do continue
@@ -331,8 +346,8 @@ visible_faces :: proc(blocks: ^Chunk_Blocks, coordinate: Block_Chunk_Coordinate)
 	}
 
 	for offset, direction in offsets {
-		block, block_ok := get_chunk_block_safe(blocks, coordinate + Block_Chunk_Coordinate(offset))
-		if !block_ok || (block_ok && block^ == .Air) do directions += { direction }
+		neighbor, neighbor_ok := get_chunk_block_safe(blocks, coordinate + Block_Chunk_Coordinate(offset))
+		if !neighbor_ok || (neighbor_ok && !block_is_fully_opaque(neighbor^)) do directions += { direction }
 	}
 	return
 }
