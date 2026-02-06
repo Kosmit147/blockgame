@@ -174,6 +174,7 @@ Block :: enum u8 {
 	Stone,
 	Dirt,
 	Grass,
+	Bricks,
 }
 
 // Position of the block relative to the chunk that it is a part of.
@@ -354,19 +355,22 @@ visible_faces :: proc(blocks: ^Chunk_Blocks, coordinate: Block_Chunk_Coordinate)
 
 @(private="file")
 map_block_uv_to_atlas :: proc(uv: Vec2, block: Block, block_facing: World_Direction) -> Vec2 {
+	ATLAS_SIZE :: 10
+
 	atlas_rect_origin: Vec2
-	atlas_rect_size := Vec2{ 0.5, 0.5 }
+	atlas_rect_size := Vec2{ 1.0 / ATLAS_SIZE, 1.0 / ATLAS_SIZE }
 
 	switch block {
 	case .Air:
-	case .Stone: atlas_rect_origin = Vec2{ 0.0, 0.0 }
-	case .Dirt:  atlas_rect_origin = Vec2{ 0.5, 0.0 }
+	case .Stone:   atlas_rect_origin = Vec2{ 0.0, 0.0 }
+	case .Dirt:    atlas_rect_origin = Vec2{ 0.1, 0.0 }
 	case .Grass:
 		#partial switch block_facing {
-		case .Plus_Y:      atlas_rect_origin = Vec2{ 0.0, 0.5 }
-		case .Minus_Y:     atlas_rect_origin = Vec2{ 0.5, 0.0 }
-		case:              atlas_rect_origin = Vec2{ 0.5, 0.5 }
+		case .Plus_Y:      atlas_rect_origin = Vec2{ 0.2, 0.0 }
+		case .Minus_Y:     atlas_rect_origin = Vec2{ 0.1, 0.0 }
+		case:              atlas_rect_origin = Vec2{ 0.3, 0.0 }
 		}
+	case .Bricks:  atlas_rect_origin = Vec2{ 0.4, 0.0 }
 	}
 
 	return atlas_rect_origin + uv * atlas_rect_size
