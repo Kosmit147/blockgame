@@ -12,6 +12,16 @@ WORLD_ORIGIN :: Vec3{  0,  0,  0 }
 WORLD_UP     :: Vec3{  0,  1,  0 }
 WORLD_DOWN   :: Vec3{  0, -1,  0 }
 
+World_Directions :: bit_set[World_Direction]
+World_Direction :: enum {
+	Plus_X,
+	Minus_X,
+	Plus_Y,
+	Minus_Y,
+	Plus_Z,
+	Minus_Z,
+}
+
 // World is not allowed to change address after it is initialized (because of the thread pool).
 World :: struct {
 	chunk_map: map[Chunk_Coordinate]Chunk,
@@ -197,6 +207,7 @@ destroy_chunk :: proc(chunk: ^Chunk, allocator: runtime.Allocator) {
 	free(chunk.blocks, allocator)
 }
 
+// TODO: Should probably be #no_bounds_check.
 get_chunk_block :: proc(blocks: ^Chunk_Blocks, coordinate: Block_Chunk_Coordinate) -> ^Block {
 	return &blocks[coordinate.y][coordinate.x][coordinate.z]
 }
@@ -279,7 +290,7 @@ create_chunk_mesh :: proc(mesh_data: Chunk_Mesh_Data) -> (mesh: Mesh) {
 
 // TODO: Optimize mesh generation.
 generate_chunk_mesh :: proc(blocks: ^Chunk_Blocks, allocator: runtime.Allocator) -> (mesh: Chunk_Mesh_Data) {
-	// TODO: Don't generate vertices for faces which are not visible.
+	// TODO: Don't generate vertices for faces which are not visible at chunk boundaries.
 
 	mesh.vertices = make([dynamic]Standard_Vertex, allocator)
 	mesh.indices = make([dynamic]u32, allocator)
@@ -288,12 +299,14 @@ generate_chunk_mesh :: proc(blocks: ^Chunk_Blocks, allocator: runtime.Allocator)
 	index_offset := u32(0)
 	for block, block_coordinate in iterate_chunk(&chunk_iterator) {
 		if block^ == .Air do continue
-		for face, face_index in block_faces {
+		visible_faces_directions := visible_faces(blocks, block_coordinate)
+		for face_vertices, facing_direction in block_faces {
+			if facing_direction not_in visible_faces_directions do continue
 			vertex_position_offset := linalg.array_cast(block_coordinate, f32)
-			vertices := face.vertices
+			vertices := face_vertices
 			for &vertex in vertices {
 				vertex.position += vertex_position_offset
-				vertex.uv = map_block_uv_to_atlas(vertex.uv, block^, face.facing)
+				vertex.uv = map_block_uv_to_atlas(vertex.uv, block^, facing_direction)
 			}
 			indices := block_indices
 			for &index in indices do index += index_offset
@@ -307,7 +320,25 @@ generate_chunk_mesh :: proc(blocks: ^Chunk_Blocks, allocator: runtime.Allocator)
 }
 
 @(private="file")
-map_block_uv_to_atlas :: proc(uv: Vec2, block: Block, block_facing: Block_Facing) -> Vec2 {
+visible_faces :: proc(blocks: ^Chunk_Blocks, coordinate: Block_Chunk_Coordinate) -> (directions: World_Directions) {
+	offsets := [World_Direction][3]i32{
+		.Plus_X  = { +1,  0,  0 },
+		.Minus_X = { -1,  0,  0 },
+		.Plus_Y  = {  0, +1,  0 },
+		.Minus_Y = {  0, -1,  0 },
+		.Plus_Z  = {  0,  0, +1 },
+		.Minus_Z = {  0,  0, -1 },
+	}
+
+	for offset, direction in offsets {
+		block, block_ok := get_chunk_block_safe(blocks, coordinate + Block_Chunk_Coordinate(offset))
+		if !block_ok || (block_ok && block^ == .Air) do directions += { direction }
+	}
+	return
+}
+
+@(private="file")
+map_block_uv_to_atlas :: proc(uv: Vec2, block: Block, block_facing: World_Direction) -> Vec2 {
 	atlas_rect_origin: Vec2
 	atlas_rect_size := Vec2{ 0.5, 0.5 }
 
@@ -316,96 +347,67 @@ map_block_uv_to_atlas :: proc(uv: Vec2, block: Block, block_facing: Block_Facing
 	case .Stone: atlas_rect_origin = Vec2{ 0.0, 0.0 }
 	case .Dirt:  atlas_rect_origin = Vec2{ 0.5, 0.0 }
 	case .Grass:
-		switch block_facing {
-		case .Up:          atlas_rect_origin = Vec2{ 0.0, 0.5 }
-		case .Down:        atlas_rect_origin = Vec2{ 0.5, 0.0 }
-		case .Side:        atlas_rect_origin = Vec2{ 0.5, 0.5 }
+		#partial switch block_facing {
+		case .Plus_Y:      atlas_rect_origin = Vec2{ 0.0, 0.5 }
+		case .Minus_Y:     atlas_rect_origin = Vec2{ 0.5, 0.0 }
+		case:              atlas_rect_origin = Vec2{ 0.5, 0.5 }
 		}
 	}
 
 	return atlas_rect_origin + uv * atlas_rect_size
 }
 
-Block_Facing :: enum {
-	Up,
-	Down,
-	Side,
-}
-
 Chunk_Mesh_Vertex :: Standard_Vertex
 Chunk_Mesh_Index :: u32
 
-Block_Face :: struct {
-	facing: Block_Facing,
-	vertices: [4]Chunk_Mesh_Vertex
-}
-
 @(private="file", rodata)
-block_faces := [6]Block_Face{
+block_faces := [World_Direction][4]Chunk_Mesh_Vertex{
 	// Front wall.
-	{
-		.Side,
-		{
-			{ position = { 0, 0, 1 }, normal = {  0,  0,  1 }, uv = { 0, 1 } },
-			{ position = { 1, 0, 1 }, normal = {  0,  0,  1 }, uv = { 1, 1 } },
-			{ position = { 1, 1, 1 }, normal = {  0,  0,  1 }, uv = { 1, 0 } },
-			{ position = { 0, 1, 1 }, normal = {  0,  0,  1 }, uv = { 0, 0 } },
-		},
+	.Plus_Z = {
+		{ position = { 0, 0, 1 }, normal = {  0,  0,  1 }, uv = { 0, 1 } },
+		{ position = { 1, 0, 1 }, normal = {  0,  0,  1 }, uv = { 1, 1 } },
+		{ position = { 1, 1, 1 }, normal = {  0,  0,  1 }, uv = { 1, 0 } },
+		{ position = { 0, 1, 1 }, normal = {  0,  0,  1 }, uv = { 0, 0 } },
 	},
 
 	// Back wall.
-	{
-		.Side,
-		{
-			{ position = { 0, 0, 0 }, normal = {  0,  0, -1 }, uv = { 0, 1 } },
-			{ position = { 0, 1, 0 }, normal = {  0,  0, -1 }, uv = { 0, 0 } },
-			{ position = { 1, 1, 0 }, normal = {  0,  0, -1 }, uv = { 1, 0 } },
-			{ position = { 1, 0, 0 }, normal = {  0,  0, -1 }, uv = { 1, 1 } },
-		},
+	.Minus_Z = {
+		{ position = { 0, 0, 0 }, normal = {  0,  0, -1 }, uv = { 0, 1 } },
+		{ position = { 0, 1, 0 }, normal = {  0,  0, -1 }, uv = { 0, 0 } },
+		{ position = { 1, 1, 0 }, normal = {  0,  0, -1 }, uv = { 1, 0 } },
+		{ position = { 1, 0, 0 }, normal = {  0,  0, -1 }, uv = { 1, 1 } },
 	},
 
 	// Left wall.
-	{
-		.Side,
-		{
-			{ position = { 0, 1, 1 }, normal = { -1,  0,  0 }, uv = { 1, 0 } },
-			{ position = { 0, 1, 0 }, normal = { -1,  0,  0 }, uv = { 0, 0 } },
-			{ position = { 0, 0, 0 }, normal = { -1,  0,  0 }, uv = { 0, 1 } },
-			{ position = { 0, 0, 1 }, normal = { -1,  0,  0 }, uv = { 1, 1 } },
-		},
+	.Minus_X = {
+		{ position = { 0, 1, 1 }, normal = { -1,  0,  0 }, uv = { 1, 0 } },
+		{ position = { 0, 1, 0 }, normal = { -1,  0,  0 }, uv = { 0, 0 } },
+		{ position = { 0, 0, 0 }, normal = { -1,  0,  0 }, uv = { 0, 1 } },
+		{ position = { 0, 0, 1 }, normal = { -1,  0,  0 }, uv = { 1, 1 } },
 	},
 
 	// Right wall.
-	{
-		.Side,
-		{
-			{ position = { 1, 1, 1 }, normal = {  1,  0,  0 }, uv = { 0, 0 } },
-			{ position = { 1, 0, 1 }, normal = {  1,  0,  0 }, uv = { 0, 1 } },
-			{ position = { 1, 0, 0 }, normal = {  1,  0,  0 }, uv = { 1, 1 } },
-			{ position = { 1, 1, 0 }, normal = {  1,  0,  0 }, uv = { 1, 0 } },
-		},
+	.Plus_X = {
+		{ position = { 1, 1, 1 }, normal = {  1,  0,  0 }, uv = { 0, 0 } },
+		{ position = { 1, 0, 1 }, normal = {  1,  0,  0 }, uv = { 0, 1 } },
+		{ position = { 1, 0, 0 }, normal = {  1,  0,  0 }, uv = { 1, 1 } },
+		{ position = { 1, 1, 0 }, normal = {  1,  0,  0 }, uv = { 1, 0 } },
 	},
 
 	// Bottom wall.
-	{
-		.Down,
-		{
-			{ position = { 0, 0, 0 }, normal = {  0, -1,  0 }, uv = { 0, 0 } },
-			{ position = { 1, 0, 0 }, normal = {  0, -1,  0 }, uv = { 1, 0 } },
-			{ position = { 1, 0, 1 }, normal = {  0, -1,  0 }, uv = { 1, 1 } },
-			{ position = { 0, 0, 1 }, normal = {  0, -1,  0 }, uv = { 0, 1 } },
-		},
+	.Minus_Y = {
+		{ position = { 0, 0, 0 }, normal = {  0, -1,  0 }, uv = { 0, 0 } },
+		{ position = { 1, 0, 0 }, normal = {  0, -1,  0 }, uv = { 1, 0 } },
+		{ position = { 1, 0, 1 }, normal = {  0, -1,  0 }, uv = { 1, 1 } },
+		{ position = { 0, 0, 1 }, normal = {  0, -1,  0 }, uv = { 0, 1 } },
 	},
 
 	// Top wall.
-	{
-		.Up,
-		{
-			{ position = { 0, 1, 0 }, normal = {  0,  1,  0 }, uv = { 0, 0 } },
-			{ position = { 0, 1, 1 }, normal = {  0,  1,  0 }, uv = { 0, 1 } },
-			{ position = { 1, 1, 1 }, normal = {  0,  1,  0 }, uv = { 1, 1 } },
-			{ position = { 1, 1, 0 }, normal = {  0,  1,  0 }, uv = { 1, 0 } },
-		},
+	.Plus_Y = {
+		{ position = { 0, 1, 0 }, normal = {  0,  1,  0 }, uv = { 0, 0 } },
+		{ position = { 0, 1, 1 }, normal = {  0,  1,  0 }, uv = { 0, 1 } },
+		{ position = { 1, 1, 1 }, normal = {  0,  1,  0 }, uv = { 1, 1 } },
+		{ position = { 1, 1, 0 }, normal = {  0,  1,  0 }, uv = { 1, 0 } },
 	},
 }
 
