@@ -30,6 +30,7 @@ window_init :: proc(width, height: i32, title: cstring) -> (ok := false) {
 		log.fatalf("Failed to initialize GLFW.")
 		return
 	}
+	defer if !ok do glfw.Terminate()
 
 	glfw.WindowHint(glfw.CONTEXT_VERSION_MAJOR, GL_VERSION_MAJOR)
 	glfw.WindowHint(glfw.CONTEXT_VERSION_MINOR, GL_VERSION_MINOR)
@@ -43,12 +44,14 @@ window_init :: proc(width, height: i32, title: cstring) -> (ok := false) {
 		log.fatalf("Failed to create a window.")
 		return
 	}
+	defer if !ok do glfw.DestroyWindow(s_window.handle)
 
 	window_update_size()
 	window_update_framebuffer_size()
 	input_update_cursor_pos()
 
 	glfw.MakeContextCurrent(s_window.handle)
+	glfw.SwapInterval(0) // We want to handle vsync on our own.
 	window_platform_init()
 	window_set_vsync_mode(.Enabled)
 
@@ -190,6 +193,8 @@ normalize_screen_size_f :: proc(screen_size: Vec2) -> Vec2 {
 normalize_screen_size :: proc{ normalize_screen_size_i, normalize_screen_size_f }
 
 Key :: enum u8 {
+	Unknown = 0,
+
 	Space,
 	Apostrophe,
 	Comma,
@@ -317,8 +322,6 @@ Key :: enum u8 {
 	Right_Alt,
 	Right_Super,
 	Menu,
-
-	Unknown,
 }
 
 @(private="file")
@@ -456,6 +459,8 @@ map_glfw_key :: proc "contextless" (glfw_key: i32) -> Key {
 }
 
 Mouse_Button :: enum u8 {
+	Unknown = 0,
+
 	Button_1,
 	Button_2,
 	Button_3,
@@ -464,8 +469,6 @@ Mouse_Button :: enum u8 {
 	Button_6,
 	Button_7,
 	Button_8,
-
-	Unknown,
 
 	Left   = Button_1,
 	Right  = Button_2,
@@ -545,6 +548,10 @@ Key_Pressed_Event :: struct {
 	key: Key,
 }
 
+Key_Released_Event :: struct {
+	key: Key,
+}
+
 @(private="file")
 glfw_key_callback :: proc "c" (window_handle: glfw.WindowHandle, key, scancode, action, mods: i32) {
 	context = g_context
@@ -554,6 +561,7 @@ glfw_key_callback :: proc "c" (window_handle: glfw.WindowHandle, key, scancode, 
 		window_push_event(Key_Pressed_Event{ key })
 	} else if action == glfw.RELEASE {
 		s_input.pressed_keys -= { key }
+		window_push_event(Key_Released_Event{ key })
 	}
 }
 
@@ -568,6 +576,10 @@ Mouse_Button_Pressed_Event :: struct {
 	button: Mouse_Button,
 }
 
+Mouse_Button_Released_Event :: struct {
+	button: Mouse_Button,
+}
+
 @(private="file")
 glfw_mouse_button_callback :: proc "c" (window_handle: glfw.WindowHandle, button, action, mods: i32) {
 	context = g_context
@@ -577,12 +589,15 @@ glfw_mouse_button_callback :: proc "c" (window_handle: glfw.WindowHandle, button
 		window_push_event(Mouse_Button_Pressed_Event{ button })
 	} else if action == glfw.RELEASE {
 		s_input.pressed_mouse_buttons -= { button }
+		window_push_event(Mouse_Button_Released_Event{ button })
 	}
 }
 
 Event :: union #no_nil {
 	Key_Pressed_Event,
+	Key_Released_Event,
 	Mouse_Button_Pressed_Event,
+	Mouse_Button_Released_Event,
 }
 
 @(private="file")
@@ -624,6 +639,7 @@ init_gl_context :: proc() {
 				       ids = raw_data(&disabled_messages),
 				       enabled = gl.FALSE)
 
+		log.infof("Initialized OpenGL context.")
 		log.infof("Vendor: %v", gl.GetString(gl.VENDOR))
 		log.infof("Renderer: %v", gl.GetString(gl.RENDERER))
 		log.infof("Version: %v", gl.GetString(gl.VERSION))

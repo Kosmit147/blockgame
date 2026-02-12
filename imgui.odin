@@ -25,7 +25,7 @@ imgui_drag_double :: proc(label: cstring,
 				flags = flags)
 }
 
-imgui_select_enum :: proc(label: cstring, value: ^$E) -> bool where intrinsics.type_is_enum(E) {
+imgui_enum_select :: proc(label: cstring, value: ^$E) -> bool where intrinsics.type_is_enum(E) {
 	value_changed := false
 	if imgui.BeginCombo(label, fmt.ctprintf("%v", value^)) {
 		for enum_value in E {
@@ -37,6 +37,32 @@ imgui_select_enum :: proc(label: cstring, value: ^$E) -> bool where intrinsics.t
 			if is_selected do imgui.SetItemDefaultFocus()
 		}
 		imgui.EndCombo()
+	}
+	return value_changed
+}
+
+imgui_enum_list_select :: proc(value: ^$E) -> bool where intrinsics.type_is_enum(E) {
+	value_changed := false
+	for enum_value in E {
+		is_selected := enum_value == value^
+		if imgui.Selectable(fmt.ctprintf("%v", enum_value), is_selected) {
+			value^ = enum_value
+			value_changed = true
+		}
+		if is_selected do imgui.SetItemDefaultFocus()
+	}
+	return value_changed
+}
+
+imgui_slice_list_select :: proc(index: ^int, slice: []$T) -> bool {
+	value_changed := false
+	for slice_value, i in slice {
+		is_selected := i == index^
+		if imgui.Selectable(fmt.ctprintf("%v", slice_value), is_selected) {
+			index^ = i
+			value_changed = true
+		}
+		if is_selected do imgui.SetItemDefaultFocus()
 	}
 	return value_changed
 }

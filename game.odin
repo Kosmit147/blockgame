@@ -2,6 +2,7 @@ package blockgame
 
 import "vendor/imgui"
 
+import "core:log"
 import "core:fmt"
 import "core:math"
 import "core:math/linalg"
@@ -49,7 +50,6 @@ Game :: struct {
 	directional_light: Directional_Light,
 
 	debug_ui_enabled: bool,
-	v_sync_mode: V_Sync_Mode,
 }
 
 @(private="file")
@@ -72,7 +72,6 @@ game_init :: proc() -> bool {
 	s_game.directional_light.direction = linalg.normalize(s_game.directional_light.direction)
 
 	s_game.debug_ui_enabled = true
-	s_game.v_sync_mode = window_vsync_mode()
 
 	return true
 }
@@ -206,12 +205,22 @@ game_debug_ui :: proc() {
 	}
 	imgui.End()
 
-	imgui.Begin("Window")
-	if imgui_select_enum("Vertical Sync", &s_game.v_sync_mode) do window_set_vsync_mode(s_game.v_sync_mode)
+	imgui.Begin("Settings")
+	vsync_mode := window_vsync_mode()
+	if imgui_enum_select("Vertical Sync", &vsync_mode) do window_set_vsync_mode(vsync_mode)
+	master_volume := sound_master_volume()
+	if imgui.SliderFloat("Master Volume", &master_volume, 0, 1) do sound_set_master_volume(master_volume)
+	music_volume := sound_music_volume()
+	if imgui.SliderFloat("Music Volume", &music_volume, 0, 1) do sound_set_music_volume(music_volume)
 	imgui.End()
 
 	imgui.Begin("Player")
 	imgui.Text(fmt.ctprintf("Position: %v", s_game.camera.position))
+	imgui.End()
+
+	imgui.Begin("Music Player")
+	track_index := sound_current_track_index()
+	if imgui_slice_list_select(&track_index, sound_tracks()) do sound_play_track(track_index)
 	imgui.End()
 }
 

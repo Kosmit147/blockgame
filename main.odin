@@ -2,11 +2,11 @@ package blockgame
 
 import "base:runtime"
 
+import "vendor/dmon"
+
 import "core:log"
 import "core:mem"
 import "core:strings"
-
-import "vendor/dmon"
 
 HOT_RELOAD :: #config(HOT_RELOAD, false)
 
@@ -80,6 +80,9 @@ main :: proc() {
 	if !renderer_2d_init() do log.panic("Failed to initialize the 2D renderer.")
 	defer renderer_2d_deinit()
 
+	if !init_sound() do log.panic("Failed to init sound system.")
+	defer deinit_sound()
+
 	if !game_init() do log.panic("Failed to initialize the game state.")
 	defer game_deinit()
 
@@ -99,6 +102,7 @@ main :: proc() {
 		imgui_new_frame()
 
 		game_update(dt)
+		sound_update()
 		if !window_is_minimized() do game_render()
 
 		imgui_render()

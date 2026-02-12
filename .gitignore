@@ -2,3 +2,4 @@
 *.exe
 *.rdbg
 /imgui.ini
+/sound/

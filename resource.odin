@@ -57,7 +57,7 @@ init_shaders :: proc() -> (ok := false) {
 	defer if !ok do deinit_shaders()
 	for &shader, shader_id in s_shaders {
 		vertex_source, fragment_source := shader_sources_map[shader_id][0], shader_sources_map[shader_id][1]
-		shader = create_shader(vertex_source, fragment_source) or_return
+		shader = create_simple_shader(vertex_source, fragment_source) or_return
 	}
 
 	ok = true
@@ -152,7 +152,7 @@ when HOT_RELOAD {
 	@(private="file")
 	reload_shader :: proc(id: Shader_Id) -> (ok := false) {
 		vertex_path, fragment_path := shader_file_paths_map[id][0], shader_file_paths_map[id][1]
-		reloaded_shader := create_shader_from_files(vertex_path, fragment_path) or_return
+		reloaded_shader := create_simple_shader_from_files(vertex_path, fragment_path) or_return
 		destroy_shader(s_shaders[id])
 		s_shaders[id] = reloaded_shader
 

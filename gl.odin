@@ -63,19 +63,21 @@ Shader :: struct {
 	id: u32,
 }
 
-create_shader :: proc(vertex_source, fragment_source: string) -> (shader: Shader, ok := false) {
+create_simple_shader :: proc(vertex_source, fragment_source: string) -> (shader: Shader, ok := false) {
 	vertex_shader := create_sub_shader(vertex_source, gl.VERTEX_SHADER) or_return
 	defer gl.DeleteShader(vertex_shader)
 	fragment_shader := create_sub_shader(fragment_source, gl.FRAGMENT_SHADER) or_return
 	defer gl.DeleteShader(fragment_shader)
+
 	shader.id = link_shader_program(vertex_shader, fragment_shader) or_return
-	return shader, true
+	ok = true
+	return
 }
 
-create_shader_from_files :: proc(vertex_path, fragment_path: string) -> (shader: Shader, ok := false) {
+create_simple_shader_from_files :: proc(vertex_path, fragment_path: string) -> (shader: Shader, ok := false) {
 	vertex_source := cast(string)os.read_entire_file(vertex_path, context.temp_allocator) or_return
 	fragment_source := cast(string)os.read_entire_file(fragment_path, context.temp_allocator) or_return
-	return create_shader(vertex_source, fragment_source)
+	return create_simple_shader(vertex_source, fragment_source)
 }
 
 destroy_shader :: proc(shader: Shader) {
@@ -91,7 +93,7 @@ use_shader :: proc(id: Shader_Id) {
 }
 
 @(private="file")
-create_sub_shader :: proc(shader_source: string, shader_type: u32) -> (u32, bool) {
+create_sub_shader :: proc(shader_source: string, shader_type: u32) -> (shader_id: u32 = gl.NONE, ok := false) {
 	shader_type_string :: proc(type: u32) -> string {
 		switch type {
 		case gl.VERTEX_SHADER: return "vertex"
@@ -105,61 +107,55 @@ create_sub_shader :: proc(shader_source: string, shader_type: u32) -> (u32, bool
 	sources_array := [1]cstring{ cast(cstring)raw_data(shader_source) }
 	lengths_array := [1]i32{ cast(i32)len(shader_source) }
 
-	shader := gl.CreateShader(shader_type)
-	gl.ShaderSource(shader, 1, raw_data(sources_array[:]), raw_data(lengths_array[:]))
+	shader_id = gl.CreateShader(shader_type)
+	defer if !ok do gl.DeleteShader(shader_id)
+	gl.ShaderSource(shader_id, 1, raw_data(sources_array[:]), raw_data(lengths_array[:]))
 
-	gl.CompileShader(shader)
+	gl.CompileShader(shader_id)
 	is_compiled: i32
-
-	if gl.GetShaderiv(shader, gl.COMPILE_STATUS, &is_compiled); is_compiled == gl.FALSE {
+	if gl.GetShaderiv(shader_id, gl.COMPILE_STATUS, &is_compiled); is_compiled == gl.FALSE {
 		info_log_length: i32
-		gl.GetShaderiv(shader, gl.INFO_LOG_LENGTH, &info_log_length)
-
+		gl.GetShaderiv(shader_id, gl.INFO_LOG_LENGTH, &info_log_length)
 		info_log_buffer := make([]byte, info_log_length, context.temp_allocator)
-
-		gl.GetShaderInfoLog(shader, info_log_length, nil, raw_data(info_log_buffer))
+		gl.GetShaderInfoLog(shader_id, info_log_length, nil, raw_data(info_log_buffer))
 		info_log := string(info_log_buffer)
 		info_log = strings.trim_null(info_log)
 
 		log.errorf("Failed to compile %v shader: %v", shader_type_string(shader_type), info_log)
-
-		gl.DeleteShader(shader)
-		return gl.NONE, false
+		return
 	}
 
-	return shader, true
+	ok = true
+	return
 }
 
 @(private="file")
-link_shader_program :: proc(vertex_shader, fragment_shader: u32) -> (u32, bool) {
-	program := gl.CreateProgram()
+link_shader_program :: proc(vertex_shader, fragment_shader: u32) -> (program_id: u32 = gl.NONE, ok := false) {
+	program_id = gl.CreateProgram()
+	defer if !ok do gl.DeleteProgram(program_id)
 
-	gl.AttachShader(program, vertex_shader)
-	gl.AttachShader(program, fragment_shader)
+	gl.AttachShader(program_id, vertex_shader)
+	gl.AttachShader(program_id, fragment_shader)
 
-	gl.LinkProgram(program)
+	gl.LinkProgram(program_id)
 	is_linked: i32
-
-	if gl.GetProgramiv(program, gl.LINK_STATUS, &is_linked); is_linked == gl.FALSE {
+	if gl.GetProgramiv(program_id, gl.LINK_STATUS, &is_linked); is_linked == gl.FALSE {
 		info_log_length: i32
-		gl.GetProgramiv(program, gl.INFO_LOG_LENGTH, &info_log_length)
-
+		gl.GetProgramiv(program_id, gl.INFO_LOG_LENGTH, &info_log_length)
 		info_log_buffer := make([]byte, info_log_length, context.temp_allocator)
-
-		gl.GetProgramInfoLog(program, info_log_length, nil, raw_data(info_log_buffer))
+		gl.GetProgramInfoLog(program_id, info_log_length, nil, raw_data(info_log_buffer))
 		info_log := string(info_log_buffer)
 		info_log = strings.trim_null(info_log)
 
 		log.errorf("Failed to link shader: %v", info_log)
-
-		gl.DeleteProgram(program)
-		return gl.NONE, false
+		return
 	}
 
-	gl.DetachShader(program, vertex_shader)
-	gl.DetachShader(program, fragment_shader)
+	gl.DetachShader(program_id, vertex_shader)
+	gl.DetachShader(program_id, fragment_shader)
 
-	return program, true
+	ok = true
+	return
 }
 
 Uniform :: struct($T: typeid) {
@@ -168,11 +164,7 @@ Uniform :: struct($T: typeid) {
 
 get_uniform :: proc(shader: Shader, uniform: cstring, $T: typeid) -> (Uniform(T), bool) #optional_ok {
 	location := gl.GetUniformLocation(shader.id, uniform)
-
-	when ODIN_DEBUG {
-		if location == -1 do log.warnf("Uniform \"%v\" does not exist!", uniform)
-	}
-
+	when ODIN_DEBUG { if location == -1 do log.warnf("Uniform \"%v\" does not exist!", uniform) }
 	return Uniform(T) { location }, location != -1
 }
 
@@ -402,12 +394,12 @@ create_texture :: proc(width, height: u32, channels: int, pixels: []byte) -> (te
 }
 
 create_texture_from_png_in_memory :: proc(png_file_data: []byte) -> (texture: Texture, ok := false) {
-	img, error := image.load(png_file_data)
+	img, error := image.load(png_file_data, allocator = context.temp_allocator)
 	if error != nil {
 		log.errorf("Failed to load image from png file in memory: %v", error)
 		return
 	}
-	defer image.destroy(img)
+	defer image.destroy(img, context.temp_allocator)
 
 	texture = create_texture(u32(img.width), u32(img.height), img.channels, bytes.buffer_to_bytes(&img.pixels))
 	ok = true
@@ -417,17 +409,17 @@ create_texture_from_png_in_memory :: proc(png_file_data: []byte) -> (texture: Te
 create_texture_from_aseprite_in_memory :: proc(aseprite_file_data: []byte) -> (texture: Texture, ok := false) {
 	document: ase.Document
 	defer ase.destroy_doc(&document)
-	unmarshal_error := ase.unmarshal(&document, aseprite_file_data)
+	unmarshal_error := ase.unmarshal(&document, aseprite_file_data, context.temp_allocator)
 	if unmarshal_error != nil {
 		log.errorf("Failed to unmarshal aseprite file in memory: %v", unmarshal_error)
 		return
 	}
-	image, image_error := ase_utils.get_image(&document)
+	image, image_error := ase_utils.get_image(&document, alloc = context.temp_allocator)
 	if image_error != nil {
 		log.errorf("Failed to get aseprite image: %v", image_error)
 		return
 	}
-	defer ase_utils.destroy(image)
+	defer ase_utils.destroy(image, context.temp_allocator)
 
 	texture = create_texture(u32(image.width),
 				 u32(image.height),
