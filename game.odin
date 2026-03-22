@@ -214,10 +214,12 @@ game_debug_ui :: proc() {
 	if imgui.SliderFloat("Master Volume", &master_volume, 0, 1) do sound_set_master_volume(master_volume)
 	music_volume := sound_music_volume()
 	if imgui.SliderFloat("Music Volume", &music_volume, 0, 1) do sound_set_music_volume(music_volume)
+	imgui.TextUnformatted(fmt.ctprintf("Window size: %v", window_size()))
+	imgui.TextUnformatted(fmt.ctprintf("Framebuffer size: %v", window_framebuffer_size()))
 	imgui.End()
 
 	imgui.Begin("Player")
-	imgui.Text(fmt.ctprintf("Position: %v", s_game.camera.position))
+	imgui.TextUnformatted(fmt.ctprintf("Position: %v", s_game.camera.position))
 	imgui.End()
 
 	imgui.Begin("Music Player")
