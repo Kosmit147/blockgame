@@ -206,6 +206,8 @@ game_debug_ui :: proc() {
 	imgui.End()
 
 	imgui.Begin("Settings")
+	full_screen := window_is_full_screen()
+	if imgui.Checkbox("Fullscreen", &full_screen) do window_set_full_screen(full_screen)
 	vsync_mode := window_vsync_mode()
 	if imgui_enum_select("Vertical Sync", &vsync_mode) do window_set_vsync_mode(vsync_mode)
 	master_volume := sound_master_volume()

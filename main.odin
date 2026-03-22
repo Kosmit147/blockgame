@@ -64,7 +64,7 @@ main :: proc() {
 		dmon.watch(SHADERS_PATH, watcher_callback, nil, nil)
 	}
 
-	if !window_init(1920, 1080, "Blockgame") do log.panic("Failed to create a window.")
+	if !window_init() do log.panic("Failed to create a window.")
 	defer window_deinit()
 
 	init_gl_context()

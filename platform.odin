@@ -12,6 +12,8 @@ import "core:container/queue"
 GL_VERSION_MAJOR :: 4
 GL_VERSION_MINOR :: 6
 IMGUI_FONT_SCALE :: 1.5
+WINDOW_TITLE :: "Blockgame"
+INITIAL_WINDOW_SIZE :: [2]i32{ 1280, 720 }
 
 Window :: struct {
 	handle: glfw.WindowHandle,
@@ -24,7 +26,7 @@ Window :: struct {
 @(private="file")
 s_window: Window
 
-window_init :: proc(width, height: i32, title: cstring) -> (ok := false) {
+window_init :: proc() -> (ok := false) {
 	glfw.SetErrorCallback(glfw_error_callback)
 	if !glfw.Init() {
 		log.fatalf("Failed to initialize GLFW.")
@@ -36,10 +38,13 @@ window_init :: proc(width, height: i32, title: cstring) -> (ok := false) {
 	glfw.WindowHint(glfw.CONTEXT_VERSION_MINOR, GL_VERSION_MINOR)
 	glfw.WindowHint(glfw.OPENGL_PROFILE, glfw.OPENGL_CORE_PROFILE)
 	glfw.WindowHint(glfw.OPENGL_DEBUG_CONTEXT, glfw.TRUE when ODIN_DEBUG else glfw.FALSE)
-
 	glfw.WindowHint(glfw.MAXIMIZED, glfw.TRUE)
 
-	s_window.handle = glfw.CreateWindow(width, height, title, nil, nil)
+	s_window.handle = glfw.CreateWindow(width = INITIAL_WINDOW_SIZE.x,
+					    height = INITIAL_WINDOW_SIZE.y,
+					    title = WINDOW_TITLE,
+					    monitor = nil,
+					    share = nil)
 	if s_window.handle == nil {
 		log.fatalf("Failed to create a window.")
 		return
@@ -91,6 +96,23 @@ window_poll_events :: proc() {
 
 window_swap_buffers :: proc() {
 	glfw.SwapBuffers(s_window.handle)
+}
+
+window_set_full_screen :: proc(full_screen: bool) {
+	if window_is_full_screen() == full_screen do return
+	monitor := glfw.GetPrimaryMonitor()
+	video_mode := glfw.GetVideoMode(monitor)
+	glfw.SetWindowMonitor(window = s_window.handle,
+			      monitor = monitor if full_screen else nil,
+			      xpos = 0,
+			      ypos = 0,
+			      width = video_mode.width,
+			      height = video_mode.height,
+			      refresh_rate = video_mode.refresh_rate)
+}
+
+window_is_full_screen :: proc() -> bool {
+	return glfw.GetWindowMonitor(s_window.handle) != nil
 }
 
 V_Sync_Mode :: enum {
