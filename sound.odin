@@ -6,7 +6,6 @@ import ma "vendor:miniaudio"
 
 import "core:log"
 import "core:os"
-import "core:path/filepath"
 import "core:strings"
 import "core:mem/virtual"
 
@@ -63,15 +62,23 @@ deinit_sound :: proc() {
 
 @(private="file")
 sound_init_tracks :: proc() {
-	walk_callback :: proc(info: os.File_Info, in_err: os.Error, user_data: rawptr) -> (err: os.Error = nil,
-											   skip_dir: bool = false) {
-		if info.is_dir do return
-		track, track_ok := create_track(info.name, info.fullpath)
-		if track_ok do append(&s_sound_system.tracks, track)
-		return
+	walker := os.walker_create(TRACKS_PATH)
+	defer os.walker_destroy(&walker)
+
+	for file in os.walker_walk(&walker) {
+		walker_error_path, walker_error := os.walker_error(&walker)
+		if walker_error != nil {
+			log.warnf("Error when walking sound tracks directory: %v. Problematic path is `%v`.",
+				  walker_error,
+				  walker_error_path)
+			continue
+		}
+
+		if file.type != .Regular do continue
+		track := create_track(file.name, file.fullpath) or_continue
+		append(&s_sound_system.tracks, track)
 	}
 
-	filepath.walk(TRACKS_PATH, walk_callback, nil)
 	shrink(&s_sound_system.tracks)
 }
 

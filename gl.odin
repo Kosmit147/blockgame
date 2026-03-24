@@ -15,7 +15,6 @@ import "core:image"
 import "core:image/png"
 import "core:reflect"
 import "core:os"
-import "core:path/filepath"
 
 gl_index :: proc($I: typeid) -> u32 {
 	when I == u8 {
@@ -75,9 +74,19 @@ create_simple_shader :: proc(vertex_source, fragment_source: string) -> (shader:
 }
 
 create_simple_shader_from_files :: proc(vertex_path, fragment_path: string) -> (shader: Shader, ok := false) {
-	vertex_source := cast(string)os.read_entire_file(vertex_path, context.temp_allocator) or_return
-	fragment_source := cast(string)os.read_entire_file(fragment_path, context.temp_allocator) or_return
-	return create_simple_shader(vertex_source, fragment_source)
+	vertex_source, vertex_error := os.read_entire_file(vertex_path, context.temp_allocator)
+	if vertex_error != nil {
+		log.errorf("Failed to load vertex shader source from file `%v`: %v", vertex_path, vertex_error)
+		return
+	}
+	fragment_source, fragment_error := os.read_entire_file(fragment_path, context.temp_allocator)
+	if fragment_error != nil {
+		log.errorf("Failed to load fragment shader source from file `%v`: %v", fragment_path, fragment_error)
+		return
+	}
+
+	return create_simple_shader(string(vertex_source),
+				    string(fragment_source))
 }
 
 destroy_shader :: proc(shader: Shader) {
@@ -113,7 +122,7 @@ create_sub_shader :: proc(shader_source: string, shader_type: u32) -> (shader_id
 
 	gl.CompileShader(shader_id)
 	is_compiled: i32
-	if gl.GetShaderiv(shader_id, gl.COMPILE_STATUS, &is_compiled); is_compiled == gl.FALSE {
+	if gl.GetShaderiv(shader_id, gl.COMPILE_STATUS, &is_compiled); is_compiled == i32(gl.FALSE) {
 		info_log_length: i32
 		gl.GetShaderiv(shader_id, gl.INFO_LOG_LENGTH, &info_log_length)
 		info_log_buffer := make([]byte, info_log_length, context.temp_allocator)
@@ -139,7 +148,7 @@ link_shader_program :: proc(vertex_shader, fragment_shader: u32) -> (program_id:
 
 	gl.LinkProgram(program_id)
 	is_linked: i32
-	if gl.GetProgramiv(program_id, gl.LINK_STATUS, &is_linked); is_linked == gl.FALSE {
+	if gl.GetProgramiv(program_id, gl.LINK_STATUS, &is_linked); is_linked == i32(gl.FALSE) {
 		info_log_length: i32
 		gl.GetProgramiv(program_id, gl.INFO_LOG_LENGTH, &info_log_length)
 		info_log_buffer := make([]byte, info_log_length, context.temp_allocator)
@@ -430,14 +439,22 @@ create_texture_from_aseprite_in_memory :: proc(aseprite_file_data: []byte) -> (t
 }
 
 create_texture_from_png_file :: proc(path: string) -> (texture: Texture, ok := false) {
-	file_data := os.read_entire_file(path, context.temp_allocator) or_return
-	assert(strings.to_lower(filepath.ext(path), context.temp_allocator) == ".png", "expected a png file")
+	file_data, read_file_error := os.read_entire_file(path, context.temp_allocator)
+	if read_file_error != nil {
+		log.errorf("Failed to read png texture file `%v`: %v", path, read_file_error)
+		return
+	}
+	assert(strings.to_lower(os.ext(path), context.temp_allocator) == ".png", "expected a png file")
 	return create_texture_from_png_in_memory(file_data)
 }
 
 create_texture_from_aseprite_file :: proc(path: string) -> (texture: Texture, ok := false) {
-	file_data := os.read_entire_file(path, context.temp_allocator) or_return
-	assert(strings.to_lower(filepath.ext(path), context.temp_allocator) == ".aseprite", "expected an aseprite file")
+	file_data, read_file_error := os.read_entire_file(path, context.temp_allocator)
+	if read_file_error != nil {
+		log.errorf("Failed to read aseprite texture file `%v`: %v", path, read_file_error)
+		return
+	}
+	assert(strings.to_lower(os.ext(path), context.temp_allocator) == ".aseprite", "expected an aseprite file")
 	return create_texture_from_aseprite_in_memory(file_data)
 }
 

@@ -68,7 +68,7 @@ window_init :: proc() -> (ok := false) {
 	glfw.SetMouseButtonCallback(s_window.handle, glfw_mouse_button_callback)
 
 	window_set_cursor_enabled(false)
-	if glfw.RawMouseMotionSupported() do glfw.SetInputMode(s_window.handle, glfw.RAW_MOUSE_MOTION, glfw.TRUE)
+	if glfw.RawMouseMotionSupported() do glfw.SetInputMode(s_window.handle, glfw.RAW_MOUSE_MOTION, i32(glfw.TRUE))
 
 	ok = true
 	return

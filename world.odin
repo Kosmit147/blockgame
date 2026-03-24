@@ -55,7 +55,7 @@ world_init :: proc(world: ^World, world_size: i32) -> bool {
 	MIN_CHUNK_GENERATION_THREADS :: 4
 	thread.pool_init(&world.thread_pool,
 			 world.allocator,
-			 max(os.processor_core_count() - 1, MIN_CHUNK_GENERATION_THREADS))
+			 max(os.get_processor_core_count() - 1, MIN_CHUNK_GENERATION_THREADS))
 	thread.pool_start(&world.thread_pool)
 
 	for x in -world_size..=world_size {
