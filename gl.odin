@@ -16,6 +16,8 @@ import "core:image/png"
 import "core:reflect"
 import "core:os"
 
+_ :: png
+
 gl_index :: proc($I: typeid) -> u32 {
 	when I == u8 {
 		return gl.UNSIGNED_BYTE
@@ -32,22 +34,32 @@ gl_index :: proc($I: typeid) -> u32 {
 gl_vertex_attribute :: proc(type_info: ^runtime.Type_Info) -> Vertex_Attribute {
 	type_info := runtime.type_info_base(type_info)
 
-	ASSERT_MESSAGE :: "only arrays of 32-bit floats are supported"
-	array_type_info, is_array := type_info.variant.(runtime.Type_Info_Array)
-	assert(is_array, ASSERT_MESSAGE)
-	elem_type_info := runtime.type_info_base(array_type_info.elem)
-	assert(elem_type_info.size == size_of(f32), ASSERT_MESSAGE)
-	_, is_float := elem_type_info.variant.(runtime.Type_Info_Float)
-	assert(is_float, ASSERT_MESSAGE)
-
-	switch array_type_info.count {
-	case 1: return .Float_1
-	case 2: return .Float_2
-	case 3: return .Float_3
-	case 4: return .Float_4
+	if float_info, is_float := type_info.variant.(runtime.Type_Info_Float); is_float {
+		assert(type_info.size == size_of(f32), "only 32-bit floats are supported")
+		return .Float_1
 	}
 
-	assert(false, "shouldn't be possible to get here")
+	if int_info, is_int := type_info.variant.(runtime.Type_Info_Integer); is_int {
+		assert(type_info.size == size_of(i32), "only 32-bit ints are supported")
+		return .Int_1 if int_info.signed else .Uint_1
+	}
+
+	if array_info, is_array := type_info.variant.(runtime.Type_Info_Array); is_array {
+		ASSERT_MESSAGE :: "only arrays of 32-bit floats are supported"
+		elem_info := runtime.type_info_base(array_info.elem)
+		assert(elem_info.size == size_of(f32), ASSERT_MESSAGE)
+		_, is_float := elem_info.variant.(runtime.Type_Info_Float)
+		assert(is_float, ASSERT_MESSAGE)
+
+		switch array_info.count {
+		case 1: return .Float_1
+		case 2: return .Float_2
+		case 3: return .Float_3
+		case 4: return .Float_4
+		}
+	}
+
+	assert(false, "unsupported type")
 	return nil
 }
 
@@ -218,24 +230,31 @@ Vertex_Attribute :: enum {
 	Float_2,
 	Float_3,
 	Float_4,
+	Uint_1,
+	Int_1,
 }
 
-Vertex_Attribute_Description :: struct {
+Vertex_Attribute_Description :: struct #all_or_none {
 	count: i32,
 	type: u32,
 	size: u32,
+	is_integer: bool,
 }
 
 describe_vertex_attribute :: proc(attribute: Vertex_Attribute) -> Vertex_Attribute_Description {
 	switch attribute {
 	case .Float_1:
-		return { 1, gl.FLOAT, 1 * size_of(f32) }
+		return { count = 1, type = gl.FLOAT, size = 1 * size_of(f32), is_integer = false }
 	case .Float_2:
-		return { 2, gl.FLOAT, 2 * size_of(f32) }
+		return { count = 2, type = gl.FLOAT, size = 2 * size_of(f32), is_integer = false }
 	case .Float_3:
-		return { 3, gl.FLOAT, 3 * size_of(f32) }
+		return { count = 3, type = gl.FLOAT, size = 3 * size_of(f32), is_integer = false }
 	case .Float_4:
-		return { 4, gl.FLOAT, 4 * size_of(f32) }
+		return { count = 4, type = gl.FLOAT, size = 4 * size_of(f32), is_integer = false }
+	case .Uint_1:
+		return { count = 1, type = gl.UNSIGNED_INT, size = 1 * size_of(u32), is_integer = true }
+	case .Int_1:
+		return { count = 1, type = gl.INT, size = 1 * size_of(i32), is_integer = true }
 	case:
 		assert(false)
 		return {}
@@ -246,19 +265,24 @@ VERTEX_BUFFER_BINDING_INDEX :: 0
 
 set_vertex_array_format :: proc(va: Vertex_Array, format: []Vertex_Attribute) {
 	offset: u32 = 0
-
 	for attribute, index in format {
 		description := describe_vertex_attribute(attribute)
-
 		gl.EnableVertexArrayAttrib(va.id, u32(index));
-		gl.VertexArrayAttribFormat(va.id,
-					   u32(index),
-					   description.count,
-					   description.type,
-					   gl.FALSE,
-					   offset)
+		if description.is_integer {
+			gl.VertexArrayAttribIFormat(va.id,
+						    u32(index),
+						    description.count,
+						    description.type,
+						    offset)
+		} else {
+			gl.VertexArrayAttribFormat(va.id,
+						   u32(index),
+						   description.count,
+						   description.type,
+						   gl.FALSE,
+						   offset)
+		}
 		gl.VertexArrayAttribBinding(va.id, u32(index), VERTEX_BUFFER_BINDING_INDEX)
-
 		offset += description.size
 	}
 }

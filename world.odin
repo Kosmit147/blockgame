@@ -218,6 +218,21 @@ Block :: enum u8 {
 Block_Chunk_Coordinate :: distinct [3]i32
 // Position of the block relative to the world origin.
 Block_World_Coordinate :: distinct [3]i32
+// Coordinate of a block corner within a chunk.
+Block_Corner_Chunk_Coordinate :: distinct [3]i32
+
+to_chunk_coordinate :: proc(block_coordinate: Block_World_Coordinate) -> Block_Chunk_Coordinate {
+	return { block_coordinate.x %% CHUNK_SIZE.x,
+		 block_coordinate.y,
+		 block_coordinate.z %% CHUNK_SIZE.z }
+}
+
+to_world_coordinate :: proc(block_coordinate: Block_Chunk_Coordinate,
+			    chunk_coordinate: Chunk_Coordinate) -> Block_World_Coordinate {
+	return { chunk_coordinate.x * CHUNK_SIZE.x + block_coordinate.x,
+		 block_coordinate.y,
+		 chunk_coordinate.z * CHUNK_SIZE.z + block_coordinate.z }
+}
 
 @(require_results)
 block_is_invisible :: proc(block: Block) -> bool {
@@ -242,6 +257,11 @@ block_can_be_placed_over :: proc(block: Block) -> bool {
 @(require_results)
 block_can_be_destroyed :: proc(block: Block) -> bool {
 	return true
+}
+
+@(require_results)
+block_occludes_light :: proc(block: Block) -> bool {
+	return block != .Air
 }
 
 Chunk :: struct {
@@ -281,19 +301,6 @@ get_chunk_block_safe :: proc(blocks: ^Chunk_Blocks, coordinate: Block_Chunk_Coor
 	z_in_bounds := coordinate.z >= 0 && coordinate.z < CHUNK_SIZE.z
 	if !x_in_bounds || !y_in_bounds || !z_in_bounds do return nil, false
 	return get_chunk_block(blocks, coordinate), true
-}
-
-to_chunk_coordinate :: proc(block_coordinate: Block_World_Coordinate) -> Block_Chunk_Coordinate {
-	return { block_coordinate.x %% CHUNK_SIZE.x,
-		 block_coordinate.y,
-		 block_coordinate.z %% CHUNK_SIZE.z }
-}
-
-to_world_coordinate :: proc(block_coordinate: Block_Chunk_Coordinate,
-			    chunk_coordinate: Chunk_Coordinate) -> Block_World_Coordinate {
-	return { chunk_coordinate.x * CHUNK_SIZE.x + block_coordinate.x,
-		 block_coordinate.y,
-		 chunk_coordinate.z * CHUNK_SIZE.z + block_coordinate.z }
 }
 
 Chunk_Iterator :: struct {
@@ -355,21 +362,28 @@ create_chunk_mesh :: proc(mesh_data: Chunk_Mesh_Data) -> (mesh: Mesh) {
 generate_chunk_mesh :: proc(blocks: ^Chunk_Blocks, allocator: runtime.Allocator) -> (mesh: Chunk_Mesh_Data) {
 	// TODO: Don't generate vertices for faces which are not visible at chunk boundaries.
 
-	mesh.vertices = make([dynamic]Standard_Vertex, allocator)
-	mesh.indices = make([dynamic]u32, allocator)
+	mesh.vertices = make([dynamic]Chunk_Mesh_Vertex, allocator)
+	mesh.indices = make([dynamic]Chunk_Mesh_Index, allocator)
 
 	chunk_iterator := make_chunk_iterator(blocks)
 	index_offset := u32(0)
 	for block, block_coordinate in iterate_chunk(&chunk_iterator) {
 		if block_is_invisible(block^) do continue
 		visible_faces_directions := visible_faces(blocks, block_coordinate)
-		for face_vertices, facing_direction in block_faces {
+		for face_vertices_data, facing_direction in block_faces {
 			if facing_direction not_in visible_faces_directions do continue
-			vertex_position_offset := linalg.array_cast(block_coordinate, f32)
-			vertices := face_vertices
-			for &vertex in vertices {
-				vertex.position += vertex_position_offset
-				vertex.uv = map_block_uv_to_atlas(vertex.uv, block^, facing_direction)
+			vertices: [4]Chunk_Mesh_Vertex
+			assert(len(face_vertices_data) == len(vertices))
+			for &vertex, vertex_index in vertices {
+				vertex_data := face_vertices_data[vertex_index]
+				corner_coordinate := vertex_data.position + Block_Corner_Chunk_Coordinate(block_coordinate)
+
+				vertex = Chunk_Mesh_Vertex {
+					position = linalg.array_cast(corner_coordinate, f32),
+					normal = vertex_data.normal,
+					uv = map_block_uv_to_atlas(vertex_data.uv, block^, facing_direction),
+					ambient_occlusion = ambient_occlusion(blocks, corner_coordinate),
+				}
 			}
 			indices := block_indices
 			for &index in indices do index += index_offset
@@ -423,11 +437,47 @@ map_block_uv_to_atlas :: proc(uv: Vec2, block: Block, block_facing: World_Direct
 	return atlas_rect_origin + uv * atlas_rect_size
 }
 
-Chunk_Mesh_Vertex :: Standard_Vertex
+// Ambient occlusion is a value between 0 and 8 which represents the number of light-occluding blocks around the block
+// corner.
+@(private="file")
+ambient_occlusion :: proc(blocks: ^Chunk_Blocks, coordinate: Block_Corner_Chunk_Coordinate) -> (occlusion := u32(0)) {
+	// TODO: Fix occlusion not working properly on chunk boundaries.
+	neighboring_block_coordinates := [8]Block_Chunk_Coordinate{
+		Block_Chunk_Coordinate(coordinate) + { -1, -1, -1 },
+		Block_Chunk_Coordinate(coordinate) + { -1, -1,  0 },
+		Block_Chunk_Coordinate(coordinate) + {  0, -1, -1 },
+		Block_Chunk_Coordinate(coordinate) + {  0, -1,  0 },
+		Block_Chunk_Coordinate(coordinate) + { -1,  0, -1 },
+		Block_Chunk_Coordinate(coordinate) + { -1,  0,  0 },
+		Block_Chunk_Coordinate(coordinate) + {  0,  0, -1 },
+		Block_Chunk_Coordinate(coordinate) + {  0,  0,  0 },
+	}
+
+	for block_coordinate in neighboring_block_coordinates {
+		block := get_chunk_block_safe(blocks, block_coordinate) or_continue
+		if block_occludes_light(block^) do occlusion += 1
+	}
+
+	return
+}
+
+Chunk_Mesh_Vertex :: struct #all_or_none {
+	position: Vec3,
+	normal: Vec3,
+	uv: Vec2,
+	ambient_occlusion: u32,
+}
+
 Chunk_Mesh_Index :: u32
 
+Chunk_Mesh_Vertex_Input_Data :: struct {
+	position: Block_Corner_Chunk_Coordinate,
+	normal: Vec3,
+	uv: Vec2,
+}
+
 @(private="file", rodata)
-block_faces := [World_Direction][4]Chunk_Mesh_Vertex{
+block_faces := [World_Direction][4]Chunk_Mesh_Vertex_Input_Data{
 	// Front wall.
 	.Plus_Z = {
 		{ position = { 0, 0, 1 }, normal = {  0,  0,  1 }, uv = { 0, 1 } },

@@ -1,7 +1,5 @@
 package blockgame
 
-import "base:runtime"
-
 import ma "vendor:miniaudio"
 
 import "core:log"
@@ -12,7 +10,7 @@ import "core:mem/virtual"
 TRACKS_PATH :: "sound/tracks/"
 
 DEFAULT_MASTER_VOLUME :: 0.15
-DEFAULT_MUSIC_VOLUME :: 1
+DEFAULT_MUSIC_VOLUME :: 0
 
 Sound_System :: struct {
 	engine: ma.engine,

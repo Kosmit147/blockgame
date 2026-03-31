@@ -2,7 +2,6 @@ package blockgame
 
 import "vendor/imgui"
 
-import "core:log"
 import "core:fmt"
 import "core:math"
 import "core:math/linalg"
@@ -19,8 +18,8 @@ UI_WORLD_SIZE_MAX  :: 20
 
 DEFAULT_SKY_COLOR :: Vec3{ 0.7, 0.95, 1 }
 DEFAULT_DIRECTIONAL_LIGHT :: Directional_Light {
-	ambient = Vec3{ 0.3, 0.3, 0.3 },
-	color = Vec3{ 1, 1, 1 },
+	ambient = Vec3{ 0.5, 0.5, 0.5 },
+	color = Vec3{ 0.8, 0.8, 0.8 },
 	direction = Vec3{ -0.5774, -0.5774, -0.5774 },
 }
 
@@ -146,8 +145,6 @@ game_render :: proc() {
 	}
 
 	{
-	 	window_size := window_size()
-	 	window_width, window_height := f32(window_size.x), f32(window_size.y)
 		aspect_ratio := window_aspect_ratio()
 
 		crosshair_position := Vec2{ 0.0 - CROSSHAIR_SIZE / 2.0, 0.0 + CROSSHAIR_SIZE / 2.0 }
