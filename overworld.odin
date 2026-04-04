@@ -33,7 +33,7 @@ TOGGLE_CURSOR_KEY :: Key.Left_Control
 
 DESTROY_BLOCK_BUTTON :: Mouse_Button.Left
 PLACE_BLOCK_BUTTON   :: Mouse_Button.Right
-PLACEABLE_BLOCK      :: Block.Bricks
+PICK_BLOCK_BUTTON    :: Mouse_Button.Middle
 
 Overworld :: struct {
 	camera: Camera,
@@ -42,8 +42,10 @@ Overworld :: struct {
 	world_generator_params: World_Generator_Params,
 
 	highlighted_block_coordinate: Maybe(Block_World_Coordinate),
+	picked_block: Block,
 	destroy_block_on_update: bool,
 	place_block_on_update: bool,
+	pick_block_on_update: bool,
 
 	sky_color: Vec3,
 	directional_light: Directional_Light,
@@ -63,6 +65,8 @@ overworld_init :: proc(scene_data: rawptr) -> (ok := false) {
 	overworld.world_generator_params = default_world_generator_params()
 	set_world_generator_params(overworld.world_generator_params)
 	world_init(&overworld.world, overworld.world_size)
+
+	overworld.picked_block = .Bricks
 
 	overworld.sky_color = DEFAULT_SKY_COLOR
 	renderer_set_clear_color(Vec4{ overworld.sky_color.r, overworld.sky_color.g, overworld.sky_color.b, 1 })
@@ -91,8 +95,11 @@ overworld_on_event :: proc(event: Event, scene_data: rawptr) {
 		case DEBUG_UI_KEY:       overworld_toggle_debug_ui(overworld)
 		}
 	case Mouse_Button_Pressed_Event:
-		if event.button == DESTROY_BLOCK_BUTTON do overworld.destroy_block_on_update = true
-		if event.button == PLACE_BLOCK_BUTTON do overworld.place_block_on_update = true
+		#partial switch event.button {
+		case DESTROY_BLOCK_BUTTON:  overworld.destroy_block_on_update = true
+		case PLACE_BLOCK_BUTTON:    overworld.place_block_on_update = true
+		case PICK_BLOCK_BUTTON:     overworld.pick_block_on_update = true
+		}
 	}
 }
 
@@ -118,15 +125,18 @@ overworld_update :: proc(delta_time: f32, scene_data: rawptr) {
 	if input_key_pressed(.D) do overworld.camera.position += camera_vectors.right   * movement_speed * delta_time
 
 	ray := Ray { origin = overworld.camera.position, direction = camera_vectors.forward }
-	_, block_coordinate, place_offset, block_hit := world_raycast(overworld.world, ray, PLAYER_REACH)
+	block, block_coordinate, place_offset, block_hit := world_raycast(overworld.world, ray, PLAYER_REACH)
 	if block_hit {
 		overworld.highlighted_block_coordinate = block_coordinate
+		if overworld.pick_block_on_update {
+			overworld.picked_block = block^
+		}
 		if overworld.destroy_block_on_update {
 			world_destroy_block(overworld.world, block_coordinate)
 		}
 		if overworld.place_block_on_update {
 			place_coordinate := block_coordinate + Block_World_Coordinate(place_offset)
-			world_place_block(overworld.world, place_coordinate, PLACEABLE_BLOCK)
+			world_place_block(overworld.world, place_coordinate, overworld.picked_block)
 		}
 	} else {
 		overworld.highlighted_block_coordinate = nil
@@ -134,6 +144,7 @@ overworld_update :: proc(delta_time: f32, scene_data: rawptr) {
 
 	overworld.destroy_block_on_update = false
 	overworld.place_block_on_update = false
+	overworld.pick_block_on_update = false
 	overworld_debug_ui(overworld)
 }
 
@@ -227,6 +238,7 @@ overworld_debug_ui :: proc(overworld: ^Overworld) {
 
 	imgui.Begin("Player")
 	imgui.TextUnformatted(fmt.ctprintf("Position: %v", overworld.camera.position))
+	imgui_enum_select("Picked block", &overworld.picked_block)
 	imgui.End()
 
 	imgui.Begin("Music Player")
