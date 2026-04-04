@@ -71,7 +71,7 @@ main :: proc() {
 	init_imgui()
 	defer deinit_imgui()
 
-	if !init_resources() do log.panic("Failed to initialize resources.")
+	if !init_resources() do log.panic("Failed to initialize the resources.")
 	defer deinit_resources()
 
 	if !renderer_init() do log.panic("Failed to initialize the renderer.")
@@ -80,31 +80,32 @@ main :: proc() {
 	if !renderer_2d_init() do log.panic("Failed to initialize the 2D renderer.")
 	defer renderer_2d_deinit()
 
-	if !init_sound() do log.panic("Failed to init sound system.")
+	if !init_sound() do log.panic("Failed to initialize the sound system.")
 	defer deinit_sound()
 
-	if !game_init() do log.panic("Failed to initialize the game state.")
-	defer game_deinit()
+	if !change_scene(.Main_Menu) do log.panic("Failed to initialize the starting scene.")
+	defer scene_deinit()
 
-	DELTA_TIME_LIMIT :: 1.0 / 30.0
+	MAX_DELTA_TIME :: 1.0 / 30.0
 	prev_time := f32(window_time())
 
 	for !window_should_close() {
 		when HOT_RELOAD { hot_reload() }
 
 		time := f32(window_time())
-		dt := min(time - prev_time, DELTA_TIME_LIMIT)
+		delta_time := min(time - prev_time, MAX_DELTA_TIME)
 		prev_time = time
 
 		window_poll_events()
-		for event in window_pop_event() do game_on_event(event)
+		for event in window_pop_event() do scene_on_event(event)
 
 		imgui_new_frame()
 
-		game_update(dt)
+		scene_update(delta_time)
 		sound_update()
-		if !window_is_minimized() do game_render()
 
+		renderer_clear()
+		if !window_is_minimized() do scene_render()
 		imgui_render()
 
 		window_swap_buffers()
