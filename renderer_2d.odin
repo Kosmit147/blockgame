@@ -2,7 +2,7 @@ package blockgame
 
 import gl "vendor:OpenGL"
 
-import "easy_font"
+import "vendor/easy_font"
 
 import "core:slice"
 
@@ -19,7 +19,7 @@ Textured_Quad_Vertex :: struct {
 
 Renderer_2D :: struct {
 	quad_renderer: Batch_Renderer(Quad_Vertex),
-	// Creating separate batch renderer for every texture is a bit wasteful, as the only thing that changes per
+	// Creating a separate batch renderer for every texture is a bit wasteful, as the only thing that changes per
 	// texture is the set of vertices and indices.
 	textured_quad_renderers: [Texture_Id]Batch_Renderer(Textured_Quad_Vertex),
 }
@@ -27,10 +27,11 @@ Renderer_2D :: struct {
 @(private="file")
 s_renderer_2d: Renderer_2D
 
-renderer_2d_init :: proc() -> bool {
+renderer_2d_init :: proc() -> (ok := false) {
 	batch_renderer_init(&s_renderer_2d.quad_renderer)
 	for &renderer in s_renderer_2d.textured_quad_renderers do batch_renderer_init(&renderer)
-	return true
+	ok = true
+	return
 }
 
 renderer_2d_deinit :: proc() {
@@ -110,6 +111,21 @@ renderer_2d_submit_text :: proc(text: string, screen_position: Vec2, color := WH
 			color = color,
 		})
 	}
+}
+
+@(require_results)
+renderer_2d_text_width :: proc(text: string, scale := f32(1)) -> f32 {
+	return cast(f32)easy_font.width(text) * scale
+}
+
+@(require_results)
+renderer_2d_text_height :: proc(text: string, scale := f32(1)) -> f32 {
+	return cast(f32)easy_font.height(text) * scale
+}
+
+@(require_results)
+renderer_2d_text_size :: proc(text: string, scale := f32(1)) -> Vec2 {
+	return Vec2{ renderer_2d_text_width(text, scale), renderer_2d_text_height(text, scale) }
 }
 
 Batch_Renderer_Index :: u32
