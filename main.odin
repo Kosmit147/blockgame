@@ -7,6 +7,7 @@ import "vendor/dmon"
 import "core:log"
 import "core:mem"
 import "core:strings"
+import "core:os"
 
 HOT_RELOAD :: #config(HOT_RELOAD, false)
 
@@ -64,6 +65,15 @@ main :: proc() {
 		dmon.watch(SHADERS_PATH, watcher_callback, nil, nil)
 	}
 
+	starting_scene := Scene_Id.Main_Menu
+
+	for arg in os.args[1:] {
+		switch arg {
+		case "-overworld":  starting_scene = .Overworld
+		case:               log.warnf("Unrecognized command-line argument: %v.", arg)
+		}
+	}
+
 	if !window_init() do log.panic("Failed to create a window.")
 	defer window_deinit()
 
@@ -83,7 +93,7 @@ main :: proc() {
 	if !init_sound() do log.panic("Failed to initialize the sound system.")
 	defer deinit_sound()
 
-	if !change_scene(.Main_Menu) do log.panic("Failed to initialize the starting scene.")
+	if !change_scene(starting_scene) do log.panic("Failed to initialize the starting scene.")
 	defer scene_deinit()
 
 	MAX_DELTA_TIME :: 1.0 / 30.0
