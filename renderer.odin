@@ -6,6 +6,7 @@ import "core:math/linalg"
 import "core:math"
 import "core:mem"
 import "core:slice"
+import "core:log"
 
 // These symbols tell GPU drivers to use the dedicated graphics card.
 @(export, rodata)
@@ -27,6 +28,10 @@ VIEW_PROJECTION_UNIFORM_BUFFER_BINDING_POINT :: 0
 LIGHT_DATA_UNIFORM_BUFFER_BINDING_POINT :: 1
 
 Renderer :: struct {
+	framebuffer: Framebuffer,
+	color_renderbuffer: Renderbuffer,
+	depth_stencil_renderbuffer: Renderbuffer,
+
 	view_projection_uniform_buffer: Gl_Buffer,
 	light_data_uniform_buffer: Gl_Buffer,
 
@@ -41,6 +46,35 @@ Renderer :: struct {
 s_renderer: Renderer
 
 renderer_init :: proc() -> (ok := false) {
+	// TODO: Handle framebuffer resize.
+
+	create_framebuffer(&s_renderer.framebuffer)
+	defer if !ok do destroy_framebuffer(&s_renderer.framebuffer)
+	bind_framebuffer(s_renderer.framebuffer)
+
+	window_framebuffer_size := window_framebuffer_size()
+
+	create_renderbuffer(renderbuffer = &s_renderer.color_renderbuffer,
+			    width = window_framebuffer_size.x,
+			    height = window_framebuffer_size.y,
+			    format = gl.RGBA8)
+	defer if !ok do destroy_renderbuffer(&s_renderer.color_renderbuffer)
+	bind_renderbuffer(s_renderer.framebuffer, s_renderer.color_renderbuffer, gl.COLOR_ATTACHMENT0)
+
+	create_renderbuffer(renderbuffer = &s_renderer.depth_stencil_renderbuffer,
+			    width = window_framebuffer_size.x,
+			    height = window_framebuffer_size.y,
+			    format = gl.DEPTH24_STENCIL8)
+	defer if !ok do destroy_renderbuffer(&s_renderer.depth_stencil_renderbuffer)
+	bind_renderbuffer(s_renderer.framebuffer, s_renderer.depth_stencil_renderbuffer, gl.DEPTH_STENCIL_ATTACHMENT)
+
+	if !framebuffer_is_complete(s_renderer.framebuffer) {
+		log.fatal("Main framebuffer is not complete.")
+		return
+	}
+
+	bind_framebuffer(s_renderer.framebuffer)
+
 	gl.ClearColor(0, 0, 0, 1)
 	gl.Enable(gl.CULL_FACE)
 	gl.CullFace(gl.BACK)
@@ -50,8 +84,11 @@ renderer_init :: proc() -> (ok := false) {
 	gl.BlendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA)
 
 	create_static_gl_buffer(&s_renderer.view_projection_uniform_buffer, size_of(View_Projection_Uniform_Buffer_Data))
+	defer if !ok do destroy_gl_buffer(&s_renderer.view_projection_uniform_buffer)
 	bind_uniform_buffer(s_renderer.view_projection_uniform_buffer, VIEW_PROJECTION_UNIFORM_BUFFER_BINDING_POINT)
+
 	create_static_gl_buffer(&s_renderer.light_data_uniform_buffer, size_of(Light_Data_Uniform_Buffer_Data))
+	defer if !ok do destroy_gl_buffer(&s_renderer.light_data_uniform_buffer)
 	bind_uniform_buffer(s_renderer.light_data_uniform_buffer, LIGHT_DATA_UNIFORM_BUFFER_BINDING_POINT)
 
 	renderer_get_uniforms()
@@ -62,14 +99,20 @@ renderer_init :: proc() -> (ok := false) {
 		    vertex_format = gl_vertex(Flat_Cube_Mesh_Vertex),
 		    indices = slice.to_bytes(flat_cube_indices[:]),
 		    index_type = gl_index(Flat_Cube_Mesh_Index))
+	defer if !ok do destroy_mesh(&s_renderer.flat_cube_mesh)
 
-	return true
+	ok = true
+	return
 }
 
 renderer_deinit :: proc() {
 	destroy_mesh(&s_renderer.flat_cube_mesh)
 	destroy_gl_buffer(&s_renderer.view_projection_uniform_buffer)
 	destroy_gl_buffer(&s_renderer.light_data_uniform_buffer)
+
+	destroy_renderbuffer(&s_renderer.depth_stencil_renderbuffer)
+	destroy_renderbuffer(&s_renderer.color_renderbuffer)
+	destroy_framebuffer(&s_renderer.framebuffer)
 }
 
 renderer_get_uniforms :: proc() {
@@ -88,7 +131,7 @@ renderer_clear :: proc() {
 	gl.Clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
 }
 
-renderer_begin_frame :: proc(camera: Camera, light: Directional_Light) {
+renderer_begin_3d_frame :: proc(camera: Camera, light: Directional_Light) {
 	camera_vectors := camera_vectors(camera)
 
 	view := linalg.matrix4_look_at(eye = camera.position,
@@ -109,6 +152,28 @@ renderer_begin_frame :: proc(camera: Camera, light: Directional_Light) {
 	}
 	upload_static_gl_buffer_data(s_renderer.light_data_uniform_buffer,
 				     mem.any_to_bytes(light_data_uniform_buffer_data))
+}
+
+renderer_finish_render :: proc() {
+	window_framebuffer_size := window_framebuffer_size()
+
+	when ODIN_DEBUG {
+		assert(window_framebuffer_size.x == s_renderer.color_renderbuffer.width)
+		assert(window_framebuffer_size.y == s_renderer.color_renderbuffer.height)
+	}
+
+	gl.BlitNamedFramebuffer(readFramebuffer = s_renderer.framebuffer.id,
+				drawFramebuffer = DEFAULT_FRAMEBUFFER,
+				srcX0 = 0,
+				srcY0 = 0,
+				srcX1 = s_renderer.color_renderbuffer.width,
+				srcY1 = s_renderer.color_renderbuffer.height,
+				dstX0 = 0,
+				dstY0 = 0,
+				dstX1 = window_framebuffer_size.x,
+				dstY1 = window_framebuffer_size.y,
+				mask = gl.COLOR_BUFFER_BIT,
+				filter = gl.NEAREST)
 }
 
 renderer_render_mesh :: proc(mesh: Mesh) {

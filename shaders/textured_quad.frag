@@ -3,7 +3,7 @@
 in vec2 UV;
 in vec4 Tint;
 
-out vec4 out_color;
+layout (location = 0) out vec4 out_color;
 
 layout (binding = 0) uniform sampler2D texture_0;
 

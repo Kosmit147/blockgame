@@ -70,6 +70,55 @@ gl_vertex :: proc($V: typeid) -> []Vertex_Attribute {
 	return attributes[:]
 }
 
+Framebuffer :: struct {
+	id: u32,
+}
+
+DEFAULT_FRAMEBUFFER :: 0
+
+create_framebuffer :: proc(framebuffer: ^Framebuffer) {
+	gl.CreateFramebuffers(1, &framebuffer.id)
+}
+
+destroy_framebuffer :: proc(framebuffer: ^Framebuffer) {
+	gl.DeleteFramebuffers(1, &framebuffer.id)
+}
+
+framebuffer_is_complete :: proc(framebuffer: Framebuffer) -> bool {
+	return gl.CheckNamedFramebufferStatus(framebuffer.id, gl.FRAMEBUFFER) == gl.FRAMEBUFFER_COMPLETE
+}
+
+bind_framebuffer :: proc(framebuffer: Framebuffer) {
+	gl.BindFramebuffer(gl.FRAMEBUFFER, framebuffer.id)
+}
+
+bind_default_framebuffer :: proc() {
+	gl.BindFramebuffer(gl.FRAMEBUFFER, DEFAULT_FRAMEBUFFER)
+}
+
+Renderbuffer :: struct {
+	id: u32,
+	width: i32,
+	height: i32,
+}
+
+create_renderbuffer :: proc(renderbuffer: ^Renderbuffer, width, height: i32, format: u32) {
+	gl.CreateRenderbuffers(1, &renderbuffer.id)
+	gl.NamedRenderbufferStorage(renderbuffer.id, format, width, height)
+	renderbuffer.width, renderbuffer.height = width, height
+}
+
+destroy_renderbuffer :: proc(renderbuffer: ^Renderbuffer) {
+	gl.DeleteRenderbuffers(1, &renderbuffer.id)
+}
+
+bind_renderbuffer :: proc(framebuffer: Framebuffer, renderbuffer: Renderbuffer, attachment: u32) {
+	gl.NamedFramebufferRenderbuffer(framebuffer = framebuffer.id,
+					attachment = attachment,
+					renderbuffertarget = gl.RENDERBUFFER,
+					renderbuffer = renderbuffer.id)
+}
+
 Shader :: struct {
 	id: u32,
 }

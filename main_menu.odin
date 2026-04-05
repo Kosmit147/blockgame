@@ -55,6 +55,4 @@ main_menu_render :: proc(scene_data: rawptr) {
 		text_pos.y += window_size.y / 10
 		renderer_2d_submit_text(PRESS_ENTER_TEXT, text_pos, scale = PRESS_ENTER_TEXT_SCALE)
 	}
-
-	renderer_2d_render()
 }

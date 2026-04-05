@@ -12,7 +12,7 @@ layout (std140, binding = 1) uniform Light_Data {
 
 layout (binding = 0) uniform sampler2D texture_0;
 
-out vec4 out_color;
+layout (location = 0) out vec4 out_color;
 
 void main() {
 	vec3 light = light_ambient * AmbientStrength + DiffuseLight;

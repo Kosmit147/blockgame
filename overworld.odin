@@ -151,7 +151,7 @@ overworld_update :: proc(delta_time: f32, scene_data: rawptr) {
 overworld_render :: proc(scene_data: rawptr) {
 	overworld := cast(^Overworld)scene_data
 
-	renderer_begin_frame(overworld.camera, overworld.directional_light)
+	renderer_begin_3d_frame(overworld.camera, overworld.directional_light)
 	renderer_render_world(overworld.world)
 
 	highlighted_block_coordinate, do_highlight := overworld.highlighted_block_coordinate.?
@@ -177,8 +177,6 @@ overworld_render :: proc(scene_data: rawptr) {
 			color = crosshair_color,
 		}, .Crosshair)
 	}
-
-	renderer_2d_render()
 }
 
 @(private="file")

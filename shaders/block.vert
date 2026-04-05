@@ -34,7 +34,6 @@ float ambient_strength[9] = float[](
 	0.0    // 8
 );
 
-// Gourard lighting with no specular component.
 vec3 diffuse() {
 	float strength = dot(-light_direction, in_normal);
 	strength = max(strength, 0.0);
