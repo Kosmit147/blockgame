@@ -29,8 +29,9 @@ LIGHT_DATA_UNIFORM_BUFFER_BINDING_POINT :: 1
 
 Renderer :: struct {
 	framebuffer: Framebuffer,
-	color_renderbuffer: Renderbuffer,
+	color_texture: Texture,
 	depth_stencil_renderbuffer: Renderbuffer,
+	postprocess_vertex_array: Vertex_Array,
 
 	view_projection_uniform_buffer: Gl_Buffer,
 	light_data_uniform_buffer: Gl_Buffer,
@@ -46,6 +47,11 @@ Renderer :: struct {
 s_renderer: Renderer
 
 renderer_init :: proc() -> (ok := false) {
+	renderer_set_clear_color(BLACK)
+	gl.CullFace(gl.BACK)
+	gl.FrontFace(gl.CCW)
+	gl.BlendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA)
+
 	// TODO: Handle framebuffer resize.
 
 	create_framebuffer(&s_renderer.framebuffer)
@@ -54,34 +60,34 @@ renderer_init :: proc() -> (ok := false) {
 
 	window_framebuffer_size := window_framebuffer_size()
 
-	create_renderbuffer(renderbuffer = &s_renderer.color_renderbuffer,
-			    width = window_framebuffer_size.x,
-			    height = window_framebuffer_size.y,
-			    format = gl.RGBA8)
-	defer if !ok do destroy_renderbuffer(&s_renderer.color_renderbuffer)
-	bind_renderbuffer(s_renderer.framebuffer, s_renderer.color_renderbuffer, gl.COLOR_ATTACHMENT0)
+	COLOR_TEXTURE_PARAMS :: Texture_Parameters {
+		wrap_s = gl.CLAMP_TO_BORDER,
+		wrap_t = gl.CLAMP_TO_BORDER,
+		min_filter = gl.NEAREST,
+		mag_filter = gl.NEAREST,
+		border_color = MAGENTA, // We should never see this magenta color.
+	}
+	s_renderer.color_texture = create_texture(width = cast(u32)window_framebuffer_size.x,
+						  height = cast(u32)window_framebuffer_size.y,
+						  internal_format = gl.RGBA8,
+						  params = COLOR_TEXTURE_PARAMS)
+	defer if !ok do destroy_texture(&s_renderer.color_texture)
+	attach_texture(s_renderer.framebuffer, s_renderer.color_texture, gl.COLOR_ATTACHMENT0)
 
 	create_renderbuffer(renderbuffer = &s_renderer.depth_stencil_renderbuffer,
 			    width = window_framebuffer_size.x,
 			    height = window_framebuffer_size.y,
 			    format = gl.DEPTH24_STENCIL8)
 	defer if !ok do destroy_renderbuffer(&s_renderer.depth_stencil_renderbuffer)
-	bind_renderbuffer(s_renderer.framebuffer, s_renderer.depth_stencil_renderbuffer, gl.DEPTH_STENCIL_ATTACHMENT)
+	attach_renderbuffer(s_renderer.framebuffer, s_renderer.depth_stencil_renderbuffer, gl.DEPTH_STENCIL_ATTACHMENT)
 
 	if !framebuffer_is_complete(s_renderer.framebuffer) {
 		log.fatal("Main framebuffer is not complete.")
 		return
 	}
 
-	bind_framebuffer(s_renderer.framebuffer)
-
-	gl.ClearColor(0, 0, 0, 1)
-	gl.Enable(gl.CULL_FACE)
-	gl.CullFace(gl.BACK)
-	gl.FrontFace(gl.CCW)
-	gl.Enable(gl.DEPTH_TEST)
-	gl.Enable(gl.BLEND)
-	gl.BlendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA)
+	create_vertex_array(&s_renderer.postprocess_vertex_array)
+	defer if !ok do destroy_vertex_array(&s_renderer.postprocess_vertex_array)
 
 	create_static_gl_buffer(&s_renderer.view_projection_uniform_buffer, size_of(View_Projection_Uniform_Buffer_Data))
 	defer if !ok do destroy_gl_buffer(&s_renderer.view_projection_uniform_buffer)
@@ -110,8 +116,9 @@ renderer_deinit :: proc() {
 	destroy_gl_buffer(&s_renderer.view_projection_uniform_buffer)
 	destroy_gl_buffer(&s_renderer.light_data_uniform_buffer)
 
+	destroy_vertex_array(&s_renderer.postprocess_vertex_array)
 	destroy_renderbuffer(&s_renderer.depth_stencil_renderbuffer)
-	destroy_renderbuffer(&s_renderer.color_renderbuffer)
+	destroy_texture(&s_renderer.color_texture)
 	destroy_framebuffer(&s_renderer.framebuffer)
 }
 
@@ -128,12 +135,26 @@ renderer_set_clear_color :: proc(color: Vec4) {
 }
 
 renderer_clear :: proc() {
-	gl.Clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
+	bind_framebuffer(s_renderer.framebuffer)
+	gl.Clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT | gl.STENCIL_BUFFER_BIT)
+	bind_default_framebuffer()
+	gl.Clear(gl.COLOR_BUFFER_BIT)
+}
+
+renderer_begin_2d_frame :: proc() {
+	renderer_clear()
+	bind_framebuffer(s_renderer.framebuffer)
 }
 
 renderer_begin_3d_frame :: proc(camera: Camera, light: Directional_Light) {
-	camera_vectors := camera_vectors(camera)
+	renderer_clear()
+	bind_framebuffer(s_renderer.framebuffer)
 
+	gl.Enable(gl.CULL_FACE)
+	gl.Enable(gl.DEPTH_TEST)
+	gl.Enable(gl.BLEND)
+
+	camera_vectors := camera_vectors(camera)
 	view := linalg.matrix4_look_at(eye = camera.position,
 				       centre = camera.position + camera_vectors.forward,
 				       up = camera_vectors.up)
@@ -141,10 +162,10 @@ renderer_begin_3d_frame :: proc(camera: Camera, light: Directional_Light) {
 						 aspect = window_aspect_ratio(),
 						 near = 0.1,
 						 far = 1000)
-
 	view_projection_uniform_buffer_data := View_Projection_Uniform_Buffer_Data { view, projection }
 	upload_static_gl_buffer_data(s_renderer.view_projection_uniform_buffer,
 				     mem.any_to_bytes(view_projection_uniform_buffer_data))
+
 	light_data_uniform_buffer_data := Light_Data_Uniform_Buffer_Data {
 		light_ambient = light.ambient,
 		light_color = light.color,
@@ -154,26 +175,19 @@ renderer_begin_3d_frame :: proc(camera: Camera, light: Directional_Light) {
 				     mem.any_to_bytes(light_data_uniform_buffer_data))
 }
 
-renderer_finish_render :: proc() {
-	window_framebuffer_size := window_framebuffer_size()
+renderer_end_frame :: proc() {
+	gl.Disable(gl.CULL_FACE)
+	gl.Disable(gl.DEPTH_TEST)
+	gl.Enable(gl.BLEND)
+	bind_framebuffer(s_renderer.framebuffer)
+	renderer_2d_render()
 
-	when ODIN_DEBUG {
-		assert(window_framebuffer_size.x == s_renderer.color_renderbuffer.width)
-		assert(window_framebuffer_size.y == s_renderer.color_renderbuffer.height)
-	}
-
-	gl.BlitNamedFramebuffer(readFramebuffer = s_renderer.framebuffer.id,
-				drawFramebuffer = DEFAULT_FRAMEBUFFER,
-				srcX0 = 0,
-				srcY0 = 0,
-				srcX1 = s_renderer.color_renderbuffer.width,
-				srcY1 = s_renderer.color_renderbuffer.height,
-				dstX0 = 0,
-				dstY0 = 0,
-				dstX1 = window_framebuffer_size.x,
-				dstY1 = window_framebuffer_size.y,
-				mask = gl.COLOR_BUFFER_BIT,
-				filter = gl.NEAREST)
+	gl.Disable(gl.BLEND)
+	bind_default_framebuffer()
+	use_shader(.Postprocess)
+	bind_texture_object(s_renderer.color_texture, 0)
+	bind_vertex_array(s_renderer.postprocess_vertex_array)
+	gl.DrawArrays(gl.TRIANGLE_STRIP, 0, 4)
 }
 
 renderer_render_mesh :: proc(mesh: Mesh) {
@@ -188,7 +202,6 @@ renderer_render_chunk :: proc(chunk: Chunk) {
 	model := linalg.matrix4_translate(Vec3{ f32(chunk.coordinate.x * CHUNK_SIZE.x),
 						0,
 						f32(chunk.coordinate.z * CHUNK_SIZE.z) })
-
 	set_uniform(s_renderer.block_shader_model_uniform, model)
 	renderer_render_mesh(chunk.mesh)
 }

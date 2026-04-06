@@ -40,9 +40,6 @@ renderer_2d_deinit :: proc() {
 }
 
 renderer_2d_render :: proc() {
-	gl.Disable(gl.DEPTH_TEST)
-	defer gl.Enable(gl.DEPTH_TEST)
-
 	batch_renderer_render(&s_renderer_2d.quad_renderer, .Quad, nil)
 	for &renderer, texture in s_renderer_2d.textured_quad_renderers {
 		batch_renderer_render(&renderer, .Textured_Quad, texture)

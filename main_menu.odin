@@ -41,6 +41,9 @@ main_menu_update :: proc(delta_time: f32, scene_data: rawptr) {
 main_menu_render :: proc(scene_data: rawptr) {
 	main_menu := cast(^Main_Menu)scene_data
 
+	renderer_begin_2d_frame()
+	defer renderer_end_frame()
+
 	window_size := linalg.array_cast(window_size(), f32)
 
 	{

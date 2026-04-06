@@ -10,6 +10,7 @@ Shader_Id :: enum {
 	Flat,
 	Quad,
 	Textured_Quad,
+	Postprocess,
 }
 
 Texture_Id :: enum {
@@ -92,7 +93,7 @@ when HOT_RELOAD {
 	@(private="file")
 	s_dirty_textures: bit_set[Texture_Id]
 
-	// Keep in mind that this will probably be called from a separate tread.
+	// Keep in mind that this will be called from a separate tread.
 	request_resource_reload :: proc(path: string) {
 		if strings.starts_with(path, SHADERS_PATH) {
 			mark_shader_as_dirty(path)
@@ -129,10 +130,12 @@ when HOT_RELOAD {
 
 	@(private="file")
 	mark_shader_as_dirty :: proc(file_path: string) {
-		for path, shader_id in shader_file_paths_map {
-			if path == file_path {
-				s_dirty_shaders += { shader_id }
-				return
+		for paths, shader_id in shader_file_paths_map {
+			for path in paths {
+				if path == file_path {
+					s_dirty_shaders += { shader_id }
+					return
+				}
 			}
 		}
 		log.warnf("Hot reload - unrecognized shader resource: %v", file_path)
@@ -172,22 +175,24 @@ when HOT_RELOAD {
 	}
 }
 
-SHADERS_PATH :: "shaders/"
-BLOCK_SHADER_VERTEX_PATH :: "shaders/block.vert"
-BLOCK_SHADER_FRAGMENT_PATH :: "shaders/block.frag"
-FLAT_SHADER_VERTEX_PATH :: "shaders/flat.vert"
-FLAT_SHADER_FRAGMENT_PATH :: "shaders/flat.frag"
-QUAD_SHADER_VERTEX_PATH :: "shaders/quad.vert"
-QUAD_SHADER_FRAGMENT_PATH :: "shaders/quad.frag"
-TEXTURED_QUAD_SHADER_VERTEX_PATH :: "shaders/textured_quad.vert"
+SHADERS_PATH                       :: "shaders/"
+BLOCK_SHADER_VERTEX_PATH           :: "shaders/block.vert"
+BLOCK_SHADER_FRAGMENT_PATH         :: "shaders/block.frag"
+FLAT_SHADER_VERTEX_PATH            :: "shaders/flat.vert"
+FLAT_SHADER_FRAGMENT_PATH          :: "shaders/flat.frag"
+QUAD_SHADER_VERTEX_PATH            :: "shaders/quad.vert"
+QUAD_SHADER_FRAGMENT_PATH          :: "shaders/quad.frag"
+TEXTURED_QUAD_SHADER_VERTEX_PATH   :: "shaders/textured_quad.vert"
 TEXTURED_QUAD_SHADER_FRAGMENT_PATH :: "shaders/textured_quad.frag"
+POSTPROCESS_SHADER_VERTEX_PATH     :: "shaders/postprocess.vert"
+POSTPROCESS_SHADER_FRAGMENT_PATH   :: "shaders/postprocess.frag"
 
-TEXTURES_PATH :: "textures/"
-WHITE_TEXTURE_PATH :: "textures/white.aseprite"
-BLACK_TEXTURE_PATH :: "textures/black.aseprite"
+TEXTURES_PATH            :: "textures/"
+WHITE_TEXTURE_PATH       :: "textures/white.aseprite"
+BLACK_TEXTURE_PATH       :: "textures/black.aseprite"
 TRANSPARENT_TEXTURE_PATH :: "textures/transparent.aseprite"
-BLOCKS_TEXTURE_PATH :: "textures/blocks.aseprite"
-CROSSHAIR_TEXTURE_PATH :: "textures/crosshair.aseprite"
+BLOCKS_TEXTURE_PATH      :: "textures/blocks.aseprite"
+CROSSHAIR_TEXTURE_PATH   :: "textures/crosshair.aseprite"
 
 @(rodata, private="file")
 shader_sources_map := [Shader_Id][2]string{
@@ -195,6 +200,7 @@ shader_sources_map := [Shader_Id][2]string{
 	.Flat = { #load(FLAT_SHADER_VERTEX_PATH, string), #load(FLAT_SHADER_FRAGMENT_PATH, string) },
 	.Quad = { #load(QUAD_SHADER_VERTEX_PATH, string), #load(QUAD_SHADER_FRAGMENT_PATH, string) },
 	.Textured_Quad = { #load(TEXTURED_QUAD_SHADER_VERTEX_PATH, string), #load(TEXTURED_QUAD_SHADER_FRAGMENT_PATH, string) },
+	.Postprocess = { #load(POSTPROCESS_SHADER_VERTEX_PATH, string), #load(POSTPROCESS_SHADER_FRAGMENT_PATH, string) },
 }
 
 @(rodata, private="file")
@@ -213,6 +219,7 @@ when HOT_RELOAD {
 		.Flat = { FLAT_SHADER_VERTEX_PATH, FLAT_SHADER_FRAGMENT_PATH },
 		.Quad = { QUAD_SHADER_VERTEX_PATH, QUAD_SHADER_FRAGMENT_PATH },
 		.Textured_Quad = { TEXTURED_QUAD_SHADER_VERTEX_PATH, TEXTURED_QUAD_SHADER_FRAGMENT_PATH },
+		.Postprocess = { POSTPROCESS_SHADER_VERTEX_PATH, POSTPROCESS_SHADER_FRAGMENT_PATH },
 	}
 
 	@(rodata, private="file")

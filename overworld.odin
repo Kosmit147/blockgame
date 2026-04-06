@@ -152,6 +152,8 @@ overworld_render :: proc(scene_data: rawptr) {
 	overworld := cast(^Overworld)scene_data
 
 	renderer_begin_3d_frame(overworld.camera, overworld.directional_light)
+	defer renderer_end_frame()
+
 	renderer_render_world(overworld.world)
 
 	highlighted_block_coordinate, do_highlight := overworld.highlighted_block_coordinate.?

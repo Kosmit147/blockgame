@@ -114,13 +114,8 @@ main :: proc() {
 		scene_update(delta_time)
 		sound_update()
 
-		renderer_clear()
-		if !window_is_minimized() {
-			scene_render()
-			renderer_2d_render()
-		}
+		if !window_is_minimized() do scene_render()
 		imgui_render()
-		renderer_finish_render()
 
 		window_swap_buffers()
 		free_all(context.temp_allocator)
