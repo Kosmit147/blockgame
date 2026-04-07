@@ -25,6 +25,21 @@ imgui_drag_double :: proc(label: cstring,
 				flags = flags)
 }
 
+imgui_input_uint :: proc(label: cstring,
+			 v: ^u32,
+			 step: u32 = 1,
+			 step_fast: u32 = 100,
+			 flags: imgui.InputTextFlags = {}) -> bool {
+	step, step_fast := step, step_fast
+	return imgui.InputScalar(label = label,
+				 data_type = .U32,
+				 p_data = v,
+				 p_step = &step,
+				 p_step_fast = &step_fast,
+				 format = nil,
+				 flags = flags)
+}
+
 imgui_enum_select :: proc(label: cstring, value: ^$E) -> bool where intrinsics.type_is_enum(E) {
 	value_changed := false
 	if imgui.BeginCombo(label, fmt.ctprintf("%v", value^)) {

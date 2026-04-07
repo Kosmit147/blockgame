@@ -19,8 +19,11 @@ Window :: struct {
 	handle: glfw.WindowHandle,
 	size: [2]i32,
 	framebuffer_size: [2]i32,
-	cursor_enabled: bool,
 	v_sync_mode: V_Sync_Mode,
+	fps_limit: Maybe(u32),
+	target_frame_time: f64,
+	prev_swap_buffers_time: f64,
+	cursor_enabled: bool,
 }
 
 @(private="file")
@@ -57,8 +60,9 @@ window_init :: proc() -> (ok := false) {
 
 	glfw.MakeContextCurrent(s_window.handle)
 	glfw.SwapInterval(0) // We want to handle vsync on our own.
-	window_platform_init()
-	window_set_vsync_mode(.Enabled)
+	platform_window_init()
+	window_set_vsync_mode(.Disabled)
+	window_enable_fps_limit(120)
 
 	window_init_event_queue()
 	glfw.SetWindowSizeCallback(s_window.handle, glfw_window_size_callback)
@@ -96,6 +100,11 @@ window_poll_events :: proc() {
 
 window_swap_buffers :: proc() {
 	glfw.SwapBuffers(s_window.handle)
+	current_frame_time := window_time() - s_window.prev_swap_buffers_time
+	if current_frame_time < s_window.target_frame_time {
+		platform_accurate_sleep(s_window.target_frame_time - current_frame_time)
+	}
+	s_window.prev_swap_buffers_time = window_time()
 }
 
 window_set_full_screen :: proc(full_screen: bool) {
@@ -122,12 +131,30 @@ V_Sync_Mode :: enum {
 }
 
 window_set_vsync_mode :: proc(mode: V_Sync_Mode) {
-	window_platform_set_vsync_mode(mode)
+	platform_window_set_vsync_mode(mode)
 	s_window.v_sync_mode = mode
 }
 
 window_vsync_mode :: proc() -> V_Sync_Mode {
 	return s_window.v_sync_mode
+}
+
+window_enable_fps_limit :: proc(limit: u32) {
+	s_window.fps_limit = limit
+	s_window.target_frame_time = 1.0 / f64(limit)
+}
+
+window_disable_fps_limit :: proc() {
+	s_window.fps_limit = nil
+	s_window.target_frame_time = 0
+}
+
+window_fps_limit :: proc() -> (u32, bool) {
+	return s_window.fps_limit.?
+}
+
+window_target_frame_time :: proc() -> f64 {
+	return s_window.target_frame_time
 }
 
 window_time :: proc() -> f64 {

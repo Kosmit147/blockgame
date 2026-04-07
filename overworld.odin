@@ -51,6 +51,7 @@ Overworld :: struct {
 	directional_light: Directional_Light,
 
 	debug_ui_enabled: bool,
+	fps_limit: u32,
 }
 
 overworld_init :: proc(scene_data: rawptr) -> (ok := false) {
@@ -226,6 +227,16 @@ overworld_debug_ui :: proc(overworld: ^Overworld) {
 	imgui.Begin("Settings")
 	full_screen := window_is_full_screen()
 	if imgui.Checkbox("Fullscreen", &full_screen) do window_set_full_screen(full_screen)
+	fps_limit, fps_limit_set := window_fps_limit()
+	if fps_limit_set do overworld.fps_limit = fps_limit
+	if imgui.Checkbox("Enable FPS limit", &fps_limit_set) {
+		if fps_limit_set do window_enable_fps_limit(overworld.fps_limit)
+		else do window_disable_fps_limit()
+	}
+	if imgui_input_uint("FPS limit", &overworld.fps_limit) && fps_limit_set {
+		window_enable_fps_limit(overworld.fps_limit)
+	}
+	imgui.TextUnformatted(fmt.ctprintf("Target frame time: %.6fs", window_target_frame_time()))
 	vsync_mode := window_vsync_mode()
 	if imgui_enum_select("Vertical Sync", &vsync_mode) do window_set_vsync_mode(vsync_mode)
 	master_volume := sound_master_volume()
