@@ -128,7 +128,7 @@ when HOT_RELOAD {
 		}
 		s_dirty_textures = {}
 
-		if any_shader_reloaded do renderer_get_uniforms()
+		if any_shader_reloaded do renderer_on_shader_reload()
 	}
 
 	@(private="file")

@@ -118,6 +118,7 @@ renderer_on_event :: proc(event: Event) {
 	}
 }
 
+@(private="file")
 renderer_init_framebuffer :: proc(size: [2]i32) -> (ok := false) {
 	create_framebuffer(&s_renderer.framebuffer)
 	defer if !ok do destroy_framebuffer(&s_renderer.framebuffer)
@@ -131,7 +132,7 @@ renderer_init_framebuffer :: proc(size: [2]i32) -> (ok := false) {
 	}
 	s_renderer.color_texture = create_texture(width = cast(u32)size.x,
 						  height = cast(u32)size.y,
-						  internal_format = gl.RGBA8,
+						  internal_format = gl.RGBA16F,
 						  params = COLOR_TEXTURE_PARAMS)
 	defer if !ok do destroy_texture(&s_renderer.color_texture)
 	attach_texture(s_renderer.framebuffer, s_renderer.color_texture, gl.COLOR_ATTACHMENT0)
@@ -154,12 +155,14 @@ renderer_init_framebuffer :: proc(size: [2]i32) -> (ok := false) {
 	return
 }
 
+@(private="file")
 renderer_deinit_framebuffer :: proc() {
 	destroy_renderbuffer(&s_renderer.depth_stencil_renderbuffer)
 	destroy_texture(&s_renderer.color_texture)
 	destroy_framebuffer(&s_renderer.framebuffer)
 }
 
+@(private="file")
 renderer_get_uniforms :: proc() {
 	block_shader := get_shader(.Block)
 	s_renderer.block_shader_model_uniform = get_uniform(block_shader, "model", Mat4)
@@ -297,6 +300,13 @@ renderer_render_block_highlight :: proc(coordinate: Block_World_Coordinate) {
 
 renderer_render_line :: proc(vertices: ^[2]Line_Vertex) {
 	batch_renderer_submit_line(&s_renderer.line_renderer, vertices)
+}
+
+when HOT_RELOAD {
+	renderer_on_shader_reload :: proc() {
+		renderer_get_uniforms()
+		renderer_set_gamma(renderer_gamma())
+	}
 }
 
 View_Projection_Uniform_Buffer_Data :: struct {
