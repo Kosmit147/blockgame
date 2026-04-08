@@ -582,15 +582,26 @@ glfw_error_callback :: proc "c" (error: i32, description: cstring) {
 	log.errorf("GLFW Error %v: %v", error, description)
 }
 
+Window_Resize_Event :: struct {
+	new_size: [2]i32,
+}
+
 @(private="file")
 glfw_window_size_callback :: proc "c" (window_handle: glfw.WindowHandle, width, height: i32) {
+	context = g_context
 	s_window.size.x, s_window.size.y = width, height
+	window_push_event(Window_Resize_Event{ { width, height } })
+}
+
+Framebuffer_Resize_Event :: struct {
+	new_size: [2]i32,
 }
 
 @(private="file")
 glfw_framebuffer_size_callback :: proc "c" (window_handle: glfw.WindowHandle, width, height: i32) {
-	gl.Viewport(0, 0, width, height)
+	context = g_context
 	s_window.framebuffer_size.x, s_window.framebuffer_size.y = width, height
+	window_push_event(Framebuffer_Resize_Event{ { width, height } })
 }
 
 Key_Pressed_Event :: struct {
@@ -643,6 +654,8 @@ glfw_mouse_button_callback :: proc "c" (window_handle: glfw.WindowHandle, button
 }
 
 Event :: union #no_nil {
+	Window_Resize_Event,
+	Framebuffer_Resize_Event,
 	Key_Pressed_Event,
 	Key_Released_Event,
 	Mouse_Button_Pressed_Event,
@@ -693,8 +706,6 @@ init_gl_context :: proc() {
 		log.infof("Renderer: %v", gl.GetString(gl.RENDERER))
 		log.infof("Version: %v", gl.GetString(gl.VERSION))
 	}
-
-	gl.Viewport(0, 0, s_window.framebuffer_size.x, s_window.framebuffer_size.y)
 }
 
 init_imgui :: proc() {

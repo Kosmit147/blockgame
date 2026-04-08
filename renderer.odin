@@ -60,39 +60,11 @@ renderer_init :: proc() -> (ok := false) {
 	gl.FrontFace(gl.CCW)
 	gl.BlendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA)
 
-	// TODO: Handle framebuffer resize.
-
-	create_framebuffer(&s_renderer.framebuffer)
-	defer if !ok do destroy_framebuffer(&s_renderer.framebuffer)
-	bind_framebuffer(s_renderer.framebuffer)
-
-	window_framebuffer_size := window_framebuffer_size()
-
-	COLOR_TEXTURE_PARAMS :: Texture_Parameters {
-		wrap_s = gl.CLAMP_TO_BORDER,
-		wrap_t = gl.CLAMP_TO_BORDER,
-		min_filter = gl.NEAREST,
-		mag_filter = gl.NEAREST,
-		border_color = MAGENTA, // We should never see this magenta color.
-	}
-	s_renderer.color_texture = create_texture(width = cast(u32)window_framebuffer_size.x,
-						  height = cast(u32)window_framebuffer_size.y,
-						  internal_format = gl.RGBA8,
-						  params = COLOR_TEXTURE_PARAMS)
-	defer if !ok do destroy_texture(&s_renderer.color_texture)
-	attach_texture(s_renderer.framebuffer, s_renderer.color_texture, gl.COLOR_ATTACHMENT0)
-
-	create_renderbuffer(renderbuffer = &s_renderer.depth_stencil_renderbuffer,
-			    width = window_framebuffer_size.x,
-			    height = window_framebuffer_size.y,
-			    format = gl.DEPTH24_STENCIL8)
-	defer if !ok do destroy_renderbuffer(&s_renderer.depth_stencil_renderbuffer)
-	attach_renderbuffer(s_renderer.framebuffer, s_renderer.depth_stencil_renderbuffer, gl.DEPTH_STENCIL_ATTACHMENT)
-
-	if !framebuffer_is_complete(s_renderer.framebuffer) {
-		log.fatal("Main framebuffer is not complete.")
+	if !renderer_init_framebuffer(window_framebuffer_size()) {
+		log.fatal("Failed to initialize the framebuffer.")
 		return
 	}
+	defer if !ok do renderer_deinit_framebuffer()
 
 	create_vertex_array(&s_renderer.postprocess_vertex_array)
 	defer if !ok do destroy_vertex_array(&s_renderer.postprocess_vertex_array)
@@ -130,6 +102,54 @@ renderer_deinit :: proc() {
 	destroy_gl_buffer(&s_renderer.light_data_uniform_buffer)
 
 	destroy_vertex_array(&s_renderer.postprocess_vertex_array)
+	renderer_deinit_framebuffer()
+}
+
+renderer_on_event :: proc(event: Event) {
+	#partial switch event in event {
+	case Framebuffer_Resize_Event:
+		renderer_deinit_framebuffer()
+		renderer_init_framebuffer(event.new_size)
+	}
+}
+
+renderer_init_framebuffer :: proc(size: [2]i32) -> (ok := false) {
+	create_framebuffer(&s_renderer.framebuffer)
+	defer if !ok do destroy_framebuffer(&s_renderer.framebuffer)
+
+	COLOR_TEXTURE_PARAMS :: Texture_Parameters {
+		wrap_s = gl.CLAMP_TO_BORDER,
+		wrap_t = gl.CLAMP_TO_BORDER,
+		min_filter = gl.NEAREST,
+		mag_filter = gl.NEAREST,
+		border_color = MAGENTA, // We should never see this magenta color.
+	}
+	s_renderer.color_texture = create_texture(width = cast(u32)size.x,
+						  height = cast(u32)size.y,
+						  internal_format = gl.RGBA8,
+						  params = COLOR_TEXTURE_PARAMS)
+	defer if !ok do destroy_texture(&s_renderer.color_texture)
+	attach_texture(s_renderer.framebuffer, s_renderer.color_texture, gl.COLOR_ATTACHMENT0)
+
+	create_renderbuffer(renderbuffer = &s_renderer.depth_stencil_renderbuffer,
+			    width = size.x,
+			    height = size.y,
+			    format = gl.DEPTH24_STENCIL8)
+	defer if !ok do destroy_renderbuffer(&s_renderer.depth_stencil_renderbuffer)
+	attach_renderbuffer(s_renderer.framebuffer, s_renderer.depth_stencil_renderbuffer, gl.DEPTH_STENCIL_ATTACHMENT)
+
+	if !framebuffer_is_complete(s_renderer.framebuffer) {
+		log.fatal("Main framebuffer is not complete.")
+		return
+	}
+
+	gl.Viewport(0, 0, size.x, size.y)
+
+	ok = true
+	return
+}
+
+renderer_deinit_framebuffer :: proc() {
 	destroy_renderbuffer(&s_renderer.depth_stencil_renderbuffer)
 	destroy_texture(&s_renderer.color_texture)
 	destroy_framebuffer(&s_renderer.framebuffer)
@@ -193,6 +213,8 @@ renderer_begin_3d_frame :: proc(camera: Camera, light: Directional_Light) {
 }
 
 renderer_end_frame :: proc() {
+	bind_framebuffer(s_renderer.framebuffer)
+
 	gl.Disable(gl.CULL_FACE)
 	gl.Enable(gl.DEPTH_TEST)
 	gl.Enable(gl.BLEND)
@@ -201,11 +223,19 @@ renderer_end_frame :: proc() {
 	gl.Disable(gl.CULL_FACE)
 	gl.Disable(gl.DEPTH_TEST)
 	gl.Enable(gl.BLEND)
-	bind_framebuffer(s_renderer.framebuffer)
 	renderer_2d_render()
 
-	gl.Disable(gl.BLEND)
 	bind_default_framebuffer()
+
+	when ODIN_DEBUG {
+		framebuffer_size := window_framebuffer_size()
+		assert(s_renderer.color_texture.width == u32(framebuffer_size.x))
+		assert(s_renderer.color_texture.height == u32(framebuffer_size.y))
+		assert(s_renderer.depth_stencil_renderbuffer.width == framebuffer_size.x)
+		assert(s_renderer.depth_stencil_renderbuffer.height == framebuffer_size.y)
+	}
+
+	gl.Disable(gl.BLEND)
 	use_shader(.Postprocess)
 	bind_texture_object(s_renderer.color_texture, 0)
 	bind_vertex_array(s_renderer.postprocess_vertex_array)

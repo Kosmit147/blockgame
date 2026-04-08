@@ -107,7 +107,10 @@ main :: proc() {
 		prev_time = time
 
 		window_poll_events()
-		for event in window_pop_event() do scene_on_event(event)
+		for event in window_pop_event() {
+			renderer_on_event(event)
+			scene_on_event(event)
+		}
 
 		imgui_new_frame()
 
