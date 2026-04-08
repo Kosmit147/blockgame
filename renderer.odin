@@ -18,6 +18,11 @@ Flat_Vertex :: struct {
 	position: Vec3,
 }
 
+Line_Vertex :: struct {
+	position: Vec3,
+	color: Vec4,
+}
+
 Standard_Vertex :: struct {
 	position: Vec3,
 	normal: Vec3,
@@ -41,6 +46,9 @@ Renderer :: struct {
 	flat_shader_color_uniform: Uniform(Vec4),
 
 	flat_cube_mesh: Mesh,
+
+	// Not entirely optimal, as there's no need to use indices with lines.
+	line_renderer: Batch_Renderer(Line_Vertex),
 }
 
 @(private="file")
@@ -107,11 +115,16 @@ renderer_init :: proc() -> (ok := false) {
 		    index_type = gl_index(Flat_Cube_Mesh_Index))
 	defer if !ok do destroy_mesh(&s_renderer.flat_cube_mesh)
 
+	batch_renderer_init(&s_renderer.line_renderer)
+	defer if !ok do batch_renderer_deinit(&s_renderer.line_renderer)
+
 	ok = true
 	return
 }
 
 renderer_deinit :: proc() {
+	batch_renderer_deinit(&s_renderer.line_renderer)
+
 	destroy_mesh(&s_renderer.flat_cube_mesh)
 	destroy_gl_buffer(&s_renderer.view_projection_uniform_buffer)
 	destroy_gl_buffer(&s_renderer.light_data_uniform_buffer)
@@ -132,6 +145,10 @@ renderer_get_uniforms :: proc() {
 
 renderer_set_clear_color :: proc(color: Vec4) {
 	gl.ClearColor(color.r, color.g, color.b, color.a)
+}
+
+renderer_set_line_width :: proc(width: f32) {
+	gl.LineWidth(width)
 }
 
 renderer_clear :: proc() {
@@ -176,6 +193,11 @@ renderer_begin_3d_frame :: proc(camera: Camera, light: Directional_Light) {
 }
 
 renderer_end_frame :: proc() {
+	gl.Disable(gl.CULL_FACE)
+	gl.Enable(gl.DEPTH_TEST)
+	gl.Enable(gl.BLEND)
+	batch_renderer_render(&s_renderer.line_renderer, .Lines, primitive_type = gl.LINES)
+
 	gl.Disable(gl.CULL_FACE)
 	gl.Disable(gl.DEPTH_TEST)
 	gl.Enable(gl.BLEND)
@@ -225,6 +247,10 @@ renderer_render_block_highlight :: proc(coordinate: Block_World_Coordinate) {
 	set_uniform(s_renderer.flat_shader_model_uniform, model)
 	set_uniform(s_renderer.flat_shader_color_uniform, HIGHLIGHT_COLOR)
 	renderer_render_mesh(s_renderer.flat_cube_mesh)
+}
+
+renderer_render_line :: proc(vertices: ^[2]Line_Vertex) {
+	batch_renderer_submit_line(&s_renderer.line_renderer, vertices)
 }
 
 View_Projection_Uniform_Buffer_Data :: struct {

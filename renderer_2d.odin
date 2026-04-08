@@ -152,7 +152,10 @@ batch_renderer_deinit :: proc(renderer: ^Batch_Renderer($Vertex)) {
 	destroy_vertex_array(&renderer.vertex_array)
 }
 
-batch_renderer_render :: proc(renderer: ^Batch_Renderer($Vertex), shader: Shader_Id, texture: Maybe(Texture_Id) = nil) {
+batch_renderer_render :: proc(renderer: ^Batch_Renderer($Vertex),
+			      shader: Shader_Id,
+			      texture: Maybe(Texture_Id) = nil,
+			      primitive_type: u32 = gl.TRIANGLES) {
 	if len(renderer.vertices) == 0 do return
 
 	use_shader(shader)
@@ -163,7 +166,7 @@ batch_renderer_render :: proc(renderer: ^Batch_Renderer($Vertex), shader: Shader
 	upload_dynamic_gl_buffer_data(&renderer.vertex_buffer, slice.to_bytes(renderer.vertices[:]))
 	upload_dynamic_gl_buffer_data(&renderer.index_buffer, slice.to_bytes(renderer.indices[:]))
 	bind_vertex_array(renderer.vertex_array)
-	gl.DrawElements(gl.TRIANGLES, cast(i32)len(renderer.indices), gl_index(Batch_Renderer_Index), nil)
+	gl.DrawElements(primitive_type, cast(i32)len(renderer.indices), gl_index(Batch_Renderer_Index), nil)
 	clear(&renderer.vertices)
 	clear(&renderer.indices)
 }
@@ -177,5 +180,13 @@ batch_renderer_submit_quad :: proc(renderer: ^Batch_Renderer($Vertex), vertices:
 	       index_offset + 2,
 	       index_offset + 0,
 	       index_offset + 2,
+	       index_offset + 1)
+}
+
+batch_renderer_submit_line :: proc(renderer: ^Batch_Renderer($Vertex), vertices: ^[2]Vertex) {
+	index_offset := cast(Batch_Renderer_Index)len(renderer.vertices)
+	append(&renderer.vertices, ..vertices[:])
+	append(&renderer.indices,
+	       index_offset + 0,
 	       index_offset + 1)
 }

@@ -52,6 +52,8 @@ Overworld :: struct {
 
 	debug_ui_enabled: bool,
 	fps_limit: u32,
+
+	test_line: [2]Line_Vertex,
 }
 
 overworld_init :: proc(scene_data: rawptr) -> (ok := false) {
@@ -63,7 +65,7 @@ overworld_init :: proc(scene_data: rawptr) -> (ok := false) {
 		pitch = math.to_radians(f32(0)),
 	}
 	overworld.world_size = DEFAULT_WORLD_SIZE
-	overworld.world_generator_params = default_world_generator_params()
+	overworld.world_generator_params = DEFAULT_WORLD_GENERATOR_PARAMS
 	set_world_generator_params(overworld.world_generator_params)
 	world_init(&overworld.world, overworld.world_size)
 
@@ -75,6 +77,17 @@ overworld_init :: proc(scene_data: rawptr) -> (ok := false) {
 	overworld.directional_light.direction = linalg.normalize(overworld.directional_light.direction)
 
 	overworld.debug_ui_enabled = true
+
+	overworld.test_line = {
+		Line_Vertex {
+			position = { -10,  50,  10 },
+			color = MAGENTA,
+		},
+		Line_Vertex {
+			position = {  10,  50, -10 },
+			color = MAGENTA,
+		}
+	}
 
 	ok = true
 	return
@@ -180,11 +193,22 @@ overworld_render :: proc(scene_data: rawptr) {
 			color = crosshair_color,
 		}, .Crosshair)
 	}
+
+	renderer_render_line(&overworld.test_line)
 }
 
 @(private="file")
 overworld_debug_ui :: proc(overworld: ^Overworld) {
 	if !overworld.debug_ui_enabled do return
+
+	imgui.Begin("Line")
+	imgui.SeparatorText("Point A")
+	imgui.DragFloat3("Position##A", &overworld.test_line[0].position)
+	imgui.ColorEdit4("Color##A", &overworld.test_line[0].color)
+	imgui.SeparatorText("Point B")
+	imgui.DragFloat3("Position##B" ,&overworld.test_line[1].position)
+	imgui.ColorEdit4("Color##B", &overworld.test_line[1].color)
+	imgui.End()
 
 	imgui.Begin("World")
 	if imgui.BeginTabBar("World Tab Bar") {

@@ -8,14 +8,12 @@ World_Generator_Params :: struct {
 	smoothness: f64,
 }
 
-default_world_generator_params :: proc "contextless" () -> World_Generator_Params {
-	return World_Generator_Params {
-		smoothness = 0.021,
-	}
+DEFAULT_WORLD_GENERATOR_PARAMS :: World_Generator_Params {
+	smoothness = 0.021,
 }
 
 @(private="file")
-s_world_generator_params := default_world_generator_params()
+s_world_generator_params := DEFAULT_WORLD_GENERATOR_PARAMS
 
 set_world_generator_params :: proc(params: World_Generator_Params) {
 	s_world_generator_params = params

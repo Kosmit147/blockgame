@@ -10,6 +10,7 @@ Shader_Id :: enum {
 	Flat,
 	Quad,
 	Textured_Quad,
+	Lines,
 	Postprocess,
 }
 
@@ -184,6 +185,8 @@ QUAD_SHADER_VERTEX_PATH            :: "shaders/quad.vert"
 QUAD_SHADER_FRAGMENT_PATH          :: "shaders/quad.frag"
 TEXTURED_QUAD_SHADER_VERTEX_PATH   :: "shaders/textured_quad.vert"
 TEXTURED_QUAD_SHADER_FRAGMENT_PATH :: "shaders/textured_quad.frag"
+LINES_SHADER_VERTEX_PATH           :: "shaders/lines.vert"
+LINES_SHADER_FRAGMENT_PATH         :: "shaders/lines.frag"
 POSTPROCESS_SHADER_VERTEX_PATH     :: "shaders/postprocess.vert"
 POSTPROCESS_SHADER_FRAGMENT_PATH   :: "shaders/postprocess.frag"
 
@@ -200,6 +203,7 @@ shader_sources_map := [Shader_Id][2]string{
 	.Flat = { #load(FLAT_SHADER_VERTEX_PATH, string), #load(FLAT_SHADER_FRAGMENT_PATH, string) },
 	.Quad = { #load(QUAD_SHADER_VERTEX_PATH, string), #load(QUAD_SHADER_FRAGMENT_PATH, string) },
 	.Textured_Quad = { #load(TEXTURED_QUAD_SHADER_VERTEX_PATH, string), #load(TEXTURED_QUAD_SHADER_FRAGMENT_PATH, string) },
+	.Lines = { #load(LINES_SHADER_VERTEX_PATH, string), #load(LINES_SHADER_FRAGMENT_PATH, string) },
 	.Postprocess = { #load(POSTPROCESS_SHADER_VERTEX_PATH, string), #load(POSTPROCESS_SHADER_FRAGMENT_PATH, string) },
 }
 
@@ -219,6 +223,7 @@ when HOT_RELOAD {
 		.Flat = { FLAT_SHADER_VERTEX_PATH, FLAT_SHADER_FRAGMENT_PATH },
 		.Quad = { QUAD_SHADER_VERTEX_PATH, QUAD_SHADER_FRAGMENT_PATH },
 		.Textured_Quad = { TEXTURED_QUAD_SHADER_VERTEX_PATH, TEXTURED_QUAD_SHADER_FRAGMENT_PATH },
+		.Lines = { LINES_SHADER_VERTEX_PATH, LINES_SHADER_FRAGMENT_PATH },
 		.Postprocess = { POSTPROCESS_SHADER_VERTEX_PATH, POSTPROCESS_SHADER_FRAGMENT_PATH },
 	}
 
