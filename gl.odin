@@ -245,23 +245,26 @@ get_uniform :: proc(shader: Shader, uniform: cstring, $T: typeid) -> (Uniform(T)
 	return Uniform(T) { location }, location != -1
 }
 
-set_uniform :: proc(uniform: Uniform($T), value: T) {
+set_uniform :: proc(shader: Shader_Id, uniform: Uniform($T), value: T) {
+	shader := get_shader(shader)
 	location := uniform.location
 	when ODIN_DEBUG { assert(location != -1) }
 
 	when T == i32 {
-		gl.Uniform1i(location, value)
+		gl.ProgramUniform1i(shader.id, location, value)
+	} else when T == f32 {
+		gl.ProgramUniform1f(shader.id, location, value)
 	} else when T == Vec2 {
-		gl.Uniform2f(location, value.x, value.y)
+		gl.ProgramUniform2f(shader.id, location, value.x, value.y)
 	} else when T == Vec3 {
-		gl.Uniform3f(location, value.x, value.y, value.z)
+		gl.ProgramUniform3f(shader.id, location, value.x, value.y, value.z)
 	} else when T == Vec4 {
-		gl.Uniform4f(location, value.x, value.y, value.z, value.w)
+		gl.ProgramUniform4f(shader.id, location, value.x, value.y, value.z, value.w)
 	} else when T == Mat4 {
 		value := value
-		gl.UniformMatrix4fv(location, 1, false, raw_data(&value))
+		gl.ProgramUniformMatrix4fv(shader.id, location, 1, false, raw_data(&value))
 	} else {
- 		#panic("Type T not implemented for set_uniform.")
+ 		#panic("Type T not implemented for set_shader_uniform.")
 	}
 }
 
@@ -323,7 +326,7 @@ set_vertex_array_format :: proc(va: Vertex_Array, format: []Vertex_Attribute) {
 	offset: u32 = 0
 	for attribute, index in format {
 		description := describe_vertex_attribute(attribute)
-		gl.EnableVertexArrayAttrib(va.id, u32(index));
+		gl.EnableVertexArrayAttrib(va.id, u32(index))
 		if description.is_integer {
 			gl.VertexArrayAttribIFormat(va.id,
 						    u32(index),

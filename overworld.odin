@@ -227,9 +227,10 @@ overworld_debug_ui :: proc(overworld: ^Overworld) {
 		}
 		if imgui.BeginTabItem("Light") {
 			if imgui.ColorEdit3("Sky Color", &overworld.sky_color) {
-				renderer_set_clear_color(Vec4{ overworld.sky_color.r,
-							       overworld.sky_color.g,
-							       overworld.sky_color.b, 1 })
+				color := Vec4{ overworld.sky_color.r,
+					       overworld.sky_color.g,
+					       overworld.sky_color.b, 1 }
+				renderer_set_clear_color(gamma_darken(color, DEFAULT_GAMMA))
 			}
 			imgui.SeparatorText("Directional Light")
 			imgui.ColorEdit3("Ambient", &overworld.directional_light.ambient)
@@ -251,6 +252,8 @@ overworld_debug_ui :: proc(overworld: ^Overworld) {
 	imgui.Begin("Settings")
 	full_screen := window_is_full_screen()
 	if imgui.Checkbox("Fullscreen", &full_screen) do window_set_full_screen(full_screen)
+	gamma := renderer_gamma()
+	if imgui.DragFloat("Gamma", &gamma, 0.005, 0.1, 5.0) do renderer_set_gamma(gamma)
 	fps_limit, fps_limit_set := window_fps_limit()
 	if fps_limit_set do overworld.fps_limit = fps_limit
 	if imgui.Checkbox("Enable FPS limit", &fps_limit_set) {

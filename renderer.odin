@@ -29,6 +29,7 @@ Standard_Vertex :: struct {
 	uv: Vec2,
 }
 
+DEFAULT_GAMMA :: 2.2
 VIEW_PROJECTION_UNIFORM_BUFFER_BINDING_POINT :: 0
 LIGHT_DATA_UNIFORM_BUFFER_BINDING_POINT :: 1
 
@@ -37,6 +38,8 @@ Renderer :: struct {
 	color_texture: Texture,
 	depth_stencil_renderbuffer: Renderbuffer,
 	postprocess_vertex_array: Vertex_Array,
+	gamma: f32,
+	postprocess_shader_gamma_uniform: Uniform(f32),
 
 	view_projection_uniform_buffer: Gl_Buffer,
 	light_data_uniform_buffer: Gl_Buffer,
@@ -89,6 +92,8 @@ renderer_init :: proc() -> (ok := false) {
 
 	batch_renderer_init(&s_renderer.line_renderer)
 	defer if !ok do batch_renderer_deinit(&s_renderer.line_renderer)
+
+	renderer_set_gamma(DEFAULT_GAMMA)
 
 	ok = true
 	return
@@ -161,6 +166,17 @@ renderer_get_uniforms :: proc() {
 	flat_shader := get_shader(.Flat)
 	s_renderer.flat_shader_model_uniform = get_uniform(flat_shader, "model", Mat4)
 	s_renderer.flat_shader_color_uniform = get_uniform(flat_shader, "color", Vec4)
+	postprocess_shader := get_shader(.Postprocess)
+	s_renderer.postprocess_shader_gamma_uniform = get_uniform(postprocess_shader, "gamma", f32)
+}
+
+renderer_set_gamma :: proc(gamma: f32) {
+	s_renderer.gamma = gamma
+	set_uniform(.Postprocess, s_renderer.postprocess_shader_gamma_uniform, gamma)
+}
+
+renderer_gamma :: proc() -> f32 {
+	return s_renderer.gamma
 }
 
 renderer_set_clear_color :: proc(color: Vec4) {
@@ -254,7 +270,7 @@ renderer_render_chunk :: proc(chunk: Chunk) {
 	model := linalg.matrix4_translate(Vec3{ f32(chunk.coordinate.x * CHUNK_SIZE.x),
 						0,
 						f32(chunk.coordinate.z * CHUNK_SIZE.z) })
-	set_uniform(s_renderer.block_shader_model_uniform, model)
+	set_uniform(.Block, s_renderer.block_shader_model_uniform, model)
 	renderer_render_mesh(chunk.mesh)
 }
 
@@ -274,8 +290,8 @@ renderer_render_block_highlight :: proc(coordinate: Block_World_Coordinate) {
 
 	use_shader(.Flat)
 	model := linalg.matrix4_translate(linalg.array_cast(coordinate, f32))
-	set_uniform(s_renderer.flat_shader_model_uniform, model)
-	set_uniform(s_renderer.flat_shader_color_uniform, HIGHLIGHT_COLOR)
+	set_uniform(.Flat, s_renderer.flat_shader_model_uniform, model)
+	set_uniform(.Flat, s_renderer.flat_shader_color_uniform, HIGHLIGHT_COLOR)
 	renderer_render_mesh(s_renderer.flat_cube_mesh)
 }
 

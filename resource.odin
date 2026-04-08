@@ -76,7 +76,9 @@ init_textures :: proc() -> (ok := false) {
 	defer if !ok do deinit_textures()
 	for &texture, texture_id in s_textures {
 		texture_file_data := texture_data_map[texture_id]
-		texture = create_texture_from_aseprite_in_memory(texture_file_data) or_return
+		texture_format := texture_internal_formats[texture_id]
+		texture = create_texture_from_aseprite_in_memory(texture_file_data,
+								 internal_format = texture_format) or_return
 	}
 
 	ok = true
@@ -167,7 +169,9 @@ when HOT_RELOAD {
 	@(private="file")
 	reload_texture :: proc(id: Texture_Id) -> (ok := false) {
 		texture_path := texture_file_paths_map[id]
-		reloaded_texture := create_texture_from_aseprite_file(texture_path) or_return
+		texture_format := texture_internal_formats[id]
+		reloaded_texture := create_texture_from_aseprite_file(texture_path,
+								      internal_format = texture_format) or_return
 		destroy_texture(&s_textures[id])
 		s_textures[id] = reloaded_texture
 
@@ -214,6 +218,15 @@ texture_data_map := [Texture_Id][]byte{
 	.Transparent = #load(TRANSPARENT_TEXTURE_PATH),
 	.Blocks = #load(BLOCKS_TEXTURE_PATH),
 	.Crosshair = #load(CROSSHAIR_TEXTURE_PATH)
+}
+
+@(rodata, private="file")
+texture_internal_formats := [Texture_Id]u32{
+	.White = gl.RGBA8,
+	.Black = gl.RGBA8,
+	.Transparent = gl.RGBA8,
+	.Blocks = gl.SRGB8_ALPHA8,
+	.Crosshair = gl.SRGB8_ALPHA8,
 }
 
 when HOT_RELOAD {
