@@ -730,6 +730,9 @@ imgui_new_frame :: proc() {
 	imgui_impl_opengl3.NewFrame()
 	imgui_impl_glfw.NewFrame()
 	imgui.NewFrame()
+
+	viewport := imgui.GetMainViewport()
+	imgui.DockSpaceOverViewport(imgui.GetID("Main window dock space"), viewport, { .PassthruCentralNode })
 }
 
 imgui_render :: proc() {
