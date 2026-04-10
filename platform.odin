@@ -139,7 +139,10 @@ window_vsync_mode :: proc() -> V_Sync_Mode {
 	return s_window.v_sync_mode
 }
 
+MIN_FPS_LIMIT :: 1
+
 window_enable_fps_limit :: proc(limit: u32) {
+	limit := max(limit, MIN_FPS_LIMIT)
 	s_window.fps_limit = limit
 	s_window.target_frame_time = 1.0 / f64(limit)
 }
