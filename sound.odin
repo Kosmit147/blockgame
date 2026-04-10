@@ -9,8 +9,8 @@ import "core:mem/virtual"
 
 TRACKS_PATH :: "sound/tracks/"
 
-DEFAULT_MASTER_VOLUME :: 0.15
-DEFAULT_MUSIC_VOLUME :: 0
+INITIAL_MASTER_VOLUME :: 0.15
+INITIAL_MUSIC_VOLUME :: 0
 
 Sound_System :: struct {
 	engine: ma.engine,
@@ -38,8 +38,8 @@ init_sound :: proc() -> (ok := false) {
 	ma.sound_group_init(&s_sound_system.engine, MUSIC_SOUND_FLAGS, nil, &s_sound_system.music_sound_group)
 	defer if !ok do ma.sound_group_uninit(&s_sound_system.music_sound_group)
 
-	sound_set_master_volume(DEFAULT_MASTER_VOLUME)
-	sound_set_music_volume(DEFAULT_MUSIC_VOLUME)
+	sound_set_master_volume(INITIAL_MASTER_VOLUME)
+	sound_set_music_volume(INITIAL_MUSIC_VOLUME)
 
 	sound_init_tracks()
 	defer if !ok do sound_deinit_tracks()

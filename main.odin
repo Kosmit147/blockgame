@@ -96,6 +96,9 @@ main :: proc() {
 	if !change_scene(starting_scene) do log.panic("Failed to initialize the starting scene.")
 	defer scene_deinit()
 
+	if !debug_overlay_init() do log.panic("Failed to initialize the debug overlay.")
+	defer debug_overlay_deinit()
+
 	MAX_DELTA_TIME :: 1.0 / 30.0
 	prev_time := f32(window_time())
 
@@ -110,12 +113,14 @@ main :: proc() {
 		for event in window_pop_event() {
 			renderer_on_event(event)
 			scene_on_event(event)
+			debug_overlay_on_event(event)
 		}
 
 		imgui_new_frame()
 
 		scene_update(delta_time)
 		sound_update()
+		debug_overlay_update()
 
 		if !window_is_minimized() do scene_render()
 		imgui_render()

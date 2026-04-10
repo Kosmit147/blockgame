@@ -11,9 +11,9 @@ BASE_MOVEMENT_SPEED   :: 5
 SPRINT_MOVEMENT_SPEED :: 15
 PLAYER_REACH          :: 8
 
-// Currently, setting the world size to a big value makes the game unplayable, so limit it to 20 for now.
 DEFAULT_WORLD_SIZE :: 6
 UI_WORLD_SIZE_MIN  :: 1
+// Currently, setting the world size to a big value makes the game unplayable, so limit it to 20 for now.
 UI_WORLD_SIZE_MAX  :: 20
 
 DEFAULT_SKY_COLOR :: Vec3{ 0.7, 0.95, 1 }
@@ -26,14 +26,15 @@ DEFAULT_DIRECTIONAL_LIGHT :: Directional_Light {
 CROSSHAIR_SIZE  :: 0.03
 CROSSHAIR_COLOR :: BLACK
 
-QUIT_GAME_KEY     :: Key.Escape
-SPRINT_KEY        :: Key.Left_Shift
-DEBUG_UI_KEY      :: Key.F_1
-TOGGLE_CURSOR_KEY :: Key.Left_Control
+SPRINT_KEY :: Key.Left_Shift
 
 DESTROY_BLOCK_BUTTON :: Mouse_Button.Left
 PLACE_BLOCK_BUTTON   :: Mouse_Button.Right
 PICK_BLOCK_BUTTON    :: Mouse_Button.Middle
+
+INITIAL_CAMERA_POSITION      :: Vec3{ 0, f32(CHUNK_SIZE.y) - 20, 0 }
+INITIAL_CAMERA_YAW_DEGREES   :: -90
+INITIAL_CAMERA_PITCH_DEGREES :: 0
 
 Overworld :: struct {
 	camera: Camera,
@@ -50,19 +51,16 @@ Overworld :: struct {
 	sky_color: Vec3,
 	directional_light: Directional_Light,
 
-	debug_ui_enabled: bool,
-	fps_limit: u32,
-
-	test_line: [2]Line_Vertex,
+	test_line: [2]Line_Vertex, // TODO: Remove once it's not needed.
 }
 
 overworld_init :: proc(scene_data: rawptr) -> (ok := false) {
 	overworld := cast(^Overworld)scene_data
 
 	overworld.camera = Camera {
-		position = { 0, f32(CHUNK_SIZE.y) - 20, 0 },
-		yaw = math.to_radians(f32(-90)),
-		pitch = math.to_radians(f32(0)),
+		position = INITIAL_CAMERA_POSITION,
+		yaw = math.to_radians(cast(f32)INITIAL_CAMERA_YAW_DEGREES),
+		pitch = math.to_radians(cast(f32)INITIAL_CAMERA_PITCH_DEGREES),
 	}
 	overworld.world_size = DEFAULT_WORLD_SIZE
 	overworld.world_generator_params = DEFAULT_WORLD_GENERATOR_PARAMS
@@ -75,8 +73,6 @@ overworld_init :: proc(scene_data: rawptr) -> (ok := false) {
 	renderer_set_clear_color(Vec4{ overworld.sky_color.r, overworld.sky_color.g, overworld.sky_color.b, 1 })
 	overworld.directional_light = DEFAULT_DIRECTIONAL_LIGHT
 	overworld.directional_light.direction = linalg.normalize(overworld.directional_light.direction)
-
-	overworld.debug_ui_enabled = true
 
 	overworld.test_line = {
 		Line_Vertex {
@@ -102,12 +98,6 @@ overworld_on_event :: proc(event: Event, scene_data: rawptr) {
 	overworld := cast(^Overworld)scene_data
 
 	#partial switch event in event {
-	case Key_Pressed_Event:
-		#partial switch event.key {
-		case QUIT_GAME_KEY:      window_close()
-		case TOGGLE_CURSOR_KEY:  window_toggle_cursor()
-		case DEBUG_UI_KEY:       overworld_toggle_debug_ui(overworld)
-		}
 	case Mouse_Button_Pressed_Event:
 		#partial switch event.button {
 		case DESTROY_BLOCK_BUTTON:  overworld.destroy_block_on_update = true
@@ -199,18 +189,9 @@ overworld_render :: proc(scene_data: rawptr) {
 
 @(private="file")
 overworld_debug_ui :: proc(overworld: ^Overworld) {
-	if !overworld.debug_ui_enabled do return
+	if !debug_overlay_enabled() do return
 
-	imgui.Begin("Line")
-	imgui.SeparatorText("Point A")
-	imgui.DragFloat3("Position##A", &overworld.test_line[0].position)
-	imgui.ColorEdit4("Color##A", &overworld.test_line[0].color)
-	imgui.SeparatorText("Point B")
-	imgui.DragFloat3("Position##B" ,&overworld.test_line[1].position)
-	imgui.ColorEdit4("Color##B", &overworld.test_line[1].color)
-	imgui.End()
-
-	imgui.Begin("World")
+	imgui.Begin("Overworld")
 	if imgui.BeginTabBar("World Tab Bar") {
 		if imgui.BeginTabItem("Generator") {
 			imgui.InputInt("World Size", &overworld.world_size)
@@ -249,43 +230,17 @@ overworld_debug_ui :: proc(overworld: ^Overworld) {
 	}
 	imgui.End()
 
-	imgui.Begin("Settings")
-	full_screen := window_is_full_screen()
-	if imgui.Checkbox("Fullscreen", &full_screen) do window_set_full_screen(full_screen)
-	gamma := renderer_gamma()
-	if imgui.DragFloat("Gamma", &gamma, 0.005, 0.1, 5.0) do renderer_set_gamma(gamma)
-	fps_limit, fps_limit_set := window_fps_limit()
-	if fps_limit_set do overworld.fps_limit = fps_limit
-	if imgui.Checkbox("Enable FPS limit", &fps_limit_set) {
-		if fps_limit_set do window_enable_fps_limit(overworld.fps_limit)
-		else do window_disable_fps_limit()
-	}
-	if imgui_input_uint("FPS limit", &overworld.fps_limit) && fps_limit_set {
-		window_enable_fps_limit(overworld.fps_limit)
-	}
-	imgui.TextUnformatted(fmt.ctprintf("Target frame time: %.6fs", window_target_frame_time()))
-	vsync_mode := window_vsync_mode()
-	if imgui_enum_select("Vertical Sync", &vsync_mode) do window_set_vsync_mode(vsync_mode)
-	master_volume := sound_master_volume()
-	if imgui.SliderFloat("Master Volume", &master_volume, 0, 1) do sound_set_master_volume(master_volume)
-	music_volume := sound_music_volume()
-	if imgui.SliderFloat("Music Volume", &music_volume, 0, 1) do sound_set_music_volume(music_volume)
-	imgui.TextUnformatted(fmt.ctprintf("Window size: %v", window_size()))
-	imgui.TextUnformatted(fmt.ctprintf("Framebuffer size: %v", window_framebuffer_size()))
-	imgui.End()
-
 	imgui.Begin("Player")
 	imgui.TextUnformatted(fmt.ctprintf("Position: %v", overworld.camera.position))
 	imgui_enum_select("Picked block", &overworld.picked_block)
 	imgui.End()
 
-	imgui.Begin("Music Player")
-	track_index := sound_current_track_index()
-	if imgui_slice_list_select(&track_index, sound_tracks()) do sound_play_track(track_index)
+	imgui.Begin("Line")
+	imgui.SeparatorText("Point A")
+	imgui.DragFloat3("Position##A", &overworld.test_line[0].position)
+	imgui.ColorEdit4("Color##A", &overworld.test_line[0].color)
+	imgui.SeparatorText("Point B")
+	imgui.DragFloat3("Position##B", &overworld.test_line[1].position)
+	imgui.ColorEdit4("Color##B", &overworld.test_line[1].color)
 	imgui.End()
-}
-
-@(private="file")
-overworld_toggle_debug_ui :: proc(overworld: ^Overworld) {
-	overworld.debug_ui_enabled = !overworld.debug_ui_enabled
 }
