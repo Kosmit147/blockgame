@@ -52,6 +52,8 @@ Renderer :: struct {
 
 	// Not entirely optimal, as there's no need to use indices with lines.
 	line_renderer: Batch_Renderer(Line_Vertex),
+
+	wireframe_enabled: bool,
 }
 
 @(private="file")
@@ -94,6 +96,7 @@ renderer_init :: proc() -> (ok := false) {
 	defer if !ok do batch_renderer_deinit(&s_renderer.line_renderer)
 
 	renderer_set_gamma(DEFAULT_GAMMA)
+	renderer_set_wireframe_enabled(false)
 
 	ok = true
 	return
@@ -173,6 +176,15 @@ renderer_get_uniforms :: proc() {
 	s_renderer.postprocess_shader_gamma_uniform = get_uniform(postprocess_shader, "gamma", f32)
 }
 
+renderer_set_wireframe_enabled :: proc(enabled: bool) {
+	s_renderer.wireframe_enabled = enabled
+	gl.PolygonMode(gl.FRONT_AND_BACK, gl.LINE if enabled else gl.FILL)
+}
+
+renderer_wireframe_enabled :: proc() -> bool {
+	return s_renderer.wireframe_enabled
+}
+
 renderer_set_gamma :: proc(gamma: f32) {
 	s_renderer.gamma = gamma
 	set_uniform(.Postprocess, s_renderer.postprocess_shader_gamma_uniform, gamma)
@@ -232,6 +244,10 @@ renderer_begin_3d_frame :: proc(camera: Camera, light: Directional_Light) {
 }
 
 renderer_end_frame :: proc() {
+	wireframe_was_enabled := renderer_wireframe_enabled()
+	renderer_set_wireframe_enabled(false)
+	defer renderer_set_wireframe_enabled(wireframe_was_enabled)
+
 	bind_framebuffer(s_renderer.framebuffer)
 
 	gl.Disable(gl.CULL_FACE)
@@ -288,8 +304,9 @@ renderer_render_block_highlight :: proc(coordinate: Block_World_Coordinate) {
 
 	gl.Disable(gl.DEPTH_TEST)
 	defer gl.Enable(gl.DEPTH_TEST)
-	gl.PolygonMode(gl.FRONT_AND_BACK, gl.LINE)
-	defer gl.PolygonMode(gl.FRONT_AND_BACK, gl.FILL)
+	wireframe_was_enabled := renderer_wireframe_enabled()
+	renderer_set_wireframe_enabled(true)
+	defer renderer_set_wireframe_enabled(wireframe_was_enabled)
 
 	use_shader(.Flat)
 	model := linalg.matrix4_translate(linalg.array_cast(coordinate, f32))

@@ -60,6 +60,8 @@ debug_overlay_update :: proc() {
 	vsync_mode := window_vsync_mode()
 	if imgui_enum_select("Vertical Sync", &vsync_mode) do window_set_vsync_mode(vsync_mode)
 	master_volume := sound_master_volume()
+	wireframe := renderer_wireframe_enabled()
+	if imgui.Checkbox("Wireframe", &wireframe) do renderer_set_wireframe_enabled(wireframe)
 	if imgui.SliderFloat("Master Volume", &master_volume, 0, 1) do sound_set_master_volume(master_volume)
 	music_volume := sound_music_volume()
 	if imgui.SliderFloat("Music Volume", &music_volume, 0, 1) do sound_set_music_volume(music_volume)
