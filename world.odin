@@ -271,8 +271,6 @@ Chunk :: struct {
 }
 
 CHUNK_SIZE :: [3]i32{ 16, 64, 16 }
-CHUNK_GENERATOR_SEED :: 0
-
 Chunk_Blocks :: [CHUNK_SIZE.y][CHUNK_SIZE.x][CHUNK_SIZE.z]Block
 
 Chunk_Coordinate :: struct {

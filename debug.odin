@@ -53,7 +53,7 @@ debug_overlay_update :: proc() {
 		if fps_limit_set do window_enable_fps_limit(s_overlay.fps_limit)
 		else do window_disable_fps_limit()
 	}
-	if imgui_input_uint("FPS limit", &s_overlay.fps_limit) && fps_limit_set {
+	if imgui_input_u32("FPS limit", &s_overlay.fps_limit) && fps_limit_set {
 		window_enable_fps_limit(s_overlay.fps_limit)
 	}
 	imgui.TextUnformatted(fmt.ctprintf("Target frame time: %.6fs", window_target_frame_time()))

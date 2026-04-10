@@ -196,6 +196,9 @@ overworld_debug_ui :: proc(overworld: ^Overworld) {
 		if imgui.BeginTabItem("Generator") {
 			imgui.InputInt("World Size", &overworld.world_size)
 			overworld.world_size = clamp(overworld.world_size, UI_WORLD_SIZE_MIN, UI_WORLD_SIZE_MAX)
+			if imgui_input_i64("Seed", &overworld.world_generator_params.seed) {
+				set_world_generator_params(overworld.world_generator_params)
+			}
 			if imgui_drag_double("Smoothness",
 					     &overworld.world_generator_params.smoothness,
 					     v_speed = 0.001,

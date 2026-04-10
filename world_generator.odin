@@ -5,10 +5,12 @@ import "base:runtime"
 import "core:math/noise"
 
 World_Generator_Params :: struct {
+	seed: i64,
 	smoothness: f64,
 }
 
 DEFAULT_WORLD_GENERATOR_PARAMS :: World_Generator_Params {
+	seed = 0,
 	smoothness = 0.021,
 }
 
@@ -39,7 +41,7 @@ generate_chunk_blocks :: proc(coordinate: Chunk_Coordinate, allocator: runtime.A
 @(private="file")
 get_height_at_world_coordinate :: proc(coordinate: [2]i32) -> i32 {
 	noise_coordinate := noise.Vec2{ f64(coordinate.x), f64(coordinate.y) } * s_world_generator_params.smoothness
-	noise := noise.noise_2d(CHUNK_GENERATOR_SEED, noise_coordinate)
+	noise := noise.noise_2d(s_world_generator_params.seed, noise_coordinate)
 	linear := noise * 0.5 + 0.5
 	height := i32(linear * f32(CHUNK_SIZE.y))
 	return clamp(height, 0, CHUNK_SIZE.y)
