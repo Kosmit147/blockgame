@@ -7,10 +7,15 @@ import "core:math/linalg"
 import "core:slice"
 import "core:thread"
 import "core:os"
+import "core:log"
+import "core:testing"
 
 WORLD_ORIGIN :: Vec3{  0,  0,  0 }
 WORLD_UP     :: Vec3{  0,  1,  0 }
 WORLD_DOWN   :: Vec3{  0, -1,  0 }
+
+MIN_WORLD_LOAD_DISTANCE :: 1
+MAX_WORLD_LOAD_DISTANCE :: 20
 
 World_Directions :: bit_set[World_Direction]
 World_Direction :: enum {
@@ -44,13 +49,16 @@ generate_chunk_task :: proc(task: thread.Task) {
 	data.mesh_data = generate_chunk_mesh(data.blocks, task.allocator)
 }
 
-world_init :: proc(world: ^World, world_size: i32) -> bool {
+world_init :: proc(world: ^World, player_chunk: Chunk_Coordinate, load_distance: u32) -> bool {
+	load_distance := clamp(load_distance, MIN_WORLD_LOAD_DISTANCE, MAX_WORLD_LOAD_DISTANCE)
+
 	// We want to use a thread-safe heap allocator because the lifetimes of chunks are arbitrary and they are
 	// handled from multiple threads.
 	world.allocator = runtime.heap_allocator()
-	world_side_length := world_size * 2 + 1
-	total_chunk_count := world_side_length * world_side_length
-	world.chunk_map = make(map[Chunk_Coordinate]Chunk, total_chunk_count, world.allocator)
+
+	loaded_grid_side_length := load_distance * 2 + 1
+	initial_chunk_map_capacity := loaded_grid_side_length * loaded_grid_side_length
+	world.chunk_map = make(map[Chunk_Coordinate]Chunk, initial_chunk_map_capacity, world.allocator)
 
 	MIN_CHUNK_GENERATION_THREADS :: 4
 	thread.pool_init(&world.thread_pool,
@@ -58,15 +66,15 @@ world_init :: proc(world: ^World, world_size: i32) -> bool {
 			 max(os.get_processor_core_count() - 1, MIN_CHUNK_GENERATION_THREADS))
 	thread.pool_start(&world.thread_pool)
 
-	for x in -world_size..=world_size {
-		for z in -world_size..=world_size {
-			task_data := new(Generate_Chunk_Task_Data, world.allocator)
-			task_data.chunk_coordinate = { x, z }
-			thread.pool_add_task(&world.thread_pool,
-					     world.allocator,
-					     generate_chunk_task,
-					     task_data)
-		}
+	nearby_chunks_iterator := make_nearby_chunks_iterator(player_chunk, load_distance)
+	for chunk_coord in iterate_nearby_chunks(&nearby_chunks_iterator) {
+		log.debugf("Loading chunk %v", chunk_coord)
+		task_data := new(Generate_Chunk_Task_Data, world.allocator)
+		task_data.chunk_coordinate = chunk_coord
+		thread.pool_add_task(&world.thread_pool,
+				     world.allocator,
+				     generate_chunk_task,
+				     task_data)
 	}
 
 	return true
@@ -102,9 +110,10 @@ world_update :: proc(world: ^World) {
 	}
 }
 
-world_regenerate :: proc(world: ^World, world_size: i32) {
+world_regenerate :: proc(world: ^World, player_chunk: Chunk_Coordinate, load_distance: u32) {
+	load_distance := clamp(load_distance, MIN_WORLD_LOAD_DISTANCE, MAX_WORLD_LOAD_DISTANCE)
 	world_deinit(world)
-	world_init(world, world_size)
+	world_init(world, player_chunk, load_distance)
 }
 
 world_raycast :: proc(world: World, ray: Ray, max_distance: f32) -> (block: ^Block,
@@ -164,10 +173,10 @@ world_get_block :: proc(world: World, block_coordinate: Block_World_Coordinate) 
 }
 
 world_get_block_owner :: proc(world: World, block_coordinate: Block_World_Coordinate) -> (^Chunk, bool) {
-	return &world.chunk_map[world_get_block_owner_coordinate(world, block_coordinate)]
+	return &world.chunk_map[get_block_owner_coordinate(block_coordinate)]
 }
 
-world_get_block_owner_coordinate :: proc(world: World, block_coordinate: Block_World_Coordinate) -> Chunk_Coordinate {
+get_block_owner_coordinate :: proc(block_coordinate: Block_World_Coordinate) -> Chunk_Coordinate {
 	when ODIN_DEBUG { assert(bits.is_power_of_two(CHUNK_SIZE.x)) }
 	when ODIN_DEBUG { assert(bits.is_power_of_two(CHUNK_SIZE.z)) }
 	return Chunk_Coordinate {
@@ -181,7 +190,7 @@ world_destroy_block :: proc(world: World, block_coordinate: Block_World_Coordina
 	if block_can_be_destroyed(block^) {
 		block^ = .Air
 		block_destroyed = true
-		world_update_chunk_mesh(world, world_get_block_owner_coordinate(world, block_coordinate))
+		world_update_chunk_mesh(world, get_block_owner_coordinate(block_coordinate))
 		return
 	}
 	return
@@ -192,7 +201,7 @@ world_place_block :: proc(world: World, place_coordinate: Block_World_Coordinate
 	if block_can_be_placed_over(replaced_block^) {
 		replaced_block^ = block
 		block_placed = true
-		world_update_chunk_mesh(world, world_get_block_owner_coordinate(world, place_coordinate))
+		world_update_chunk_mesh(world, get_block_owner_coordinate(place_coordinate))
 		return
 	}
 	return
@@ -278,7 +287,7 @@ Chunk_Coordinate :: struct {
 	z: i32,
 }
 
-// This function can be called from the main thread only because it makes OpenGL calls.
+// This function can be called only from the main thread because it makes OpenGL calls.
 create_chunk :: proc(coordinate: Chunk_Coordinate, blocks: ^Chunk_Blocks, mesh_data: Chunk_Mesh_Data) -> (chunk: Chunk) {
 	return Chunk{ blocks, coordinate, create_chunk_mesh(mesh_data) }
 }
@@ -301,22 +310,27 @@ get_chunk_block_safe :: proc(blocks: ^Chunk_Blocks, coordinate: Block_Chunk_Coor
 	return get_chunk_block(blocks, coordinate), true
 }
 
-Chunk_Iterator :: struct {
+world_position_to_chunk_coordinate :: proc(coordinate: Vec3) -> Chunk_Coordinate {
+	world_position := Block_World_Coordinate(linalg.array_cast(coordinate, i32))
+	return get_block_owner_coordinate(world_position)
+}
+
+Chunk_Blocks_Iterator :: struct {
 	blocks: ^Chunk_Blocks,
 	position: Block_Chunk_Coordinate,
 	finished: bool,
 }
 
-make_chunk_iterator :: proc(blocks: ^Chunk_Blocks) -> (iterator: Chunk_Iterator) {
+make_chunk_blocks_iterator :: proc(blocks: ^Chunk_Blocks) -> (iterator: Chunk_Blocks_Iterator) {
 	iterator.blocks = blocks
 	return
 }
 
-iterate_chunk :: proc(iterator: ^Chunk_Iterator) -> (^Block, Block_Chunk_Coordinate, bool) {
+iterate_chunk_blocks :: proc(iterator: ^Chunk_Blocks_Iterator) -> (^Block, Block_Chunk_Coordinate, bool) {
 	if iterator.finished do return {}, {}, false
 
-	block := get_chunk_block(iterator.blocks, iterator.position)
-	block_coordinate := iterator.position
+	return_block := get_chunk_block(iterator.blocks, iterator.position)
+	return_block_coordinate := iterator.position
 
 	iterator.position.z += 1
 	if iterator.position.z >= CHUNK_SIZE.z {
@@ -332,7 +346,103 @@ iterate_chunk :: proc(iterator: ^Chunk_Iterator) -> (^Block, Block_Chunk_Coordin
 		}
 	}
 
-	return block, block_coordinate, true
+	return return_block, return_block_coordinate, true
+}
+
+// Iterates over chunk coordinates around the origin coordinate in a spiral pattern.
+// 4 - 3 - 2
+// |       |
+// 5   0 - 1
+// |
+// 6 - 7 - 8
+Nearby_Chunks_Iterator :: struct {
+	current_coords: [2]i32,
+	direction_index: i32,
+	walked: i32,
+	current_walk_length: i32, // How far we have to walk until we change direction.
+	max_walk_length: i32, // When do we stop walking.
+	finished: bool,
+}
+
+make_nearby_chunks_iterator :: proc(origin: Chunk_Coordinate, distance: u32) -> Nearby_Chunks_Iterator {
+	return Nearby_Chunks_Iterator {
+		current_coords = { origin.x, origin.z },
+		current_walk_length = 1,
+		max_walk_length = i32(distance * 2),
+	}
+}
+
+iterate_nearby_chunks :: proc(iterator: ^Nearby_Chunks_Iterator) -> (Chunk_Coordinate, bool) {
+	@(static, rodata)
+	walk_directions := [4][2]i32{
+		{  1,  0 },
+		{  0,  1 },
+		{ -1,  0 },
+		{  0, -1 },
+	}
+
+	if iterator.finished do return {}, false
+
+	return_chunk_coord := iterator.current_coords
+	iterator.current_coords += walk_directions[iterator.direction_index]
+	iterator.walked += 1
+	if iterator.walked >= iterator.current_walk_length {
+		if iterator.walked > iterator.max_walk_length do iterator.finished = true
+		iterator.walked = 0
+		iterator.direction_index += 1
+		if iterator.direction_index % 2 == 0 do iterator.current_walk_length += 1
+		if iterator.direction_index >= len(walk_directions) do iterator.direction_index = 0
+	}
+
+	return Chunk_Coordinate{ return_chunk_coord.x, return_chunk_coord.y }, true
+}
+
+@(test)
+nearby_chunks_iterator_test :: proc(t: ^testing.T) {
+	@(static, rodata) expected := [?]Chunk_Coordinate {
+		// Distance 0
+		{  0,  0 },
+
+		// Distance 1
+		{  1,  0 }, {  1,  1 },
+		{  0,  1 }, { -1,  1 },
+		{ -1,  0 }, { -1, -1 },
+		{  0, -1 }, {  1, -1 },
+
+		// Distance 2
+		{  2, -1 }, {  2,  0 }, {  2,  1 }, {  2,  2 },
+		{  1,  2 }, {  0,  2 }, { -1,  2 }, { -2,  2 },
+		{ -2,  1 }, { -2,  0 }, { -2, -1 }, { -2, -2 },
+		{ -1, -2 }, {  0, -2 }, {  1, -2 }, {  2, -2 },
+
+		// Distance 3
+		{  3, -2 }, {  3, -1 }, {  3,  0 }, {  3,  1 }, {  3,  2 }, {  3,  3 },
+		{  2,  3 }, {  1,  3 }, {  0,  3 }, { -1,  3 }, { -2,  3 }, { -3,  3 },
+		{ -3,  2 }, { -3,  1 }, { -3,  0 }, { -3, -1 }, { -3, -2 }, { -3, -3 },
+		{ -2, -3 }, { -1, -3 }, {  0, -3 }, {  1, -3 }, {  2, -3 }, {  3, -3 },
+	}
+
+	{
+		iterator := make_nearby_chunks_iterator({ 0, 0 }, 3)
+		i := 0
+		for coord in iterate_nearby_chunks(&iterator) {
+			testing.expectf(t, coord == expected[i], "i = %v, coord = %v, expected = %v", i, coord, expected[i])
+			i += 1
+		}
+		testing.expect(t, i == len(expected))
+	}
+
+	{
+		origin := Chunk_Coordinate{ 7, -5 }
+		iterator := make_nearby_chunks_iterator(origin, 3)
+		i := 0
+		for coord in iterate_nearby_chunks(&iterator) {
+			expected := Chunk_Coordinate{ expected[i].x + origin.x, expected[i].z + origin.z }
+			testing.expectf(t, coord == expected, "i = %v, coord = %v, expected = %v", i, coord, expected)
+			i += 1
+		}
+		testing.expect(t, i == len(expected))
+	}
 }
 
 Chunk_Mesh_Data :: struct {
@@ -363,9 +473,9 @@ generate_chunk_mesh :: proc(blocks: ^Chunk_Blocks, allocator: runtime.Allocator)
 	mesh.vertices = make([dynamic]Chunk_Mesh_Vertex, allocator)
 	mesh.indices = make([dynamic]Chunk_Mesh_Index, allocator)
 
-	chunk_iterator := make_chunk_iterator(blocks)
+	chunk_blocks_iterator := make_chunk_blocks_iterator(blocks)
 	index_offset := u32(0)
-	for block, block_coordinate in iterate_chunk(&chunk_iterator) {
+	for block, block_coordinate in iterate_chunk_blocks(&chunk_blocks_iterator) {
 		if block_is_invisible(block^) do continue
 		visible_faces_directions := visible_faces(blocks, block_coordinate)
 		for face_vertices_data, facing_direction in block_faces {

@@ -11,10 +11,10 @@ BASE_MOVEMENT_SPEED   :: 5
 SPRINT_MOVEMENT_SPEED :: 15
 PLAYER_REACH          :: 8
 
-DEFAULT_WORLD_SIZE :: 6
-UI_WORLD_SIZE_MIN  :: 1
-// Currently, setting the world size to a big value makes the game unplayable, so limit it to 20 for now.
-UI_WORLD_SIZE_MAX  :: 20
+DEFAULT_WORLD_LOAD_DISTANCE :: 10
+UI_LOAD_DISTANCE_MIN :: MIN_WORLD_LOAD_DISTANCE
+// Currently, setting the load distance to a big value makes the game unplayable, so limit it to 20 for now.
+UI_LOAD_DISTANCE_MAX :: MAX_WORLD_LOAD_DISTANCE
 
 DEFAULT_SKY_COLOR :: Vec3{ 0.7, 0.95, 1 }
 DEFAULT_DIRECTIONAL_LIGHT :: Directional_Light {
@@ -39,7 +39,7 @@ INITIAL_CAMERA_PITCH_DEGREES :: 0
 Overworld :: struct {
 	camera: Camera,
 	world: World,
-	world_size: i32,
+	load_distance: u32,
 	world_generator_params: World_Generator_Params,
 
 	highlighted_block_coordinate: Maybe(Block_World_Coordinate),
@@ -62,10 +62,11 @@ overworld_init :: proc(scene_data: rawptr) -> (ok := false) {
 		yaw = math.to_radians(cast(f32)INITIAL_CAMERA_YAW_DEGREES),
 		pitch = math.to_radians(cast(f32)INITIAL_CAMERA_PITCH_DEGREES),
 	}
-	overworld.world_size = DEFAULT_WORLD_SIZE
+	overworld.load_distance = 6
 	overworld.world_generator_params = DEFAULT_WORLD_GENERATOR_PARAMS
 	set_world_generator_params(overworld.world_generator_params)
-	world_init(&overworld.world, overworld.world_size)
+	player_chunk := world_position_to_chunk_coordinate(overworld.camera.position)
+	world_init(&overworld.world, player_chunk, overworld.load_distance)
 
 	overworld.picked_block = .Bricks
 
@@ -194,8 +195,10 @@ overworld_debug_ui :: proc(overworld: ^Overworld) {
 	imgui.Begin("Overworld")
 	if imgui.BeginTabBar("World Tab Bar") {
 		if imgui.BeginTabItem("Generator") {
-			imgui.InputInt("World Size", &overworld.world_size)
-			overworld.world_size = clamp(overworld.world_size, UI_WORLD_SIZE_MIN, UI_WORLD_SIZE_MAX)
+			imgui_input_u32("Load Distance", &overworld.load_distance)
+			overworld.load_distance = clamp(overworld.load_distance,
+							UI_LOAD_DISTANCE_MIN,
+							UI_LOAD_DISTANCE_MAX)
 			if imgui_input_i64("Seed", &overworld.world_generator_params.seed) {
 				set_world_generator_params(overworld.world_generator_params)
 			}
@@ -206,7 +209,10 @@ overworld_debug_ui :: proc(overworld: ^Overworld) {
 					     v_max = 1) {
 				set_world_generator_params(overworld.world_generator_params)
 			}
-			if imgui.Button("Regenerate") do world_regenerate(&overworld.world, overworld.world_size)
+			if imgui.Button("Regenerate") {
+				player_chunk := world_position_to_chunk_coordinate(overworld.camera.position)
+				world_regenerate(&overworld.world, player_chunk, overworld.load_distance)
+			}
 			imgui.EndTabItem()
 		}
 		if imgui.BeginTabItem("Light") {
@@ -235,6 +241,8 @@ overworld_debug_ui :: proc(overworld: ^Overworld) {
 
 	imgui.Begin("Player")
 	imgui.TextUnformatted(fmt.ctprintf("Position: %v", overworld.camera.position))
+	imgui.TextUnformatted(fmt.ctprintf("Player chunk: %v",
+			      world_position_to_chunk_coordinate(overworld.camera.position)))
 	imgui_enum_select("Picked block", &overworld.picked_block)
 	imgui.End()
 
