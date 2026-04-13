@@ -299,7 +299,7 @@ renderer_render_world :: proc(world: World) {
 	for _, &chunk in world.chunk_map do renderer_render_chunk(chunk)
 }
 
-renderer_render_block_highlight :: proc(coordinate: Block_World_Coordinate) {
+renderer_render_block_highlight :: proc(position: Grid_World_Position) {
 	HIGHLIGHT_COLOR :: WHITE
 
 	gl.Disable(gl.DEPTH_TEST)
@@ -309,7 +309,7 @@ renderer_render_block_highlight :: proc(coordinate: Block_World_Coordinate) {
 	defer renderer_set_wireframe_enabled(wireframe_was_enabled)
 
 	use_shader(.Flat)
-	model := linalg.matrix4_translate(linalg.array_cast(coordinate, f32))
+	model := linalg.matrix4_translate(linalg.array_cast(position, f32))
 	set_uniform(.Flat, s_renderer.flat_shader_model_uniform, model)
 	set_uniform(.Flat, s_renderer.flat_shader_color_uniform, HIGHLIGHT_COLOR)
 	renderer_render_mesh(s_renderer.flat_cube_mesh)

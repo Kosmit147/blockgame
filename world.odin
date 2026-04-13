@@ -66,7 +66,7 @@ world_init :: proc(world: ^World, player_chunk: Chunk_Coordinate, load_distance:
 			 max(os.get_processor_core_count() - 1, MIN_CHUNK_GENERATION_THREADS))
 	thread.pool_start(&world.thread_pool)
 
-	nearby_chunks_iterator := make_nearby_chunks_iterator(player_chunk, load_distance)
+	nearby_chunks_iterator := make_nearby_chunks_iterator(origin = player_chunk, distance = load_distance)
 	for chunk_coord in iterate_nearby_chunks(&nearby_chunks_iterator) {
 		log.debugf("Loading chunk %v", chunk_coord)
 		task_data := new(Generate_Chunk_Task_Data, world.allocator)
@@ -117,8 +117,8 @@ world_regenerate :: proc(world: ^World, player_chunk: Chunk_Coordinate, load_dis
 }
 
 world_raycast :: proc(world: World, ray: Ray, max_distance: f32) -> (block: ^Block,
-								     block_coordinate: Block_World_Coordinate,
-								     place_block_offset: [3]i32,
+								     block_position: Grid_World_Position,
+								     place_block_offset: Grid_World_Position,
 								     hit := false) {
 	grid_traversal_direction := [3]i32{ 1 if ray.direction.x >= 0 else -1,
 					    1 if ray.direction.y >= 0 else -1,
@@ -156,9 +156,9 @@ world_raycast :: proc(world: World, ray: Ray, max_distance: f32) -> (block: ^Blo
 
 		if min_t > max_distance do return
 
-		block_coordinate = Block_World_Coordinate(origin_block + current_block)
+		block_position = Grid_World_Position(origin_block + current_block)
 		block_ok: bool
-		block, block_ok = world_get_block(world, block_coordinate)
+		block, block_ok = world_get_block(world, block_position)
 
 		if block_ok && !block_ignores_raycast(block^) {
 			hit = true
@@ -167,41 +167,32 @@ world_raycast :: proc(world: World, ray: Ray, max_distance: f32) -> (block: ^Blo
 	}
 }
 
-world_get_block :: proc(world: World, block_coordinate: Block_World_Coordinate) -> (block: ^Block, ok := false) {
-	chunk := world_get_block_owner(world, block_coordinate) or_return
-	return get_chunk_block_safe(chunk.blocks, to_chunk_coordinate(block_coordinate))
+world_get_block :: proc(world: World, block_position: Grid_World_Position) -> (block: ^Block, ok := false) {
+	chunk := world_get_block_owner(world, block_position) or_return
+	return get_chunk_block_safe(chunk.blocks, to_grid_chunk_position(block_position))
 }
 
-world_get_block_owner :: proc(world: World, block_coordinate: Block_World_Coordinate) -> (^Chunk, bool) {
-	return &world.chunk_map[get_block_owner_coordinate(block_coordinate)]
+world_get_block_owner :: proc(world: World, block_position: Grid_World_Position) -> (^Chunk, bool) {
+	return &world.chunk_map[to_chunk_coordinate(block_position)]
 }
 
-get_block_owner_coordinate :: proc(block_coordinate: Block_World_Coordinate) -> Chunk_Coordinate {
-	when ODIN_DEBUG { assert(bits.is_power_of_two(CHUNK_SIZE.x)) }
-	when ODIN_DEBUG { assert(bits.is_power_of_two(CHUNK_SIZE.z)) }
-	return Chunk_Coordinate {
-		x = (block_coordinate.x & ~(CHUNK_SIZE.x - 1)) / CHUNK_SIZE.x,
-		z = (block_coordinate.z & ~(CHUNK_SIZE.z - 1)) / CHUNK_SIZE.z,
-	}
-}
-
-world_destroy_block :: proc(world: World, block_coordinate: Block_World_Coordinate) -> (block_destroyed := false) {
-	block := world_get_block(world, block_coordinate) or_return
+world_destroy_block :: proc(world: World, block_position: Grid_World_Position) -> (block_destroyed := false) {
+	block := world_get_block(world, block_position) or_return
 	if block_can_be_destroyed(block^) {
 		block^ = .Air
 		block_destroyed = true
-		world_update_chunk_mesh(world, get_block_owner_coordinate(block_coordinate))
+		world_update_chunk_mesh(world, to_chunk_coordinate(block_position))
 		return
 	}
 	return
 }
 
-world_place_block :: proc(world: World, place_coordinate: Block_World_Coordinate, block: Block) -> (block_placed := false) {
-	replaced_block := world_get_block(world, place_coordinate) or_return
+world_place_block :: proc(world: World, place_position: Grid_World_Position, block: Block) -> (block_placed := false) {
+	replaced_block := world_get_block(world, place_position) or_return
 	if block_can_be_placed_over(replaced_block^) {
 		replaced_block^ = block
 		block_placed = true
-		world_update_chunk_mesh(world, get_block_owner_coordinate(place_coordinate))
+		world_update_chunk_mesh(world, to_chunk_coordinate(place_position))
 		return
 	}
 	return
@@ -223,25 +214,45 @@ Block :: enum u8 {
 	Bricks,
 }
 
-// Position of the block relative to the chunk that it is a part of.
-Block_Chunk_Coordinate :: distinct [3]i32
-// Position of the block relative to the world origin.
-Block_World_Coordinate :: distinct [3]i32
-// Coordinate of a block corner within a chunk.
-Block_Corner_Chunk_Coordinate :: distinct [3]i32
+// Position of a grid cell relative to the chunk origin.
+Grid_Chunk_Position :: distinct [3]i32
+// Position of a grid cell relative to the world origin.
+Grid_World_Position :: distinct [3]i32
+// Position of a grid cell corner relative to the chunk origin.
+Grid_Corner_Chunk_Position :: distinct [3]i32
+// Position of a grid cell corner relative to the world origin.
+Grid_Corner_World_Position :: distinct [3]i32
 
-to_chunk_coordinate :: proc(block_coordinate: Block_World_Coordinate) -> Block_Chunk_Coordinate {
-	return { block_coordinate.x %% CHUNK_SIZE.x,
-		 block_coordinate.y,
-		 block_coordinate.z %% CHUNK_SIZE.z }
+to_grid_chunk_position :: proc(position: Grid_World_Position) -> Grid_Chunk_Position {
+	return { position.x %% CHUNK_SIZE.x,
+		 position.y,
+		 position.z %% CHUNK_SIZE.z }
 }
 
-to_world_coordinate :: proc(block_coordinate: Block_Chunk_Coordinate,
-			    chunk_coordinate: Chunk_Coordinate) -> Block_World_Coordinate {
-	return { chunk_coordinate.x * CHUNK_SIZE.x + block_coordinate.x,
-		 block_coordinate.y,
-		 chunk_coordinate.z * CHUNK_SIZE.z + block_coordinate.z }
+to_grid_world_position :: proc(position: Grid_Chunk_Position,
+			       chunk_coordinate: Chunk_Coordinate) -> Grid_World_Position {
+	return { chunk_coordinate.x * CHUNK_SIZE.x + position.x,
+		 position.y,
+		 chunk_coordinate.z * CHUNK_SIZE.z + position.z }
 }
+
+grid_world_position_to_chunk_coordinate :: proc(world_position: Grid_World_Position) -> Chunk_Coordinate {
+	when ODIN_DEBUG {
+		assert(bits.is_power_of_two(CHUNK_SIZE.x))
+		assert(bits.is_power_of_two(CHUNK_SIZE.z))
+	}
+	return Chunk_Coordinate {
+		x = (world_position.x & ~(CHUNK_SIZE.x - 1)) / CHUNK_SIZE.x,
+		z = (world_position.z & ~(CHUNK_SIZE.z - 1)) / CHUNK_SIZE.z,
+	}
+}
+
+world_position_to_chunk_coordinate :: proc(position: Vec3) -> Chunk_Coordinate {
+	world_position := Grid_World_Position(linalg.array_cast(position, i32))
+	return grid_world_position_to_chunk_coordinate(world_position)
+}
+
+to_chunk_coordinate :: proc{ grid_world_position_to_chunk_coordinate, world_position_to_chunk_coordinate }
 
 @(require_results)
 block_is_invisible :: proc(block: Block) -> bool {
@@ -298,26 +309,21 @@ destroy_chunk :: proc(chunk: ^Chunk, allocator: runtime.Allocator) {
 }
 
 // TODO: Should probably be #no_bounds_check.
-get_chunk_block :: proc(blocks: ^Chunk_Blocks, coordinate: Block_Chunk_Coordinate) -> ^Block {
-	return &blocks[coordinate.y][coordinate.x][coordinate.z]
+get_chunk_block :: proc(blocks: ^Chunk_Blocks, position: Grid_Chunk_Position) -> ^Block {
+	return &blocks[position.y][position.x][position.z]
 }
 
-get_chunk_block_safe :: proc(blocks: ^Chunk_Blocks, coordinate: Block_Chunk_Coordinate) -> (^Block, bool) {
-	x_in_bounds := coordinate.x >= 0 && coordinate.x < CHUNK_SIZE.x
-	y_in_bounds := coordinate.y >= 0 && coordinate.y < CHUNK_SIZE.y
-	z_in_bounds := coordinate.z >= 0 && coordinate.z < CHUNK_SIZE.z
+get_chunk_block_safe :: proc(blocks: ^Chunk_Blocks, position: Grid_Chunk_Position) -> (^Block, bool) {
+	x_in_bounds := position.x >= 0 && position.x < CHUNK_SIZE.x
+	y_in_bounds := position.y >= 0 && position.y < CHUNK_SIZE.y
+	z_in_bounds := position.z >= 0 && position.z < CHUNK_SIZE.z
 	if !x_in_bounds || !y_in_bounds || !z_in_bounds do return nil, false
-	return get_chunk_block(blocks, coordinate), true
-}
-
-world_position_to_chunk_coordinate :: proc(coordinate: Vec3) -> Chunk_Coordinate {
-	world_position := Block_World_Coordinate(linalg.array_cast(coordinate, i32))
-	return get_block_owner_coordinate(world_position)
+	return get_chunk_block(blocks, position), true
 }
 
 Chunk_Blocks_Iterator :: struct {
 	blocks: ^Chunk_Blocks,
-	position: Block_Chunk_Coordinate,
+	position: Grid_Chunk_Position,
 	finished: bool,
 }
 
@@ -326,11 +332,11 @@ make_chunk_blocks_iterator :: proc(blocks: ^Chunk_Blocks) -> (iterator: Chunk_Bl
 	return
 }
 
-iterate_chunk_blocks :: proc(iterator: ^Chunk_Blocks_Iterator) -> (^Block, Block_Chunk_Coordinate, bool) {
+iterate_chunk_blocks :: proc(iterator: ^Chunk_Blocks_Iterator) -> (^Block, Grid_Chunk_Position, bool) {
 	if iterator.finished do return {}, {}, false
 
 	return_block := get_chunk_block(iterator.blocks, iterator.position)
-	return_block_coordinate := iterator.position
+	return_block_position := iterator.position
 
 	iterator.position.z += 1
 	if iterator.position.z >= CHUNK_SIZE.z {
@@ -346,7 +352,7 @@ iterate_chunk_blocks :: proc(iterator: ^Chunk_Blocks_Iterator) -> (^Block, Block
 		}
 	}
 
-	return return_block, return_block_coordinate, true
+	return return_block, return_block_position, true
 }
 
 // Iterates over chunk coordinates around the origin coordinate in a spiral pattern.
@@ -475,22 +481,22 @@ generate_chunk_mesh :: proc(blocks: ^Chunk_Blocks, allocator: runtime.Allocator)
 
 	chunk_blocks_iterator := make_chunk_blocks_iterator(blocks)
 	index_offset := u32(0)
-	for block, block_coordinate in iterate_chunk_blocks(&chunk_blocks_iterator) {
+	for block, block_position in iterate_chunk_blocks(&chunk_blocks_iterator) {
 		if block_is_invisible(block^) do continue
-		visible_faces_directions := visible_faces(blocks, block_coordinate)
+		visible_faces_directions := visible_faces(blocks, block_position)
 		for face_vertices_data, facing_direction in block_faces {
 			if facing_direction not_in visible_faces_directions do continue
 			vertices: [4]Chunk_Mesh_Vertex
 			assert(len(face_vertices_data) == len(vertices))
 			for &vertex, vertex_index in vertices {
 				vertex_data := face_vertices_data[vertex_index]
-				corner_coordinate := vertex_data.position + Block_Corner_Chunk_Coordinate(block_coordinate)
+				corner_position := vertex_data.position + Grid_Corner_Chunk_Position(block_position)
 
 				vertex = Chunk_Mesh_Vertex {
-					position = linalg.array_cast(corner_coordinate, f32),
+					position = linalg.array_cast(corner_position, f32),
 					normal = vertex_data.normal,
 					uv = map_block_uv_to_atlas(vertex_data.uv, block^, facing_direction),
-					ambient_occlusion = ambient_occlusion(blocks, corner_coordinate),
+					ambient_occlusion = ambient_occlusion(blocks, corner_position),
 				}
 			}
 			indices := block_indices
@@ -505,7 +511,7 @@ generate_chunk_mesh :: proc(blocks: ^Chunk_Blocks, allocator: runtime.Allocator)
 }
 
 @(private="file")
-visible_faces :: proc(blocks: ^Chunk_Blocks, coordinate: Block_Chunk_Coordinate) -> (directions: World_Directions) {
+visible_faces :: proc(blocks: ^Chunk_Blocks, position: Grid_Chunk_Position) -> (directions: World_Directions) {
 	offsets := [World_Direction][3]i32{
 		.Plus_X  = { +1,  0,  0 },
 		.Minus_X = { -1,  0,  0 },
@@ -516,7 +522,7 @@ visible_faces :: proc(blocks: ^Chunk_Blocks, coordinate: Block_Chunk_Coordinate)
 	}
 
 	for offset, direction in offsets {
-		neighbor, neighbor_ok := get_chunk_block_safe(blocks, coordinate + Block_Chunk_Coordinate(offset))
+		neighbor, neighbor_ok := get_chunk_block_safe(blocks, position + Grid_Chunk_Position(offset))
 		if !neighbor_ok || (neighbor_ok && !block_is_fully_opaque(neighbor^)) do directions += { direction }
 	}
 	return
@@ -548,21 +554,21 @@ map_block_uv_to_atlas :: proc(uv: Vec2, block: Block, block_facing: World_Direct
 // Ambient occlusion is a value between 0 and 8 which represents the number of light-occluding blocks around the block
 // corner.
 @(private="file")
-ambient_occlusion :: proc(blocks: ^Chunk_Blocks, coordinate: Block_Corner_Chunk_Coordinate) -> (occlusion := u32(0)) {
+ambient_occlusion :: proc(blocks: ^Chunk_Blocks, position: Grid_Corner_Chunk_Position) -> (occlusion := u32(0)) {
 	// TODO: Fix occlusion not working properly on chunk boundaries.
-	neighboring_block_coordinates := [8]Block_Chunk_Coordinate{
-		Block_Chunk_Coordinate(coordinate) + { -1, -1, -1 },
-		Block_Chunk_Coordinate(coordinate) + { -1, -1,  0 },
-		Block_Chunk_Coordinate(coordinate) + {  0, -1, -1 },
-		Block_Chunk_Coordinate(coordinate) + {  0, -1,  0 },
-		Block_Chunk_Coordinate(coordinate) + { -1,  0, -1 },
-		Block_Chunk_Coordinate(coordinate) + { -1,  0,  0 },
-		Block_Chunk_Coordinate(coordinate) + {  0,  0, -1 },
-		Block_Chunk_Coordinate(coordinate) + {  0,  0,  0 },
+	neighboring_block_positions := [8]Grid_Chunk_Position{
+		Grid_Chunk_Position(position) + { -1, -1, -1 },
+		Grid_Chunk_Position(position) + { -1, -1,  0 },
+		Grid_Chunk_Position(position) + {  0, -1, -1 },
+		Grid_Chunk_Position(position) + {  0, -1,  0 },
+		Grid_Chunk_Position(position) + { -1,  0, -1 },
+		Grid_Chunk_Position(position) + { -1,  0,  0 },
+		Grid_Chunk_Position(position) + {  0,  0, -1 },
+		Grid_Chunk_Position(position) + {  0,  0,  0 },
 	}
 
-	for block_coordinate in neighboring_block_coordinates {
-		block := get_chunk_block_safe(blocks, block_coordinate) or_continue
+	for block_position in neighboring_block_positions {
+		block := get_chunk_block_safe(blocks, block_position) or_continue
 		if block_occludes_light(block^) do occlusion += 1
 	}
 
@@ -579,7 +585,7 @@ Chunk_Mesh_Vertex :: struct #all_or_none {
 Chunk_Mesh_Index :: u32
 
 Chunk_Mesh_Vertex_Input_Data :: struct {
-	position: Block_Corner_Chunk_Coordinate,
+	position: Grid_Corner_Chunk_Position,
 	normal: Vec3,
 	uv: Vec2,
 }
@@ -636,6 +642,4 @@ block_faces := [World_Direction][4]Chunk_Mesh_Vertex_Input_Data{
 }
 
 @(rodata)
-block_indices := [6]Chunk_Mesh_Index{
-	0, 1, 2, 0, 2, 3,
-}
+block_indices := [6]Chunk_Mesh_Index{ 0, 1, 2, 0, 2, 3 }

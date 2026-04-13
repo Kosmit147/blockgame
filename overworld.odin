@@ -42,7 +42,7 @@ Overworld :: struct {
 	load_distance: u32,
 	world_generator_params: World_Generator_Params,
 
-	highlighted_block_coordinate: Maybe(Block_World_Coordinate),
+	highlighted_block_position: Maybe(Grid_World_Position),
 	picked_block: Block,
 	destroy_block_on_update: bool,
 	place_block_on_update: bool,
@@ -130,21 +130,21 @@ overworld_update :: proc(delta_time: f32, scene_data: rawptr) {
 	if input_key_pressed(.D) do overworld.camera.position += camera_vectors.right   * movement_speed * delta_time
 
 	ray := Ray { origin = overworld.camera.position, direction = camera_vectors.forward }
-	block, block_coordinate, place_offset, block_hit := world_raycast(overworld.world, ray, PLAYER_REACH)
+	block, block_position, place_offset, block_hit := world_raycast(overworld.world, ray, PLAYER_REACH)
 	if block_hit {
-		overworld.highlighted_block_coordinate = block_coordinate
+		overworld.highlighted_block_position = block_position
 		if overworld.pick_block_on_update {
 			overworld.picked_block = block^
 		}
 		if overworld.destroy_block_on_update {
-			world_destroy_block(overworld.world, block_coordinate)
+			world_destroy_block(overworld.world, block_position)
 		}
 		if overworld.place_block_on_update {
-			place_coordinate := block_coordinate + Block_World_Coordinate(place_offset)
-			world_place_block(overworld.world, place_coordinate, overworld.picked_block)
+			place_position := block_position + Grid_World_Position(place_offset)
+			world_place_block(overworld.world, place_position, overworld.picked_block)
 		}
 	} else {
-		overworld.highlighted_block_coordinate = nil
+		overworld.highlighted_block_position = nil
 	}
 
 	overworld.destroy_block_on_update = false
@@ -161,8 +161,8 @@ overworld_render :: proc(scene_data: rawptr) {
 
 	renderer_render_world(overworld.world)
 
-	highlighted_block_coordinate, do_highlight := overworld.highlighted_block_coordinate.?
-	if do_highlight do renderer_render_block_highlight(highlighted_block_coordinate)
+	highlighted_block_position, do_highlight := overworld.highlighted_block_position.?
+	if do_highlight do renderer_render_block_highlight(highlighted_block_position)
 
 	{
 		io := imgui.GetIO()
