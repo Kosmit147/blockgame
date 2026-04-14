@@ -2,6 +2,7 @@ package blockgame
 
 import "base:runtime"
 
+import "core:mem"
 import "core:math/bits"
 import "core:math/linalg"
 import "core:slice"
@@ -49,12 +50,21 @@ generate_chunk_task :: proc(task: thread.Task) {
 	data.mesh_data = generate_chunk_mesh(data.blocks, task.allocator)
 }
 
-world_init :: proc(world: ^World, player_chunk: Chunk_Coordinate, load_distance: u32) -> bool {
+when TRACK_MEMORY {
+	@(private="file") s_world_tracking_allocator: mem.Tracking_Allocator
+}
+
+world_init :: proc(world: ^World, player_chunk: Chunk_Coordinate, load_distance: u32) -> (ok := false) {
 	load_distance := clamp(load_distance, MIN_WORLD_LOAD_DISTANCE, MAX_WORLD_LOAD_DISTANCE)
 
 	// We want to use a thread-safe heap allocator because the lifetimes of chunks are arbitrary and they are
 	// handled from multiple threads.
-	world.allocator = runtime.heap_allocator()
+	when TRACK_MEMORY {
+		mem.tracking_allocator_init(&s_world_tracking_allocator, runtime.heap_allocator())
+		world.allocator = mem.tracking_allocator(&s_world_tracking_allocator)
+	} else {
+		world.allocator = runtime.heap_allocator()
+	}
 
 	loaded_grid_side_length := load_distance * 2 + 1
 	initial_chunk_map_capacity := loaded_grid_side_length * loaded_grid_side_length
@@ -77,7 +87,8 @@ world_init :: proc(world: ^World, player_chunk: Chunk_Coordinate, load_distance:
 				     task_data)
 	}
 
-	return true
+	ok = true
+	return
 }
 
 world_deinit :: proc(world: ^World) {
@@ -95,6 +106,17 @@ world_deinit :: proc(world: ^World) {
 	thread.pool_destroy(&world.thread_pool)
 	for _, &chunk in world.chunk_map do destroy_chunk(&chunk, world.allocator)
 	delete(world.chunk_map)
+
+	when TRACK_MEMORY {
+		if len(s_world_tracking_allocator.allocation_map) > 0 {
+			log.errorf("MEMORY LEAK: %v allocations not freed:",
+				   len(s_world_tracking_allocator.allocation_map))
+			for _, entry in s_world_tracking_allocator.allocation_map {
+				log.errorf("- %v bytes at %v", entry.size, entry.location)
+			}
+		}
+		mem.tracking_allocator_destroy(&s_world_tracking_allocator)
+	}
 }
 
 world_update :: proc(world: ^World) {
@@ -641,5 +663,5 @@ block_faces := [World_Direction][4]Chunk_Mesh_Vertex_Input_Data{
 	},
 }
 
-@(rodata)
+@(private="file", rodata)
 block_indices := [6]Chunk_Mesh_Index{ 0, 1, 2, 0, 2, 3 }

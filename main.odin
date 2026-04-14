@@ -9,7 +9,8 @@ import "core:mem"
 import "core:strings"
 import "core:os"
 
-HOT_RELOAD :: #config(HOT_RELOAD, false)
+HOT_RELOAD   :: #config(HOT_RELOAD, false)
+TRACK_MEMORY :: #config(TRACK_MEMORY, ODIN_DEBUG)
 
 when HOT_RELOAD {
 	// This callback gets called from a separate thread.
@@ -37,23 +38,23 @@ main :: proc() {
 	context.logger = log.create_console_logger(.Debug when ODIN_DEBUG else .Info)
 	defer log.destroy_console_logger(context.logger)
 
-	when ODIN_DEBUG {
+	when TRACK_MEMORY {
+		log.infof("Memory tracking enabled.")
 		tracking_allocator: mem.Tracking_Allocator
-		mem.tracking_allocator_init(&tracking_allocator, context.allocator)
+		mem.tracking_allocator_init(&tracking_allocator, runtime.heap_allocator())
 		context.allocator = mem.tracking_allocator(&tracking_allocator)
-
 		defer {
 			if len(tracking_allocator.allocation_map) > 0 {
 				log.errorf("MEMORY LEAK: %v allocations not freed:",
 					   len(tracking_allocator.allocation_map))
-
 				for _, entry in tracking_allocator.allocation_map {
 					log.errorf("- %v bytes at %v", entry.size, entry.location)
 				}
 			}
-
 			mem.tracking_allocator_destroy(&tracking_allocator)
 		}
+	} else {
+		context.allocator = runtime.heap_allocator()
 	}
 
 	g_context = context
