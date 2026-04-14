@@ -77,6 +77,19 @@ debug_overlay_update :: proc() {
 	imgui.End()
 
 	when TRACK_MEMORY {
+		format_memory_size :: proc(#any_int size: int) -> cstring {
+			switch size {
+			case 0..<512 * mem.Byte:
+				return fmt.ctprintf("%v B", size)
+			case 512 * mem.Byte..<512 * mem.Kilobyte:
+				return fmt.ctprintf("%.2f KB", f64(size) / mem.Kilobyte)
+			case 512 * mem.Kilobyte..<512 * mem.Megabyte:
+				return fmt.ctprintf("%.2f MB", f64(size) / mem.Megabyte)
+			case:
+				return fmt.ctprintf("%.2f GB", f64(size) / mem.Gigabyte)
+			}
+		}
+
 		tracking_allocator_info_text :: proc(allocator: mem.Tracking_Allocator) -> cstring {
 			return fmt.ctprintf(
 				"Current memory allocated: %v\n" +
@@ -85,12 +98,12 @@ debug_overlay_update :: proc() {
 				"Total free count: %v\n" +
 				"Total memory allocated: %v\n" +
 				"Total memory freed: %v\n",
-				allocator.current_memory_allocated,
-				allocator.peak_memory_allocated,
+				format_memory_size(allocator.current_memory_allocated),
+				format_memory_size(allocator.peak_memory_allocated),
 				allocator.total_allocation_count,
 				allocator.total_free_count,
-				allocator.total_memory_allocated,
-				allocator.total_memory_freed,
+				format_memory_size(allocator.total_memory_allocated),
+				format_memory_size(allocator.total_memory_freed),
 			)
 		}
 
@@ -98,8 +111,8 @@ debug_overlay_update :: proc() {
 			return fmt.ctprintf(
 				"Total used: %v\n" +
 				"Total reserved: %v\n",
-				arena.total_used,
-				arena.total_reserved,
+				format_memory_size(arena.total_used),
+				format_memory_size(arena.total_reserved),
 			)
 		}
 
