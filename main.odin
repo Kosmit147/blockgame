@@ -34,6 +34,21 @@ when HOT_RELOAD {
 
 g_context: runtime.Context
 
+check_tracking_allocator :: proc(allocator: mem.Tracking_Allocator) -> (ok := true) {
+	if len(allocator.allocation_map) > 0 {
+		ok = false
+		log.errorf("MEMORY LEAK: %v allocations not freed:", len(allocator.allocation_map))
+		for _, entry in allocator.allocation_map do log.errorf("- %v bytes at %v", entry.size, entry.location)
+	}
+	if len(allocator.bad_free_array) > 0 {
+		ok = false
+		log.errorf("BAD FREES: %v incorrect frees:", len(allocator.bad_free_array))
+		for entry in allocator.bad_free_array do log.errorf("- %p at %v", entry.memory, entry.location)
+	}
+
+	return
+}
+
 main :: proc() {
 	context.logger = log.create_console_logger(.Debug when ODIN_DEBUG else .Info)
 	defer log.destroy_console_logger(context.logger)
@@ -44,13 +59,7 @@ main :: proc() {
 		mem.tracking_allocator_init(&tracking_allocator, runtime.heap_allocator())
 		context.allocator = mem.tracking_allocator(&tracking_allocator)
 		defer {
-			if len(tracking_allocator.allocation_map) > 0 {
-				log.errorf("MEMORY LEAK: %v allocations not freed:",
-					   len(tracking_allocator.allocation_map))
-				for _, entry in tracking_allocator.allocation_map {
-					log.errorf("- %v bytes at %v", entry.size, entry.location)
-				}
-			}
+			check_tracking_allocator(tracking_allocator)
 			mem.tracking_allocator_destroy(&tracking_allocator)
 		}
 	} else {

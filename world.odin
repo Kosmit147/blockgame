@@ -108,13 +108,7 @@ world_deinit :: proc(world: ^World) {
 	delete(world.chunk_map)
 
 	when TRACK_MEMORY {
-		if len(s_world_tracking_allocator.allocation_map) > 0 {
-			log.errorf("MEMORY LEAK: %v allocations not freed:",
-				   len(s_world_tracking_allocator.allocation_map))
-			for _, entry in s_world_tracking_allocator.allocation_map {
-				log.errorf("- %v bytes at %v", entry.size, entry.location)
-			}
-		}
+		check_tracking_allocator(s_world_tracking_allocator)
 		mem.tracking_allocator_destroy(&s_world_tracking_allocator)
 	}
 }
