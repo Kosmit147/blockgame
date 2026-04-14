@@ -33,6 +33,12 @@ when HOT_RELOAD {
 }
 
 g_context: runtime.Context
+when TRACK_MEMORY {
+	@(private="file") s_tracking_allocator: mem.Tracking_Allocator
+	get_global_tracking_allocator :: proc() -> ^mem.Tracking_Allocator {
+		return &s_tracking_allocator
+	}
+}
 
 check_tracking_allocator :: proc(allocator: mem.Tracking_Allocator) -> (ok := true) {
 	if len(allocator.allocation_map) > 0 {
@@ -55,12 +61,11 @@ main :: proc() {
 
 	when TRACK_MEMORY {
 		log.infof("Memory tracking enabled.")
-		tracking_allocator: mem.Tracking_Allocator
-		mem.tracking_allocator_init(&tracking_allocator, runtime.heap_allocator())
-		context.allocator = mem.tracking_allocator(&tracking_allocator)
+		mem.tracking_allocator_init(&s_tracking_allocator, runtime.heap_allocator())
+		context.allocator = mem.tracking_allocator(&s_tracking_allocator)
 		defer {
-			check_tracking_allocator(tracking_allocator)
-			mem.tracking_allocator_destroy(&tracking_allocator)
+			check_tracking_allocator(s_tracking_allocator)
+			mem.tracking_allocator_destroy(&s_tracking_allocator)
 		}
 	} else {
 		context.allocator = runtime.heap_allocator()

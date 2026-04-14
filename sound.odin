@@ -27,6 +27,12 @@ s_sound_system: Sound_System
 @(private="file")
 MUSIC_SOUND_FLAGS :: ma.sound_flags{ .STREAM, .NO_PITCH, .NO_SPATIALIZATION }
 
+when TRACK_MEMORY {
+	get_sound_arena :: proc() -> ^virtual.Arena {
+		return &s_sound_system.arena
+	}
+}
+
 init_sound :: proc() -> (ok := false) {
 	arena_error := virtual.arena_init_growing(&s_sound_system.arena)
 	if arena_error != nil do return

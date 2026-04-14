@@ -3,6 +3,8 @@ package blockgame
 import "vendor/imgui"
 
 import "core:fmt"
+import "core:mem"
+import "core:mem/virtual"
 
 QUIT_GAME_KEY            :: Key.Escape
 DEBUG_OVERLAY_TOGGLE_KEY :: Key.F_1
@@ -73,6 +75,43 @@ debug_overlay_update :: proc() {
 	track_index := sound_current_track_index()
 	if imgui_slice_list_select(&track_index, sound_tracks()) do sound_play_track(track_index)
 	imgui.End()
+
+	when TRACK_MEMORY {
+		tracking_allocator_info_text :: proc(allocator: mem.Tracking_Allocator) -> cstring {
+			return fmt.ctprintf(
+				"Current memory allocated: %v\n" +
+				"Peak memory allocated: %v\n" +
+				"Total allocation count: %v\n" +
+				"Total free count: %v\n" +
+				"Total memory allocated: %v\n" +
+				"Total memory freed: %v\n",
+				allocator.current_memory_allocated,
+				allocator.peak_memory_allocated,
+				allocator.total_allocation_count,
+				allocator.total_free_count,
+				allocator.total_memory_allocated,
+				allocator.total_memory_freed,
+			)
+		}
+
+		arena_info_text :: proc(arena: virtual.Arena) -> cstring {
+			return fmt.ctprintf(
+				"Total used: %v\n" +
+				"Total reserved: %v\n",
+				arena.total_used,
+				arena.total_reserved,
+			)
+		}
+
+		imgui.Begin("Memory")
+		imgui.SeparatorText("Global Allocator")
+		imgui.TextUnformatted(tracking_allocator_info_text(get_global_tracking_allocator()^))
+		imgui.SeparatorText("World Allocator")
+		imgui.TextUnformatted(tracking_allocator_info_text(get_world_tracking_allocator()^))
+		imgui.SeparatorText("Sound Arena")
+		imgui.TextUnformatted(arena_info_text(get_sound_arena()^))
+		imgui.End()
+	}
 }
 
 @(require_results)

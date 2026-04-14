@@ -52,6 +52,9 @@ generate_chunk_task :: proc(task: thread.Task) {
 
 when TRACK_MEMORY {
 	@(private="file") s_world_tracking_allocator: mem.Tracking_Allocator
+	get_world_tracking_allocator :: proc() -> ^mem.Tracking_Allocator {
+		return &s_world_tracking_allocator
+	}
 }
 
 world_init :: proc(world: ^World, player_chunk: Chunk_Coordinate, load_distance: u32) -> (ok := false) {
@@ -129,6 +132,10 @@ world_update :: proc(world: ^World) {
 world_regenerate :: proc(world: ^World, player_chunk: Chunk_Coordinate, load_distance: u32) {
 	load_distance := clamp(load_distance, MIN_WORLD_LOAD_DISTANCE, MAX_WORLD_LOAD_DISTANCE)
 	world_deinit(world)
+	world^ = {}
+	when TRACK_MEMORY {
+		s_world_tracking_allocator = {}
+	}
 	world_init(world, player_chunk, load_distance)
 }
 
