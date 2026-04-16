@@ -45,30 +45,50 @@ debug_overlay_update :: proc() {
 	if !s_overlay.enabled do return
 
 	imgui.Begin("Settings")
-	full_screen := window_is_full_screen()
-	if imgui.Checkbox("Fullscreen", &full_screen) do window_set_full_screen(full_screen)
-	gamma := renderer_gamma()
-	if imgui.DragFloat("Gamma", &gamma, 0.005, 0.1, 5.0) do renderer_set_gamma(gamma)
-	fps_limit, fps_limit_set := window_fps_limit()
-	if fps_limit_set do s_overlay.fps_limit = fps_limit
-	if imgui.Checkbox("Enable FPS limit", &fps_limit_set) {
-		if fps_limit_set do window_enable_fps_limit(s_overlay.fps_limit)
-		else do window_disable_fps_limit()
+	if imgui.BeginTabBar("Settings Tab Bar") {
+		if imgui.BeginTabItem("Window") {
+			full_screen := window_is_full_screen()
+			if imgui.Checkbox("Fullscreen", &full_screen) do window_set_full_screen(full_screen)
+			vsync_mode := window_vsync_mode()
+			if imgui_enum_select("Vertical Sync", &vsync_mode) do window_set_vsync_mode(vsync_mode)
+			fps_limit, fps_limit_set := window_fps_limit()
+			if fps_limit_set do s_overlay.fps_limit = fps_limit
+			if imgui.Checkbox("Enable FPS limit", &fps_limit_set) {
+				if fps_limit_set do window_enable_fps_limit(s_overlay.fps_limit)
+				else do window_disable_fps_limit()
+			}
+			if imgui_input_u32("FPS limit", &s_overlay.fps_limit) && fps_limit_set {
+				window_enable_fps_limit(s_overlay.fps_limit)
+			}
+			imgui.TextUnformatted(fmt.ctprintf("Target frame time: %.6fs", window_target_frame_time()))
+			imgui.TextUnformatted(fmt.ctprintf("Window size: %v", window_size()))
+			imgui.TextUnformatted(fmt.ctprintf("Framebuffer size: %v", window_framebuffer_size()))
+			imgui.EndTabItem()
+		}
+		if imgui.BeginTabItem("Renderer") {
+			gamma := renderer_gamma()
+			if imgui.DragFloat("Gamma", &gamma, 0.005, 0.1, 5.0) do renderer_set_gamma(gamma)
+			wireframe := renderer_wireframe_enabled()
+			if imgui.Checkbox("Wireframe", &wireframe) do renderer_set_wireframe_enabled(wireframe)
+			imgui.SeparatorText("OpenGL context info")
+			imgui.TextUnformatted(fmt.ctprintf("Vendor: %v", gl_get_vendor()))
+			imgui.TextUnformatted(fmt.ctprintf("Renderer: %v", gl_get_renderer()))
+			imgui.TextUnformatted(fmt.ctprintf("Version: %v", gl_get_version()))
+			imgui.SeparatorText("OpenGL extensions")
+			for extension in gl_get_extensions() {
+				imgui.TextUnformatted(extension)
+			}
+			imgui.EndTabItem()
+		}
+		if imgui.BeginTabItem("Sound") {
+			master_volume := sound_master_volume()
+			if imgui.SliderFloat("Master Volume", &master_volume, 0, 1) do sound_set_master_volume(master_volume)
+			music_volume := sound_music_volume()
+			if imgui.SliderFloat("Music Volume", &music_volume, 0, 1) do sound_set_music_volume(music_volume)
+			imgui.EndTabItem()
+		}
+		imgui.EndTabBar()
 	}
-	if imgui_input_u32("FPS limit", &s_overlay.fps_limit) && fps_limit_set {
-		window_enable_fps_limit(s_overlay.fps_limit)
-	}
-	imgui.TextUnformatted(fmt.ctprintf("Target frame time: %.6fs", window_target_frame_time()))
-	vsync_mode := window_vsync_mode()
-	if imgui_enum_select("Vertical Sync", &vsync_mode) do window_set_vsync_mode(vsync_mode)
-	master_volume := sound_master_volume()
-	wireframe := renderer_wireframe_enabled()
-	if imgui.Checkbox("Wireframe", &wireframe) do renderer_set_wireframe_enabled(wireframe)
-	if imgui.SliderFloat("Master Volume", &master_volume, 0, 1) do sound_set_master_volume(master_volume)
-	music_volume := sound_music_volume()
-	if imgui.SliderFloat("Music Volume", &music_volume, 0, 1) do sound_set_music_volume(music_volume)
-	imgui.TextUnformatted(fmt.ctprintf("Window size: %v", window_size()))
-	imgui.TextUnformatted(fmt.ctprintf("Framebuffer size: %v", window_framebuffer_size()))
 	imgui.End()
 
 	imgui.Begin("Music Player")

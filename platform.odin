@@ -686,8 +686,26 @@ window_push_event :: proc(event: Event) {
 	queue.push_back(&s_event_queue, event)
 }
 
-init_gl_context :: proc() {
+Gl_Context :: struct {
+	extensions: []cstring,
+	vendor: cstring,
+	renderer: cstring,
+	version: cstring,
+}
+
+@(private="file")
+s_gl_context: Gl_Context
+
+gl_init :: proc() -> (ok := false) {
 	gl.load_up_to(GL_VERSION_MAJOR, GL_VERSION_MINOR, glfw.gl_set_proc_address)
+
+	s_gl_context.vendor = gl.GetString(gl.VENDOR)
+	log.infof("Initialized OpenGL context.")
+	log.infof("Vendor: %v", s_gl_context.vendor)
+	s_gl_context.renderer = gl.GetString(gl.RENDERER)
+	log.infof("Renderer: %v", s_gl_context.renderer)
+	s_gl_context.version = gl.GetString(gl.VERSION)
+	log.infof("Version: %v", s_gl_context.version)
 
 	when ODIN_DEBUG {
 		gl.Enable(gl.DEBUG_OUTPUT)
@@ -703,15 +721,43 @@ init_gl_context :: proc() {
 				       count = len(disabled_messages),
 				       ids = raw_data(&disabled_messages),
 				       enabled = gl.FALSE)
-
-		log.infof("Initialized OpenGL context.")
-		log.infof("Vendor: %v", gl.GetString(gl.VENDOR))
-		log.infof("Renderer: %v", gl.GetString(gl.RENDERER))
-		log.infof("Version: %v", gl.GetString(gl.VERSION))
 	}
+
+	extension_count: i32
+	gl.GetIntegerv(gl.NUM_EXTENSIONS, &extension_count)
+	s_gl_context.extensions = make([]cstring, extension_count)
+	defer if !ok do delete(s_gl_context.extensions)
+	for i in 0..<extension_count do s_gl_context.extensions[i] = gl.GetStringi(gl.EXTENSIONS, u32(i))
+
+	ok = true
+	return
 }
 
-init_imgui :: proc() {
+gl_deinit :: proc() {
+	delete(s_gl_context.extensions)
+}
+
+@(require_results)
+gl_get_extensions :: proc() -> []cstring {
+	return s_gl_context.extensions
+}
+
+@(require_results)
+gl_get_vendor :: proc() -> cstring {
+	return s_gl_context.vendor
+}
+
+@(require_results)
+gl_get_renderer :: proc() -> cstring {
+	return s_gl_context.renderer
+}
+
+@(require_results)
+gl_get_version :: proc() -> cstring {
+	return s_gl_context.version
+}
+
+init_imgui :: proc() -> (ok := false) {
 	imgui.CHECKVERSION()
 	imgui.CreateContext()
 
@@ -721,6 +767,9 @@ init_imgui :: proc() {
 
 	imgui_impl_glfw.InitForOpenGL(s_window.handle, install_callbacks = true)
 	imgui_impl_opengl3.Init("#version 430 core")
+
+	ok = true
+	return
 }
 
 deinit_imgui :: proc() {

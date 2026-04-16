@@ -92,8 +92,10 @@ main :: proc() {
 	if !window_init() do log.panic("Failed to create a window.")
 	defer window_deinit()
 
-	init_gl_context()
-	init_imgui()
+	if !gl_init() do log.panic("Failed to initialize OpenGL context.")
+	defer gl_deinit()
+
+	if !init_imgui() do log.panic("Failed to initialize Dear ImGui.")
 	defer deinit_imgui()
 
 	if !init_resources() do log.panic("Failed to initialize the resources.")
