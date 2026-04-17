@@ -43,7 +43,18 @@ debug_overlay_on_event :: proc(event: Event) {
 
 debug_overlay_update :: proc() {
 	if !s_overlay.enabled do return
+	settings_window()
+	music_player_window()
+	memory_window()
+}
 
+@(require_results)
+debug_overlay_enabled :: proc() -> bool {
+	return s_overlay.enabled
+}
+
+@(private="file")
+settings_window :: proc() {
 	imgui.Begin("Settings")
 	if imgui.BeginTabBar("Settings Tab Bar") {
 		if imgui.BeginTabItem("Window") {
@@ -74,7 +85,7 @@ debug_overlay_update :: proc() {
 			imgui.TextUnformatted(fmt.ctprintf("Vendor: %v", gl_get_vendor()))
 			imgui.TextUnformatted(fmt.ctprintf("Renderer: %v", gl_get_renderer()))
 			imgui.TextUnformatted(fmt.ctprintf("Version: %v", gl_get_version()))
-			imgui.SeparatorText("OpenGL extensions")
+			imgui.SeparatorText("Available OpenGL extensions")
 			for extension in gl_get_extensions() {
 				imgui.TextUnformatted(extension)
 			}
@@ -82,26 +93,26 @@ debug_overlay_update :: proc() {
 		}
 		if imgui.BeginTabItem("Sound") {
 			master_volume := sound_master_volume()
-			if imgui.SliderFloat("Master Volume", &master_volume, 0, 1) do sound_set_master_volume(master_volume)
+			if imgui.SliderFloat("Master Volume", &master_volume, 0, 1) {
+				sound_set_master_volume(master_volume)
+			}
 			music_volume := sound_music_volume()
-			if imgui.SliderFloat("Music Volume", &music_volume, 0, 1) do sound_set_music_volume(music_volume)
+			if imgui.SliderFloat("Music Volume", &music_volume, 0, 1) {
+				sound_set_music_volume(music_volume)
+			}
 			imgui.EndTabItem()
 		}
 		imgui.EndTabBar()
 	}
 	imgui.End()
+}
 
+@(private="file")
+music_player_window :: proc() {
 	imgui.Begin("Music Player")
 	track_index := sound_current_track_index()
 	if imgui_slice_list_select(&track_index, sound_tracks()) do sound_play_track(track_index)
 	imgui.End()
-
-	memory_window()
-}
-
-@(require_results)
-debug_overlay_enabled :: proc() -> bool {
-	return s_overlay.enabled
 }
 
 @(private="file")
@@ -112,11 +123,11 @@ memory_window :: proc() {
 
 	format_memory_size :: proc(#any_int size: int) -> string {
 		switch size {
-		case 0..<512 * mem.Byte:
+		case 0..<(512 * mem.Byte):
 			return fmt.tprintf("%v B", size)
-		case 512 * mem.Byte..<512 * mem.Kilobyte:
+		case (512 * mem.Byte)..<(512 * mem.Kilobyte):
 			return fmt.tprintf("%.2f KB", f64(size) / mem.Kilobyte)
-		case 512 * mem.Kilobyte..<512 * mem.Megabyte:
+		case (512 * mem.Kilobyte)..<(512 * mem.Megabyte):
 			return fmt.tprintf("%.2f MB", f64(size) / mem.Megabyte)
 		case:
 			return fmt.tprintf("%.2f GB", f64(size) / mem.Gigabyte)
