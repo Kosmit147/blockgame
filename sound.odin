@@ -6,6 +6,7 @@ import "core:log"
 import "core:os"
 import "core:strings"
 import "core:mem/virtual"
+import "core:fmt"
 
 TRACKS_PATH :: "sound/tracks/"
 
@@ -94,7 +95,7 @@ sound_deinit_tracks :: proc() {
 
 Track :: struct {
 	name: string,
-	sound: ^ma.sound `fmt:"-"`,
+	sound: ^ma.sound,
 }
 
 @(private="file")
@@ -120,6 +121,15 @@ create_track :: proc(name: string, filepath: string) -> (track: Track, ok := fal
 @(private="file")
 destroy_track :: proc(track: Track) {
 	ma.sound_uninit(track.sound)
+}
+
+track_formatter :: proc(fi: ^fmt.Info, arg: any, verb: rune) -> bool {
+	track := cast(^Track)arg.data
+	if verb == 'v' {
+		fmt.wprintf(fi.writer, "%v", track.name)
+		return true
+	}
+	return false
 }
 
 sound_update :: proc() {

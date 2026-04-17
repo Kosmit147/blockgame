@@ -10,6 +10,7 @@ import "core:thread"
 import "core:os"
 import "core:log"
 import "core:testing"
+import "core:fmt"
 
 WORLD_ORIGIN :: Vec3{  0,  0,  0 }
 WORLD_UP     :: Vec3{  0,  1,  0 }
@@ -472,6 +473,15 @@ nearby_chunks_iterator_test :: proc(t: ^testing.T) {
 		}
 		testing.expect(t, i == len(expected))
 	}
+}
+
+chunk_coordinate_formatter :: proc(fi: ^fmt.Info, arg: any, verb: rune) -> bool {
+	chunk_coordinate := cast(^Chunk_Coordinate)arg.data
+	if verb == 'v' {
+		fmt.wprintf(fi.writer, "[ %v, %v ]", chunk_coordinate.x, chunk_coordinate.z)
+		return true
+	}
+	return false
 }
 
 Chunk_Mesh_Data :: struct {

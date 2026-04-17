@@ -8,6 +8,7 @@ import "core:log"
 import "core:mem"
 import "core:strings"
 import "core:os"
+import "core:fmt"
 
 HOT_RELOAD   :: #config(HOT_RELOAD, false)
 TRACK_MEMORY :: #config(TRACK_MEMORY, ODIN_DEBUG)
@@ -72,6 +73,12 @@ main :: proc() {
 	}
 
 	g_context = context
+
+	formatters: map[typeid]fmt.User_Formatter
+	defer delete(formatters)
+	fmt.set_user_formatters(&formatters)
+	fmt.register_user_formatter(Chunk_Coordinate, chunk_coordinate_formatter)
+	fmt.register_user_formatter(Track, track_formatter)
 
 	when HOT_RELOAD {
 		dmon.init()
