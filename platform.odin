@@ -8,6 +8,7 @@ import "vendor/imgui/imgui_impl_opengl3"
 
 import "core:log"
 import "core:container/queue"
+import "core:slice"
 
 GL_VERSION_MAJOR :: 4
 GL_VERSION_MINOR :: 6
@@ -691,7 +692,16 @@ Gl_Context :: struct {
 	vendor: cstring,
 	renderer: cstring,
 	version: cstring,
+
+	GL_NVX_gpu_memory_info: bool,
 }
+
+// GL_NVX_gpu_memory_info
+GPU_MEMORY_INFO_DEDICATED_VIDMEM_NVX          :: 0x9047
+GPU_MEMORY_INFO_TOTAL_AVAILABLE_MEMORY_NVX    :: 0x9048
+GPU_MEMORY_INFO_CURRENT_AVAILABLE_VIDMEM_NVX  :: 0x9049
+GPU_MEMORY_INFO_EVICTION_COUNT_NVX            :: 0x904A
+GPU_MEMORY_INFO_EVICTED_MEMORY_NVX            :: 0x904B
 
 @(private="file")
 s_gl_context: Gl_Context
@@ -729,6 +739,8 @@ gl_init :: proc() -> (ok := false) {
 	defer if !ok do delete(s_gl_context.extensions)
 	for i in 0..<extension_count do s_gl_context.extensions[i] = gl.GetStringi(gl.EXTENSIONS, u32(i))
 
+	_, s_gl_context.GL_NVX_gpu_memory_info = slice.linear_search(s_gl_context.extensions, "GL_NVX_gpu_memory_info")
+
 	ok = true
 	return
 }
@@ -755,6 +767,34 @@ gl_get_renderer :: proc() -> cstring {
 @(require_results)
 gl_get_version :: proc() -> cstring {
 	return s_gl_context.version
+}
+
+Gpu_Memory_Info :: struct {
+	dedicated_vidmem_kb: u64,
+	total_available_memory_kb: u64,
+	current_available_vidmem_kb: u64,
+	eviction_count: u64,
+	evicted_memory_kb: u64,
+}
+
+@(require_results)
+get_gpu_memory_info :: proc() -> (info: Gpu_Memory_Info, ok := false) {
+	if !s_gl_context.GL_NVX_gpu_memory_info do return
+
+	temp: i32
+	gl.GetIntegerv(GPU_MEMORY_INFO_DEDICATED_VIDMEM_NVX, &temp)
+	info.dedicated_vidmem_kb = u64(temp)
+	gl.GetIntegerv(GPU_MEMORY_INFO_TOTAL_AVAILABLE_MEMORY_NVX, &temp)
+	info.total_available_memory_kb = u64(temp)
+	gl.GetIntegerv(GPU_MEMORY_INFO_CURRENT_AVAILABLE_VIDMEM_NVX, &temp)
+	info.current_available_vidmem_kb = u64(temp)
+	gl.GetIntegerv(GPU_MEMORY_INFO_EVICTION_COUNT_NVX, &temp)
+	info.eviction_count = u64(temp)
+	gl.GetIntegerv(GPU_MEMORY_INFO_EVICTED_MEMORY_NVX, &temp)
+	info.evicted_memory_kb = u64(temp)
+
+	ok = true
+	return
 }
 
 init_imgui :: proc() -> (ok := false) {

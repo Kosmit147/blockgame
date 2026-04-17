@@ -96,58 +96,93 @@ debug_overlay_update :: proc() {
 	if imgui_slice_list_select(&track_index, sound_tracks()) do sound_play_track(track_index)
 	imgui.End()
 
-	when TRACK_MEMORY {
-		format_memory_size :: proc(#any_int size: int) -> cstring {
-			switch size {
-			case 0..<512 * mem.Byte:
-				return fmt.ctprintf("%v B", size)
-			case 512 * mem.Byte..<512 * mem.Kilobyte:
-				return fmt.ctprintf("%.2f KB", f64(size) / mem.Kilobyte)
-			case 512 * mem.Kilobyte..<512 * mem.Megabyte:
-				return fmt.ctprintf("%.2f MB", f64(size) / mem.Megabyte)
-			case:
-				return fmt.ctprintf("%.2f GB", f64(size) / mem.Gigabyte)
-			}
-		}
-
-		tracking_allocator_info_text :: proc(allocator: mem.Tracking_Allocator) -> cstring {
-			return fmt.ctprintf(
-				"Current memory allocated: %v\n" +
-				"Peak memory allocated: %v\n" +
-				"Total allocation count: %v\n" +
-				"Total free count: %v\n" +
-				"Total memory allocated: %v\n" +
-				"Total memory freed: %v\n",
-				format_memory_size(allocator.current_memory_allocated),
-				format_memory_size(allocator.peak_memory_allocated),
-				allocator.total_allocation_count,
-				allocator.total_free_count,
-				format_memory_size(allocator.total_memory_allocated),
-				format_memory_size(allocator.total_memory_freed),
-			)
-		}
-
-		arena_info_text :: proc(arena: virtual.Arena) -> cstring {
-			return fmt.ctprintf(
-				"Total used: %v\n" +
-				"Total reserved: %v\n",
-				format_memory_size(arena.total_used),
-				format_memory_size(arena.total_reserved),
-			)
-		}
-
-		imgui.Begin("Memory")
-		imgui.SeparatorText("Global Allocator")
-		imgui.TextUnformatted(tracking_allocator_info_text(get_global_tracking_allocator()^))
-		imgui.SeparatorText("World Allocator")
-		imgui.TextUnformatted(tracking_allocator_info_text(get_world_tracking_allocator()^))
-		imgui.SeparatorText("Sound Arena")
-		imgui.TextUnformatted(arena_info_text(get_sound_arena()^))
-		imgui.End()
-	}
+	memory_window()
 }
 
 @(require_results)
 debug_overlay_enabled :: proc() -> bool {
 	return s_overlay.enabled
+}
+
+@(private="file")
+memory_window :: proc() {
+	gpu_memory_info, have_gpu_memory_info := get_gpu_memory_info()
+	show_memory_window := have_gpu_memory_info || TRACK_MEMORY
+	if !show_memory_window do return
+
+	format_memory_size :: proc(#any_int size: int) -> string {
+		switch size {
+		case 0..<512 * mem.Byte:
+			return fmt.tprintf("%v B", size)
+		case 512 * mem.Byte..<512 * mem.Kilobyte:
+			return fmt.tprintf("%.2f KB", f64(size) / mem.Kilobyte)
+		case 512 * mem.Kilobyte..<512 * mem.Megabyte:
+			return fmt.tprintf("%.2f MB", f64(size) / mem.Megabyte)
+		case:
+			return fmt.tprintf("%.2f GB", f64(size) / mem.Gigabyte)
+		}
+	}
+
+	imgui.Begin("Memory")
+	if imgui.BeginTabBar("Memory Tab Bar") {
+		when TRACK_MEMORY {
+			if imgui.BeginTabItem("RAM") {
+				tracking_allocator_info_text :: proc(allocator: mem.Tracking_Allocator) -> cstring {
+					return fmt.ctprintf(
+						"Current memory allocated: %v\n" +
+						"Peak memory allocated: %v\n" +
+						"Total allocation count: %v\n" +
+						"Total free count: %v\n" +
+						"Total memory allocated: %v\n" +
+						"Total memory freed: %v\n",
+						format_memory_size(allocator.current_memory_allocated),
+						format_memory_size(allocator.peak_memory_allocated),
+						allocator.total_allocation_count,
+						allocator.total_free_count,
+						format_memory_size(allocator.total_memory_allocated),
+						format_memory_size(allocator.total_memory_freed),
+					)
+				}
+
+				arena_info_text :: proc(arena: virtual.Arena) -> cstring {
+					return fmt.ctprintf(
+						"Total used: %v\n" +
+						"Total reserved: %v\n",
+						format_memory_size(arena.total_used),
+						format_memory_size(arena.total_reserved),
+					)
+				}
+
+				imgui.SeparatorText("Global Allocator")
+				imgui.TextUnformatted(tracking_allocator_info_text(get_global_tracking_allocator()^))
+				imgui.SeparatorText("World Allocator")
+				imgui.TextUnformatted(tracking_allocator_info_text(get_world_tracking_allocator()^))
+				imgui.SeparatorText("Sound Arena")
+				imgui.TextUnformatted(arena_info_text(get_sound_arena()^))
+				imgui.EndTabItem()
+			}
+		}
+		if have_gpu_memory_info {
+			if imgui.BeginTabItem("VRAM") {
+				gpu_memory_info_text :: proc(info: Gpu_Memory_Info) -> cstring {
+					return fmt.ctprintf(
+						"Dedicated video memory: %v\n" +
+						"Total available memory: %v\n" +
+						"Current available memory: %v\n" +
+						"Eviction count: %v\n" +
+						"Evicted memory: %v\n",
+						format_memory_size(info.dedicated_vidmem_kb * mem.Kilobyte),
+						format_memory_size(info.total_available_memory_kb * mem.Kilobyte),
+						format_memory_size(info.current_available_vidmem_kb * mem.Kilobyte),
+						info.eviction_count,
+						format_memory_size(info.evicted_memory_kb * mem.Kilobyte))
+				}
+
+				imgui.TextUnformatted(gpu_memory_info_text(gpu_memory_info))
+				imgui.EndTabItem()
+			}
+		}
+		imgui.EndTabBar()
+	}
+	imgui.End()
 }
