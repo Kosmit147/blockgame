@@ -3,6 +3,7 @@ package blockgame
 import "base:runtime"
 
 import "core:mem"
+import "core:math"
 import "core:math/bits"
 import "core:math/linalg"
 import "core:slice"
@@ -19,6 +20,12 @@ WORLD_DOWN   :: Vec3{  0, -1,  0 }
 MIN_WORLD_LOAD_DISTANCE :: 1
 MAX_WORLD_LOAD_DISTANCE :: 20
 
+INITIAL_SKY_COLOR           :: Vec3{ 0.7, 0.95, 1 }
+INITIAL_SUNLIGHT_AMBIENT    :: Vec3{ 0.5, 0.5, 0.5 }
+INITIAL_SUNLIGHT_COLOR      :: Vec3{ 0.8, 0.8, 0.8 }
+INITIAL_SUNLIGHT_ANGLE_DEG  :: 270
+SUNLIGHT_ANGLE_CHANGE_SPEED :: 0.01
+
 World_Directions :: bit_set[World_Direction]
 World_Direction :: enum {
 	Plus_X,
@@ -33,6 +40,13 @@ World_Direction :: enum {
 World :: struct {
 	chunk_map: map[Chunk_Coordinate]Chunk,
 	thread_pool: thread.Pool,
+
+	sunlight_angle: f32,
+	sunlight_angle_change_speed: f32,
+	timescale: f32,
+	sunlight: Directional_Light,
+	sky_color: Vec3,
+
 	allocator: runtime.Allocator,
 }
 
@@ -91,6 +105,17 @@ world_init :: proc(world: ^World, player_chunk: Chunk_Coordinate, load_distance:
 				     task_data)
 	}
 
+	sunlight_angle := math.to_radians(f32(INITIAL_SUNLIGHT_ANGLE_DEG))
+	world.sunlight_angle = sunlight_angle
+	world.sunlight_angle_change_speed = SUNLIGHT_ANGLE_CHANGE_SPEED
+	world.timescale = 1
+	world.sunlight = Directional_Light{
+		ambient = INITIAL_SUNLIGHT_AMBIENT,
+		color = INITIAL_SUNLIGHT_COLOR,
+		direction = get_sunlight_direction(sunlight_angle),
+	}
+	world.sky_color = INITIAL_SKY_COLOR
+
 	ok = true
 	return
 }
@@ -117,7 +142,17 @@ world_deinit :: proc(world: ^World) {
 	}
 }
 
-world_update :: proc(world: ^World) {
+world_regenerate :: proc(world: ^World, player_chunk: Chunk_Coordinate, load_distance: u32) {
+	load_distance := clamp(load_distance, MIN_WORLD_LOAD_DISTANCE, MAX_WORLD_LOAD_DISTANCE)
+	world_deinit(world)
+	world^ = {}
+	when TRACK_MEMORY {
+		s_world_tracking_allocator = {}
+	}
+	world_init(world, player_chunk, load_distance)
+}
+
+world_update :: proc(world: ^World, delta_time: f32) {
 	MAX_CHUNKS_ADDED_PER_UPDATE :: 1
 	for _ in 0..<MAX_CHUNKS_ADDED_PER_UPDATE {
 		task := thread.pool_pop_done(&world.thread_pool) or_break
@@ -128,16 +163,15 @@ world_update :: proc(world: ^World) {
 		delete_chunk_mesh_data(data.mesh_data)
 		free(data, world.allocator)
 	}
+
+	world.sunlight_angle += world.sunlight_angle_change_speed * world.timescale * delta_time
+	world.sunlight.direction = get_sunlight_direction(world.sunlight_angle)
+	world.sunlight.direction = linalg.normalize(world.sunlight.direction)
 }
 
-world_regenerate :: proc(world: ^World, player_chunk: Chunk_Coordinate, load_distance: u32) {
-	load_distance := clamp(load_distance, MIN_WORLD_LOAD_DISTANCE, MAX_WORLD_LOAD_DISTANCE)
-	world_deinit(world)
-	world^ = {}
-	when TRACK_MEMORY {
-		s_world_tracking_allocator = {}
-	}
-	world_init(world, player_chunk, load_distance)
+@(private="file")
+get_sunlight_direction :: proc(angle: f32) -> Vec3 {
+	return Vec3{ math.sin(angle), math.cos(angle), 0 }
 }
 
 world_raycast :: proc(world: World, ray: Ray, max_distance: f32) -> (block: ^Block,

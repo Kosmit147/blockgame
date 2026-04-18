@@ -16,13 +16,6 @@ UI_LOAD_DISTANCE_MIN :: MIN_WORLD_LOAD_DISTANCE
 // Currently, setting the load distance to a big value makes the game unplayable, so limit it to 20 for now.
 UI_LOAD_DISTANCE_MAX :: MAX_WORLD_LOAD_DISTANCE
 
-DEFAULT_SKY_COLOR :: Vec3{ 0.7, 0.95, 1 }
-DEFAULT_DIRECTIONAL_LIGHT :: Directional_Light {
-	ambient = Vec3{ 0.5, 0.5, 0.5 },
-	color = Vec3{ 0.8, 0.8, 0.8 },
-	direction = Vec3{ -0.5774, -0.5774, -0.5774 },
-}
-
 CROSSHAIR_SIZE  :: 0.03
 CROSSHAIR_COLOR :: BLACK
 
@@ -32,9 +25,9 @@ DESTROY_BLOCK_BUTTON :: Mouse_Button.Left
 PLACE_BLOCK_BUTTON   :: Mouse_Button.Right
 PICK_BLOCK_BUTTON    :: Mouse_Button.Middle
 
-INITIAL_CAMERA_POSITION      :: Vec3{ 0, f32(CHUNK_SIZE.y) - 20, 0 }
-INITIAL_CAMERA_YAW_DEGREES   :: -90
-INITIAL_CAMERA_PITCH_DEGREES :: 0
+INITIAL_CAMERA_POSITION  :: Vec3{ 0, f32(CHUNK_SIZE.y) - 20, 0 }
+INITIAL_CAMERA_YAW_DEG   :: -90
+INITIAL_CAMERA_PITCH_DEG :: 0
 
 Overworld :: struct {
 	camera: Camera,
@@ -48,9 +41,6 @@ Overworld :: struct {
 	place_block_on_update: bool,
 	pick_block_on_update: bool,
 
-	sky_color: Vec3,
-	directional_light: Directional_Light,
-
 	test_line: [2]Line_Vertex, // TODO: Remove once it's not needed.
 }
 
@@ -59,8 +49,8 @@ overworld_init :: proc(scene_data: rawptr) -> (ok := false) {
 
 	overworld.camera = Camera {
 		position = INITIAL_CAMERA_POSITION,
-		yaw = math.to_radians(cast(f32)INITIAL_CAMERA_YAW_DEGREES),
-		pitch = math.to_radians(cast(f32)INITIAL_CAMERA_PITCH_DEGREES),
+		yaw = math.to_radians(cast(f32)INITIAL_CAMERA_YAW_DEG),
+		pitch = math.to_radians(cast(f32)INITIAL_CAMERA_PITCH_DEG),
 	}
 	overworld.load_distance = 6
 	overworld.world_generator_params = DEFAULT_WORLD_GENERATOR_PARAMS
@@ -70,10 +60,8 @@ overworld_init :: proc(scene_data: rawptr) -> (ok := false) {
 
 	overworld.picked_block = .Bricks
 
-	overworld.sky_color = DEFAULT_SKY_COLOR
-	renderer_set_clear_color(Vec4{ overworld.sky_color.r, overworld.sky_color.g, overworld.sky_color.b, 1 })
-	overworld.directional_light = DEFAULT_DIRECTIONAL_LIGHT
-	overworld.directional_light.direction = linalg.normalize(overworld.directional_light.direction)
+	sky_color := overworld.world.sky_color
+	renderer_set_clear_color(Vec4{ sky_color.r, sky_color.g, sky_color.b, 1 })
 
 	overworld.test_line = {
 		Line_Vertex {
@@ -110,7 +98,7 @@ overworld_on_event :: proc(event: Event, scene_data: rawptr) {
 
 overworld_update :: proc(delta_time: f32, scene_data: rawptr) {
 	overworld := cast(^Overworld)scene_data
-	world_update(&overworld.world)
+	world_update(&overworld.world, delta_time)
 	cursor_pos_delta := input_cursor_pos_delta()
 
 	if !window_cursor_enabled() {
@@ -156,7 +144,7 @@ overworld_update :: proc(delta_time: f32, scene_data: rawptr) {
 overworld_render :: proc(scene_data: rawptr) {
 	overworld := cast(^Overworld)scene_data
 
-	renderer_begin_3d_frame(overworld.camera, overworld.directional_light)
+	renderer_begin_3d_frame(overworld.camera, overworld.world.sunlight)
 	defer renderer_end_frame()
 
 	renderer_render_world(overworld.world)
@@ -216,23 +204,28 @@ overworld_debug_ui :: proc(overworld: ^Overworld) {
 			imgui.EndTabItem()
 		}
 		if imgui.BeginTabItem("Light") {
-			if imgui.ColorEdit3("Sky Color", &overworld.sky_color) {
-				color := Vec4{ overworld.sky_color.r,
-					       overworld.sky_color.g,
-					       overworld.sky_color.b, 1 }
+			if imgui.ColorEdit3("Sky Color", &overworld.world.sky_color) {
+				color := Vec4{ overworld.world.sky_color.r,
+					       overworld.world.sky_color.g,
+					       overworld.world.sky_color.b,
+					       1 }
 				renderer_set_clear_color(gamma_darken(color, DEFAULT_GAMMA))
 			}
 			imgui.SeparatorText("Directional Light")
-			imgui.ColorEdit3("Ambient", &overworld.directional_light.ambient)
-			imgui.ColorEdit3("Color", &overworld.directional_light.color)
+			imgui.ColorEdit3("Ambient", &overworld.world.sunlight.ambient)
+			imgui.ColorEdit3("Color", &overworld.world.sunlight.color)
 			if imgui.DragFloat3("Direction",
-					    &overworld.directional_light.direction,
+					    &overworld.world.sunlight.direction,
 					    v_speed = 0.001,
 					    v_min = -1,
 					    v_max = 1) {
-				overworld.directional_light.direction =
-					linalg.normalize(overworld.directional_light.direction)
+				overworld.world.sunlight.direction =
+					linalg.normalize(overworld.world.sunlight.direction)
 			}
+			imgui.EndTabItem()
+		}
+		if imgui.BeginTabItem("Time") {
+			imgui.DragFloat("Timescale", &overworld.world.timescale)
 			imgui.EndTabItem()
 		}
 		imgui.EndTabBar()
