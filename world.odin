@@ -306,7 +306,7 @@ grid_world_position_to_chunk_coordinate :: proc(world_position: Grid_World_Posit
 }
 
 world_position_to_chunk_coordinate :: proc(position: Vec3) -> Chunk_Coordinate {
-	world_position := Grid_World_Position(linalg.array_cast(position, i32))
+	world_position := Grid_World_Position(linalg.array_cast(linalg.floor(position), i32))
 	return grid_world_position_to_chunk_coordinate(world_position)
 }
 
