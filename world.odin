@@ -272,6 +272,36 @@ Block :: enum u8 {
 	Bricks,
 }
 
+@(require_results)
+block_is_invisible :: proc(block: Block) -> bool {
+	return block == .Air
+}
+
+@(require_results)
+block_is_fully_opaque :: proc(block: Block) -> bool {
+	return block != .Air
+}
+
+@(require_results)
+block_ignores_raycast :: proc(block: Block) -> bool {
+	return block == .Air
+}
+
+@(require_results)
+block_can_be_placed_over :: proc(block: Block) -> bool {
+	return block == .Air
+}
+
+@(require_results)
+block_can_be_destroyed :: proc(block: Block) -> bool {
+	return true
+}
+
+@(require_results)
+block_occludes_light :: proc(block: Block) -> bool {
+	return block != .Air
+}
+
 // Position of a grid cell relative to the chunk origin.
 Grid_Chunk_Position :: distinct [3]i32
 // Position of a grid cell relative to the world origin.
@@ -311,36 +341,6 @@ world_position_to_chunk_coordinate :: proc(position: Vec3) -> Chunk_Coordinate {
 }
 
 to_chunk_coordinate :: proc{ grid_world_position_to_chunk_coordinate, world_position_to_chunk_coordinate }
-
-@(require_results)
-block_is_invisible :: proc(block: Block) -> bool {
-	return block == .Air
-}
-
-@(require_results)
-block_is_fully_opaque :: proc(block: Block) -> bool {
-	return block != .Air
-}
-
-@(require_results)
-block_ignores_raycast :: proc(block: Block) -> bool {
-	return block == .Air
-}
-
-@(require_results)
-block_can_be_placed_over :: proc(block: Block) -> bool {
-	return block == .Air
-}
-
-@(require_results)
-block_can_be_destroyed :: proc(block: Block) -> bool {
-	return true
-}
-
-@(require_results)
-block_occludes_light :: proc(block: Block) -> bool {
-	return block != .Air
-}
 
 Chunk :: struct {
 	blocks: ^Chunk_Blocks,
