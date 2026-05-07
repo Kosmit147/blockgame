@@ -21,8 +21,8 @@ create_mesh :: proc(mesh: ^Mesh,
 	buffer_size := slice.size(vertices[:]) + slice.size(indices[:])
 
 	create_static_gl_buffer(&mesh.buffer, buffer_size)
-	upload_static_gl_buffer_data(mesh.buffer, slice.to_bytes(vertices[:]), vertex_data_offset)
-	upload_static_gl_buffer_data(mesh.buffer, slice.to_bytes(indices[:]), index_data_offset)
+	upload_static_gl_buffer_data(mesh.buffer, vertices, vertex_data_offset)
+	upload_static_gl_buffer_data(mesh.buffer, indices, index_data_offset)
 
 	mesh.vertex_count = cast(u32)len(indices)
 	mesh.index_type = index_type
