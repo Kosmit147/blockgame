@@ -309,7 +309,7 @@ renderer_render_block_highlight :: proc(position: Grid_World_Position) {
 	defer renderer_set_wireframe_enabled(wireframe_was_enabled)
 
 	use_shader(.Flat)
-	model := linalg.matrix4_translate(linalg.array_cast(position, f32))
+	model := linalg.matrix4_translate(cast(Vec3)position)
 	set_uniform(.Flat, s_renderer.flat_shader_model_uniform, model)
 	set_uniform(.Flat, s_renderer.flat_shader_color_uniform, HIGHLIGHT_COLOR)
 	renderer_render_mesh(s_renderer.flat_cube_mesh)

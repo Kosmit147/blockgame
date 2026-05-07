@@ -186,13 +186,13 @@ world_raycast :: proc(world: World, ray: Ray, max_distance: f32) -> (block: ^Blo
 					   1 if ray.direction.y >= 0 else 0,
 					   1 if ray.direction.z >= 0 else 0 }
 
-	origin_block := linalg.array_cast(linalg.floor(ray.origin), i32)
+	origin_block := cast([3]i32)linalg.floor(ray.origin)
 	current_block := [3]i32{ 0, 0, 0 }
 	ray_origin_offset := linalg.fract(ray.origin)
 
 	for {
 		// delta is the distance from the origin to the next grid boundary.
-		delta := linalg.array_cast(current_block + grid_boundary_increment, f32) - ray_origin_offset
+		delta := cast(Vec3)(current_block + grid_boundary_increment) - ray_origin_offset
 		// t is the length that we have to travel along the ray to reach the next grid boundary.
 		t := delta / ray.direction
 		when ODIN_DEBUG { assert(t.x >= 0 && t.y >= 0 && t.z >= 0) }
@@ -336,7 +336,7 @@ grid_world_position_to_chunk_coordinate :: proc(world_position: Grid_World_Posit
 }
 
 world_position_to_chunk_coordinate :: proc(position: Vec3) -> Chunk_Coordinate {
-	world_position := Grid_World_Position(linalg.array_cast(linalg.floor(position), i32))
+	world_position := Grid_World_Position(cast([3]i32)linalg.floor(position))
 	return grid_world_position_to_chunk_coordinate(world_position)
 }
 
@@ -560,7 +560,7 @@ generate_chunk_mesh :: proc(blocks: ^Chunk_Blocks, allocator: runtime.Allocator)
 				corner_position := vertex_data.position + Grid_Corner_Chunk_Position(block_position)
 
 				vertex = Chunk_Mesh_Vertex {
-					position = linalg.array_cast(corner_position, f32),
+					position = cast(Vec3)corner_position,
 					normal = vertex_data.normal,
 					uv = map_block_uv_to_atlas(vertex_data.uv, block^, facing_direction),
 					ambient_occlusion = ambient_occlusion(blocks, corner_position),

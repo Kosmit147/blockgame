@@ -1,7 +1,5 @@
 package blockgame
 
-import "core:math/linalg"
-
 Main_Menu :: struct {}
 
 @(private="file") TITLE_TEXT :: "BLOCKGAME"
@@ -40,7 +38,7 @@ main_menu_render :: proc(scene_data: rawptr) {
 	renderer_begin_2d_frame()
 	defer renderer_end_frame()
 
-	window_size := linalg.array_cast(window_size(), f32)
+	window_size := cast(Vec2)window_size()
 
 	{
 		text_size := renderer_2d_text_size(TITLE_TEXT, TITLE_TEXT_SCALE)
