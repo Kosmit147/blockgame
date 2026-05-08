@@ -59,9 +59,7 @@ overworld_init :: proc(scene_data: rawptr) -> (ok := false) {
 	world_init(&overworld.world, player_chunk, overworld.load_distance)
 
 	overworld.picked_block = .Bricks
-
-	sky_color := overworld.world.sky_color
-	renderer_set_clear_color(Vec4{ sky_color.r, sky_color.g, sky_color.b, 1 })
+	renderer_set_clear_color(Vec4{ expand_values(overworld.world.sky_color), 1 })
 
 	overworld.test_line = {
 		Line_Vertex {
@@ -160,9 +158,9 @@ overworld_render :: proc(scene_data: rawptr) {
 	{
 		aspect_ratio := window_aspect_ratio()
 
-		crosshair_position := Vec2{ 0.0 - CROSSHAIR_SIZE / 2.0, 0.0 + CROSSHAIR_SIZE / 2.0 }
+		crosshair_position := Vec2{ -CROSSHAIR_SIZE / 2.0, CROSSHAIR_SIZE / 2.0 }
 		crosshair_position.x /= aspect_ratio
-		crosshair_size := Vec2{ CROSSHAIR_SIZE, CROSSHAIR_SIZE }
+		crosshair_size := Vec2(CROSSHAIR_SIZE)
 		crosshair_size.x /= aspect_ratio
 		crosshair_color := CROSSHAIR_COLOR
 
@@ -205,10 +203,7 @@ overworld_debug_ui :: proc(overworld: ^Overworld) {
 		}
 		if imgui.BeginTabItem("Light") {
 			if imgui.ColorEdit3("Sky Color", &overworld.world.sky_color) {
-				color := Vec4{ overworld.world.sky_color.r,
-					       overworld.world.sky_color.g,
-					       overworld.world.sky_color.b,
-					       1 }
+				color := Vec4{ expand_values(overworld.world.sky_color), 1 }
 				renderer_set_clear_color(gamma_darken(color, DEFAULT_GAMMA))
 			}
 			imgui.SeparatorText("Directional Light")
