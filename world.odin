@@ -199,6 +199,7 @@ world_update :: proc(world: ^World, delta_time: f32, player_chunk: Chunk_Coordin
 			log.debugf("Loading chunk %v", chunk_coordinate)
 			task := pop(&free_tasks)
 			world.chunk_map[chunk_coordinate] = Chunk {
+				ref_count = 1,
 				blocks = nil,
 				coordinate = chunk_coordinate,
 				mesh = nil,
@@ -231,21 +232,23 @@ world_update :: proc(world: ^World, delta_time: f32, player_chunk: Chunk_Coordin
 		task := cast(^Chunk_Task)task.data
 		switch task in task {
 		case Generate_Chunk_Blocks_Task:
-			if chunk, chunk_ok := &world.chunk_map[task.chunk_coordinate]; chunk_ok {
-				assert(chunk.blocks == nil)
-				chunk.blocks = task.blocks
-				chunk.mesh_regen_pending = true
-			}
+			chunk, chunk_ok := &world.chunk_map[task.chunk_coordinate]
+			assert(chunk_ok)
+			assert(chunk.blocks == nil)
+			assert(chunk.ref_count != 0)
+			chunk.blocks = task.blocks
+			chunk.ref_count -= 1
+			chunk.mesh_regen_pending = true
 		case Generate_Chunk_Mesh_Task:
-			if chunk, chunk_ok := &world.chunk_map[task.chunk_coordinate]; chunk_ok {
-				assert(chunk.blocks != nil)
-				if task.mesh_version > chunk.mesh_version {
-					replace_chunk_mesh(chunk, task.mesh_data, task.mesh_version)
-				}
-				delete_chunk_mesh_data(task.mesh_data)
-				assert(chunk.ref_count != 0)
-				chunk.ref_count -= 1
+			chunk, chunk_ok := &world.chunk_map[task.chunk_coordinate]
+			assert(chunk_ok)
+			assert(chunk.blocks != nil)
+			assert(chunk.ref_count != 0)
+			if task.mesh_version > chunk.mesh_version {
+				replace_chunk_mesh(chunk, task.mesh_data, task.mesh_version)
 			}
+			delete_chunk_mesh_data(task.mesh_data)
+			chunk.ref_count -= 1
 		}
 		task^ = nil
 	}
