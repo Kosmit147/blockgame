@@ -356,6 +356,66 @@ world_update_chunk_mesh :: proc(world: World, chunk_coordinate: Chunk_Coordinate
 	return true
 }
 
+Chunk :: struct {
+	ref_count: uint,
+	blocks: ^Chunk_Blocks,
+	coordinate: Chunk_Coordinate,
+	mesh: Maybe(Mesh),
+	mesh_version: uint,
+	next_mesh_version: uint,
+	mesh_regen_pending: bool,
+	keep: bool,
+}
+
+CHUNK_SIZE :: [3]i32{ 16, 64, 16 }
+Chunk_Blocks :: [CHUNK_SIZE.y][CHUNK_SIZE.x][CHUNK_SIZE.z]Block
+
+Chunk_Coordinate :: struct {
+	x: i32,
+	z: i32,
+}
+
+destroy_chunk :: proc(chunk: ^Chunk, allocator: runtime.Allocator) {
+	if chunk.mesh != nil do destroy_mesh(&chunk.mesh.?)
+	free(chunk.blocks, allocator)
+}
+
+replace_chunk_mesh :: proc(chunk: ^Chunk, mesh_data: Chunk_Mesh_Data, mesh_version: uint) {
+	if chunk.mesh != nil do destroy_mesh(&chunk.mesh.?)
+	chunk.mesh = create_chunk_mesh(mesh_data)
+	chunk.mesh_version = mesh_version
+}
+
+get_chunk_block :: proc(blocks: ^Chunk_Blocks, position: Grid_Chunk_Position) -> ^Block {
+	return &blocks[position.y][position.x][position.z]
+}
+
+get_chunk_block_safe :: proc(blocks: ^Chunk_Blocks, position: Grid_Chunk_Position) -> (^Block, bool) {
+	x_in_bounds := position.x >= 0 && position.x < CHUNK_SIZE.x
+	y_in_bounds := position.y >= 0 && position.y < CHUNK_SIZE.y
+	z_in_bounds := position.z >= 0 && position.z < CHUNK_SIZE.z
+	if !x_in_bounds || !y_in_bounds || !z_in_bounds do return nil, false
+	return get_chunk_block(blocks, position), true
+}
+
+grid_world_position_to_chunk_coordinate :: proc(world_position: Grid_World_Position) -> Chunk_Coordinate {
+	when ODIN_DEBUG {
+		assert(bits.is_power_of_two(CHUNK_SIZE.x))
+		assert(bits.is_power_of_two(CHUNK_SIZE.z))
+	}
+	return Chunk_Coordinate {
+		x = (world_position.x & ~(CHUNK_SIZE.x - 1)) / CHUNK_SIZE.x,
+		z = (world_position.z & ~(CHUNK_SIZE.z - 1)) / CHUNK_SIZE.z,
+	}
+}
+
+world_position_to_chunk_coordinate :: proc(position: Vec3) -> Chunk_Coordinate {
+	world_position := Grid_World_Position(cast([3]i32)linalg.floor(position))
+	return grid_world_position_to_chunk_coordinate(world_position)
+}
+
+to_chunk_coordinate :: proc{ grid_world_position_to_chunk_coordinate, world_position_to_chunk_coordinate }
+
 Block :: enum u8 {
 	Air = 0,
 	Stone,
@@ -414,66 +474,6 @@ to_grid_world_position :: proc(position: Grid_Chunk_Position,
 	return { chunk_coordinate.x * CHUNK_SIZE.x + position.x,
 		 position.y,
 		 chunk_coordinate.z * CHUNK_SIZE.z + position.z }
-}
-
-grid_world_position_to_chunk_coordinate :: proc(world_position: Grid_World_Position) -> Chunk_Coordinate {
-	when ODIN_DEBUG {
-		assert(bits.is_power_of_two(CHUNK_SIZE.x))
-		assert(bits.is_power_of_two(CHUNK_SIZE.z))
-	}
-	return Chunk_Coordinate {
-		x = (world_position.x & ~(CHUNK_SIZE.x - 1)) / CHUNK_SIZE.x,
-		z = (world_position.z & ~(CHUNK_SIZE.z - 1)) / CHUNK_SIZE.z,
-	}
-}
-
-world_position_to_chunk_coordinate :: proc(position: Vec3) -> Chunk_Coordinate {
-	world_position := Grid_World_Position(cast([3]i32)linalg.floor(position))
-	return grid_world_position_to_chunk_coordinate(world_position)
-}
-
-to_chunk_coordinate :: proc{ grid_world_position_to_chunk_coordinate, world_position_to_chunk_coordinate }
-
-Chunk :: struct {
-	ref_count: uint,
-	blocks: ^Chunk_Blocks,
-	coordinate: Chunk_Coordinate,
-	mesh: Maybe(Mesh),
-	mesh_version: uint,
-	next_mesh_version: uint,
-	mesh_regen_pending: bool,
-	keep: bool,
-}
-
-CHUNK_SIZE :: [3]i32{ 16, 64, 16 }
-Chunk_Blocks :: [CHUNK_SIZE.y][CHUNK_SIZE.x][CHUNK_SIZE.z]Block
-
-Chunk_Coordinate :: struct {
-	x: i32,
-	z: i32,
-}
-
-destroy_chunk :: proc(chunk: ^Chunk, allocator: runtime.Allocator) {
-	if chunk.mesh != nil do destroy_mesh(&chunk.mesh.?)
-	free(chunk.blocks, allocator)
-}
-
-replace_chunk_mesh :: proc(chunk: ^Chunk, mesh_data: Chunk_Mesh_Data, mesh_version: uint) {
-	if chunk.mesh != nil do destroy_mesh(&chunk.mesh.?)
-	chunk.mesh = create_chunk_mesh(mesh_data)
-	chunk.mesh_version = mesh_version
-}
-
-get_chunk_block :: proc(blocks: ^Chunk_Blocks, position: Grid_Chunk_Position) -> ^Block {
-	return &blocks[position.y][position.x][position.z]
-}
-
-get_chunk_block_safe :: proc(blocks: ^Chunk_Blocks, position: Grid_Chunk_Position) -> (^Block, bool) {
-	x_in_bounds := position.x >= 0 && position.x < CHUNK_SIZE.x
-	y_in_bounds := position.y >= 0 && position.y < CHUNK_SIZE.y
-	z_in_bounds := position.z >= 0 && position.z < CHUNK_SIZE.z
-	if !x_in_bounds || !y_in_bounds || !z_in_bounds do return nil, false
-	return get_chunk_block(blocks, position), true
 }
 
 Chunk_Blocks_Iterator :: struct {
