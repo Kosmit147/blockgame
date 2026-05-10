@@ -168,7 +168,7 @@ world_regenerate :: proc(world: ^World) {
 }
 
 world_update :: proc(world: ^World, delta_time: f32, player_chunk: Chunk_Coordinate) {
-	free_tasks := make([dynamic]^Chunk_Task, 0, len(world.chunk_tasks), context.temp_allocator)
+	free_tasks := make([dynamic]^Chunk_Task, context.temp_allocator)
 	for &task in world.chunk_tasks {
 		if task == nil do append(&free_tasks, &task)
 	}
@@ -361,7 +361,7 @@ world_update_chunk_mesh :: proc(world: World, chunk_coordinate: Chunk_Coordinate
 
 Chunk :: struct {
 	ref_count: uint,
-	blocks: ^Chunk_Blocks,
+	blocks: ^Chunk_Blocks `fmt:"p"`,
 	coordinate: Chunk_Coordinate,
 	mesh: Maybe(Mesh),
 	mesh_version: uint,
@@ -418,6 +418,15 @@ world_position_to_chunk_coordinate :: proc(position: Vec3) -> Chunk_Coordinate {
 }
 
 to_chunk_coordinate :: proc{ grid_world_position_to_chunk_coordinate, world_position_to_chunk_coordinate }
+
+chunk_coordinate_formatter :: proc(fi: ^fmt.Info, arg: any, verb: rune) -> bool {
+	chunk_coordinate := cast(^Chunk_Coordinate)arg.data
+	if verb == 'v' {
+		fmt.wprintf(fi.writer, "[ %v, %v ]", chunk_coordinate.x, chunk_coordinate.z)
+		return true
+	}
+	return false
+}
 
 Block :: enum u8 {
 	Air = 0,
@@ -607,15 +616,6 @@ nearby_chunks_iterator_test :: proc(t: ^testing.T) {
 		}
 		testing.expect(t, i == len(expected))
 	}
-}
-
-chunk_coordinate_formatter :: proc(fi: ^fmt.Info, arg: any, verb: rune) -> bool {
-	chunk_coordinate := cast(^Chunk_Coordinate)arg.data
-	if verb == 'v' {
-		fmt.wprintf(fi.writer, "[ %v, %v ]", chunk_coordinate.x, chunk_coordinate.z)
-		return true
-	}
-	return false
 }
 
 Chunk_Mesh_Data :: struct {

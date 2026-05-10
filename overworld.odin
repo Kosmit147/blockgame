@@ -134,7 +134,7 @@ overworld_update :: proc(delta_time: f32, scene_data: rawptr) {
 	overworld.destroy_block_on_update = false
 	overworld.place_block_on_update = false
 	overworld.pick_block_on_update = false
-	overworld_debug_ui(overworld)
+	overworld_debug_ui(overworld, player_chunk)
 }
 
 overworld_render :: proc(scene_data: rawptr) {
@@ -173,7 +173,7 @@ overworld_render :: proc(scene_data: rawptr) {
 }
 
 @(private="file")
-overworld_debug_ui :: proc(overworld: ^Overworld) {
+overworld_debug_ui :: proc(overworld: ^Overworld, player_chunk_coordinate: Chunk_Coordinate) {
 	if !debug_overlay_enabled() do return
 
 	imgui.Begin("Overworld")
@@ -219,6 +219,21 @@ overworld_debug_ui :: proc(overworld: ^Overworld) {
 		}
 		if imgui.BeginTabItem("Time") {
 			imgui.DragFloat("Timescale", &overworld.world.timescale)
+			imgui.EndTabItem()
+		}
+		if imgui.BeginTabItem("Chunks") {
+			player_chunk := overworld.world.chunk_map[player_chunk_coordinate]
+			if imgui.TreeNode("Player Chunk") {
+				imgui.TextUnformatted(fmt.ctprintf("%#v", player_chunk))
+				imgui.TreePop()
+			}
+			imgui.SeparatorText("All Chunks")
+			for chunk_coordinate, chunk in overworld.world.chunk_map {
+				if imgui.TreeNode(fmt.ctprintf("%v", chunk_coordinate)) {
+					imgui.TextUnformatted(fmt.ctprintf("%#v", chunk))
+					imgui.TreePop()
+				}
+			}
 			imgui.EndTabItem()
 		}
 		imgui.EndTabBar()
