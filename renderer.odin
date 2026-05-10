@@ -223,9 +223,10 @@ renderer_begin_3d_frame :: proc(camera: Camera, light: Directional_Light) {
 	gl.Enable(gl.BLEND)
 
 	camera_vectors := camera_vectors(camera)
-	view := linalg.matrix4_look_at(eye = camera.position,
-				       centre = camera.position + camera_vectors.forward,
-				       up = camera_vectors.up)
+	view := linalg.matrix4_look_at_from_fru(eye = camera.position,
+						f = camera_vectors.forward,
+						r = camera_vectors.right,
+						u = camera_vectors.up)
 	projection := linalg.matrix4_perspective(fovy = math.to_radians(f32(45)),
 						 aspect = window_aspect_ratio(),
 						 near = 0.1,
@@ -286,11 +287,12 @@ renderer_render_mesh :: proc(mesh: Mesh) {
 }
 
 renderer_render_chunk :: proc(chunk: Chunk) {
+	if chunk.mesh == nil do return
 	model := linalg.matrix4_translate(Vec3{ f32(chunk.coordinate.x * CHUNK_SIZE.x),
 						0,
 						f32(chunk.coordinate.z * CHUNK_SIZE.z) })
 	set_uniform(.Block, s_renderer.block_shader_model_uniform, model)
-	renderer_render_mesh(chunk.mesh)
+	renderer_render_mesh(chunk.mesh.?)
 }
 
 renderer_render_world :: proc(world: World) {
