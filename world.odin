@@ -173,81 +173,86 @@ world_update :: proc(world: ^World, delta_time: f32, player_chunk: Chunk_Coordin
 		if task == nil do append(&free_tasks, &task)
 	}
 
+	// Update nearby chunks and flag those which are within load distance.
 	nearby_chunks_iterator := make_nearby_chunks_iterator(player_chunk, world.load_distance)
 	for chunk_coordinate in iterate_nearby_chunks(&nearby_chunks_iterator) {
-		if len(free_tasks) == 0 do break
-		world_update_chunk(world, chunk_coordinate, &free_tasks)
-	}
-
-	// Finalize only one task per frame to avoid possible stutters.
-	if task, got_task := thread.pool_pop_done(&world.thread_pool); got_task {
-		world_finalize_task(world^, cast(^Chunk_Task)task.data)
-	}
-
-	world.sunlight_angle += world.sunlight_angle_change_speed * world.timescale * delta_time
-	world.sunlight.direction = get_sunlight_direction(world.sunlight_angle)
-	world.sunlight.direction = linalg.normalize(world.sunlight.direction)
-}
-
-@(private="file")
-world_update_chunk :: proc(world: ^World, chunk_coordinate: Chunk_Coordinate, free_tasks: ^[dynamic]^Chunk_Task) {
-	assert(len(free_tasks) != 0)
-	if chunk, chunk_ok := &world.chunk_map[chunk_coordinate]; chunk_ok {
-		if chunk.mesh_regen_pending && chunk.blocks != nil {
-			log.debugf("Regenerating mesh for chunk %v", chunk_coordinate)
-			task := pop(free_tasks)
-			task^ = Generate_Chunk_Mesh_Task{
+		if chunk, chunk_ok := &world.chunk_map[chunk_coordinate]; chunk_ok {
+			chunk.keep = true
+			if chunk.mesh_regen_pending && chunk.blocks != nil && len(free_tasks) > 0 {
+				next_mesh_version := chunk.next_mesh_version
+				chunk.next_mesh_version += 1
+				chunk.ref_count += 1
+				log.debugf("Regenerating mesh for chunk %v (v %v)", chunk_coordinate, next_mesh_version)
+				task := pop(&free_tasks)
+				task^ = Generate_Chunk_Mesh_Task{
+					chunk_coordinate = chunk_coordinate,
+					blocks = chunk.blocks,
+					mesh_version = next_mesh_version,
+				}
+				thread.pool_add_task(&world.thread_pool,
+						     world.allocator,
+						     chunk_task,
+						     task)
+				chunk.mesh_regen_pending = false
+			}
+		} else if len(free_tasks) > 0 {
+			log.debugf("Loading chunk %v", chunk_coordinate)
+			task := pop(&free_tasks)
+			world.chunk_map[chunk_coordinate] = Chunk {
+				blocks = nil,
+				coordinate = chunk_coordinate,
+				mesh = nil,
+				mesh_version = 0,
+				next_mesh_version = 1,
+				mesh_regen_pending = false,
+				keep = true,
+			}
+			task^ = Generate_Chunk_Blocks_Task{
 				chunk_coordinate = chunk_coordinate,
-				blocks = chunk.blocks,
-				mesh_version = chunk.next_mesh_version,
 			}
 			thread.pool_add_task(&world.thread_pool,
 					     world.allocator,
 					     chunk_task,
 					     task)
-			chunk.next_mesh_version += 1
-			chunk.mesh_regen_pending = false
 		}
-	} else {
-		log.debugf("Loading chunk %v", chunk_coordinate)
-		task := pop(free_tasks)
-		world.chunk_map[chunk_coordinate] = Chunk {
-			blocks = nil,
-			coordinate = chunk_coordinate,
-			mesh = nil,
-			mesh_version = 0,
-			next_mesh_version = 1,
-			mesh_regen_pending = false,
-		}
-		task^ = Generate_Chunk_Blocks_Task{
-			chunk_coordinate = chunk_coordinate,
-		}
-		thread.pool_add_task(&world.thread_pool,
-				     world.allocator,
-				     chunk_task,
-				     task)
 	}
-}
 
-@(private="file")
-world_finalize_task :: proc(world: World, task: ^Chunk_Task) {
-	switch task in task {
-	case Generate_Chunk_Blocks_Task:
-		assert(task.chunk_coordinate in world.chunk_map)
-		chunk := &world.chunk_map[task.chunk_coordinate]
-		assert(chunk.blocks == nil)
-		chunk.blocks = task.blocks
-		chunk.mesh_regen_pending = true
-	case Generate_Chunk_Mesh_Task:
-		assert(task.chunk_coordinate in world.chunk_map)
-		chunk := &world.chunk_map[task.chunk_coordinate]
-		assert(chunk.blocks != nil)
-		if task.mesh_version > chunk.mesh_version {
-			replace_chunk_mesh(chunk, task.mesh_data, task.mesh_version)
+	// Delete chunks not within load distance.
+	for chunk_coordinate, &chunk in world.chunk_map {
+		if !chunk.keep && chunk.ref_count == 0 {
+			destroy_chunk(&chunk, world.allocator)
+			delete_key(&world.chunk_map, chunk_coordinate)
 		}
-		delete_chunk_mesh_data(task.mesh_data)
+		chunk.keep = false
 	}
-	task^ = nil
+
+	// Finalize only one task per frame to avoid stutters.
+	if task, got_task := thread.pool_pop_done(&world.thread_pool); got_task {
+		task := cast(^Chunk_Task)task.data
+		switch task in task {
+		case Generate_Chunk_Blocks_Task:
+			if chunk, chunk_ok := &world.chunk_map[task.chunk_coordinate]; chunk_ok {
+				assert(chunk.blocks == nil)
+				chunk.blocks = task.blocks
+				chunk.mesh_regen_pending = true
+			}
+		case Generate_Chunk_Mesh_Task:
+			if chunk, chunk_ok := &world.chunk_map[task.chunk_coordinate]; chunk_ok {
+				assert(chunk.blocks != nil)
+				if task.mesh_version > chunk.mesh_version {
+					replace_chunk_mesh(chunk, task.mesh_data, task.mesh_version)
+				}
+				delete_chunk_mesh_data(task.mesh_data)
+				assert(chunk.ref_count != 0)
+				chunk.ref_count -= 1
+			}
+		}
+		task^ = nil
+	}
+
+	world.sunlight_angle += world.sunlight_angle_change_speed * world.timescale * delta_time
+	world.sunlight.direction = get_sunlight_direction(world.sunlight_angle)
+	world.sunlight.direction = linalg.normalize(world.sunlight.direction)
 }
 
 @(private="file")
@@ -341,10 +346,12 @@ world_place_block :: proc(world: World, place_position: Grid_World_Position, blo
 world_update_chunk_mesh :: proc(world: World, chunk_coordinate: Chunk_Coordinate) -> bool {
 	chunk := (&world.chunk_map[chunk_coordinate]) or_return
 	if chunk.blocks == nil do return false
-	log.debugf("Regenerating mesh for chunk %v on main thread", chunk_coordinate)
-	mesh_data := generate_chunk_mesh(chunk.blocks, context.temp_allocator)
-	replace_chunk_mesh(chunk, mesh_data, chunk.next_mesh_version)
+
+	next_mesh_version := chunk.next_mesh_version
 	chunk.next_mesh_version += 1
+	log.debugf("Regenerating mesh for chunk %v (v %v) on main thread", chunk_coordinate, next_mesh_version)
+	mesh_data := generate_chunk_mesh(chunk.blocks, context.temp_allocator)
+	replace_chunk_mesh(chunk, mesh_data, next_mesh_version)
 	chunk.mesh_regen_pending = false
 	return true
 }
@@ -428,12 +435,14 @@ world_position_to_chunk_coordinate :: proc(position: Vec3) -> Chunk_Coordinate {
 to_chunk_coordinate :: proc{ grid_world_position_to_chunk_coordinate, world_position_to_chunk_coordinate }
 
 Chunk :: struct {
+	ref_count: uint,
 	blocks: ^Chunk_Blocks,
 	coordinate: Chunk_Coordinate,
 	mesh: Maybe(Mesh),
 	mesh_version: uint,
 	next_mesh_version: uint,
 	mesh_regen_pending: bool,
+	keep: bool,
 }
 
 CHUNK_SIZE :: [3]i32{ 16, 64, 16 }
