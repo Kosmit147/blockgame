@@ -45,10 +45,10 @@ window_init :: proc() -> (ok := false) {
 	glfw.WindowHint(glfw.MAXIMIZED, glfw.TRUE)
 
 	s_window.handle = glfw.CreateWindow(width = INITIAL_WINDOW_SIZE.x,
-					    height = INITIAL_WINDOW_SIZE.y,
-					    title = WINDOW_TITLE,
-					    monitor = nil,
-					    share = nil)
+										height = INITIAL_WINDOW_SIZE.y,
+										title = WINDOW_TITLE,
+										monitor = nil,
+										share = nil)
 	if s_window.handle == nil {
 		log.fatalf("Failed to create a window.")
 		return
@@ -113,12 +113,12 @@ window_set_full_screen :: proc(full_screen: bool) {
 	monitor := glfw.GetPrimaryMonitor()
 	video_mode := glfw.GetVideoMode(monitor)
 	glfw.SetWindowMonitor(window = s_window.handle,
-			      monitor = monitor if full_screen else nil,
-			      xpos = 0,
-			      ypos = 0,
-			      width = video_mode.width,
-			      height = video_mode.height,
-			      refresh_rate = video_mode.refresh_rate)
+						  monitor = monitor if full_screen else nil,
+						  xpos = 0,
+						  ypos = 0,
+						  width = video_mode.width,
+						  height = video_mode.height,
+						  refresh_rate = video_mode.refresh_rate)
 }
 
 window_is_full_screen :: proc() -> bool {
@@ -722,11 +722,11 @@ gl_init :: proc() -> (ok := false) {
 			131185, // Buffer detailed info from NVIDIA.
 		}
 		gl.DebugMessageControl(source = gl.DEBUG_SOURCE_API,
-				       type = gl.DEBUG_TYPE_OTHER,
-				       severity = gl.DONT_CARE,
-				       count = len(disabled_messages),
-				       ids = raw_data(&disabled_messages),
-				       enabled = gl.FALSE)
+							   type = gl.DEBUG_TYPE_OTHER,
+							   severity = gl.DONT_CARE,
+							   count = len(disabled_messages),
+							   ids = raw_data(&disabled_messages),
+							   enabled = gl.FALSE)
 	}
 
 	extension_count: i32

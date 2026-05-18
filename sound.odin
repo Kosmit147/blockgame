@@ -74,8 +74,8 @@ sound_init_tracks :: proc() {
 		walker_error_path, walker_error := os.walker_error(&walker)
 		if walker_error != nil {
 			log.warnf("Error when walking sound tracks directory: %v. Problematic path is `%v`.",
-				  walker_error,
-				  walker_error_path)
+					  walker_error,
+					  walker_error_path)
 			continue
 		}
 
@@ -104,12 +104,12 @@ create_track :: proc(name: string, filepath: string) -> (track: Track, ok := fal
 	track.name = strings.clone(name, arena_allocator)
 	track.sound = new(ma.sound, arena_allocator)
 	cstring_path := strings.clone_to_cstring(filepath, context.temp_allocator)
-	if ma.sound_init_from_file(&s_sound_system.engine,
-				   cstring_path,
-				   MUSIC_SOUND_FLAGS,
-				   &s_sound_system.music_sound_group,
-				   nil,
-				   track.sound) != .SUCCESS {
+	if ma.sound_init_from_file(pEngine = &s_sound_system.engine,
+							   pFilePath = cstring_path,
+							   flags = MUSIC_SOUND_FLAGS,
+							   pGroup = &s_sound_system.music_sound_group,
+							   pDoneFence = nil,
+							   pSound = track.sound) != .SUCCESS {
 		log.errorf("Failed to initialize track from file `%v`.", cstring_path)
 		return
 	}
@@ -145,8 +145,8 @@ sound_update :: proc() {
 sound_play_track :: proc(track_index: int) -> bool {
 	if track_index >= len(s_sound_system.tracks) {
 		log.warnf("Requested to play track at index %v, but there are only %v tracks loaded.",
-			  track_index,
-			  len(s_sound_system.tracks))
+				  track_index,
+				  len(s_sound_system.tracks))
 		return false
 	}
 

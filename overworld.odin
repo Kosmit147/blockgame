@@ -101,8 +101,8 @@ overworld_update :: proc(delta_time: f32, scene_data: rawptr) {
 		overworld.camera.yaw += cursor_pos_delta.x * MOUSE_SENSITIVITY * 0.001
 		overworld.camera.pitch += -cursor_pos_delta.y * MOUSE_SENSITIVITY * 0.001
 		overworld.camera.pitch = clamp(overworld.camera.pitch,
-					       math.to_radians(f32(-89)),
-					       math.to_radians(f32(89)))
+									   math.to_radians(f32(-89)),
+									   math.to_radians(f32(89)))
 	}
 
 	camera_vectors := camera_vectors(overworld.camera)
@@ -181,16 +181,16 @@ overworld_debug_ui :: proc(overworld: ^Overworld, player_chunk_coordinate: Chunk
 		if imgui.BeginTabItem("Generator") {
 			imgui_input_u32("Load Distance", &overworld.world.load_distance)
 			overworld.world.load_distance = clamp(overworld.world.load_distance,
-							      UI_LOAD_DISTANCE_MIN,
-							      UI_LOAD_DISTANCE_MAX)
+												  UI_LOAD_DISTANCE_MIN,
+												  UI_LOAD_DISTANCE_MAX)
 			if imgui_input_i64("Seed", &overworld.world_generator_params.seed) {
 				set_world_generator_params(overworld.world_generator_params)
 			}
 			if imgui_drag_double("Smoothness",
-					     &overworld.world_generator_params.smoothness,
-					     v_speed = 0.001,
-					     v_min = 0.000001,
-					     v_max = 1) {
+								 &overworld.world_generator_params.smoothness,
+								 v_speed = 0.001,
+								 v_min = 0.000001,
+								 v_max = 1) {
 				set_world_generator_params(overworld.world_generator_params)
 			}
 			if imgui.Button("Regenerate") {
@@ -208,12 +208,11 @@ overworld_debug_ui :: proc(overworld: ^Overworld, player_chunk_coordinate: Chunk
 			imgui.ColorEdit3("Ambient", &overworld.world.sunlight.ambient)
 			imgui.ColorEdit3("Color", &overworld.world.sunlight.color)
 			if imgui.DragFloat3("Direction",
-					    &overworld.world.sunlight.direction,
-					    v_speed = 0.001,
-					    v_min = -1,
-					    v_max = 1) {
-				overworld.world.sunlight.direction =
-					linalg.normalize(overworld.world.sunlight.direction)
+								&overworld.world.sunlight.direction,
+								v_speed = 0.001,
+								v_min = -1,
+								v_max = 1) {
+				overworld.world.sunlight.direction = linalg.normalize(overworld.world.sunlight.direction)
 			}
 			imgui.EndTabItem()
 		}
@@ -243,7 +242,7 @@ overworld_debug_ui :: proc(overworld: ^Overworld, player_chunk_coordinate: Chunk
 	imgui.Begin("Player")
 	imgui.TextUnformatted(fmt.ctprintf("Position: %v", overworld.camera.position))
 	imgui.TextUnformatted(fmt.ctprintf("Player chunk: %v",
-			      world_position_to_chunk_coordinate(overworld.camera.position)))
+									   world_position_to_chunk_coordinate(overworld.camera.position)))
 	imgui_enum_select("Picked block", &overworld.picked_block)
 	imgui.End()
 

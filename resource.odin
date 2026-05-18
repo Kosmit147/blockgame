@@ -78,7 +78,7 @@ init_textures :: proc() -> (ok := false) {
 		texture_file_data := texture_data_map[texture_id]
 		texture_format := texture_internal_formats[texture_id]
 		texture = create_texture_from_aseprite_in_memory(texture_file_data,
-								 internal_format = texture_format) or_return
+														 internal_format = texture_format) or_return
 	}
 
 	ok = true
@@ -171,7 +171,7 @@ when HOT_RELOAD {
 		texture_path := texture_file_paths_map[id]
 		texture_format := texture_internal_formats[id]
 		reloaded_texture := create_texture_from_aseprite_file(texture_path,
-								      internal_format = texture_format) or_return
+															  internal_format = texture_format) or_return
 		destroy_texture(&s_textures[id])
 		s_textures[id] = reloaded_texture
 

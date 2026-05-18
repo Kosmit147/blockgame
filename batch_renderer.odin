@@ -32,9 +32,9 @@ batch_renderer_deinit :: proc(renderer: ^Batch_Renderer($Vertex)) {
 }
 
 batch_renderer_render :: proc(renderer: ^Batch_Renderer($Vertex),
-			      shader: Shader_Id,
-			      texture: Maybe(Texture_Id) = nil,
-			      primitive_type: u32 = gl.TRIANGLES) {
+							  shader: Shader_Id,
+							  texture: Maybe(Texture_Id) = nil,
+							  primitive_type: u32 = gl.TRIANGLES) {
 	if len(renderer.vertices) == 0 do return
 
 	use_shader(shader)
@@ -54,18 +54,18 @@ batch_renderer_submit_quad :: proc(renderer: ^Batch_Renderer($Vertex), vertices:
 	index_offset := cast(Batch_Renderer_Index)len(renderer.vertices)
 	append(&renderer.vertices, ..vertices[:])
 	append(&renderer.indices,
-	       index_offset + 0,
-	       index_offset + 3,
-	       index_offset + 2,
-	       index_offset + 0,
-	       index_offset + 2,
-	       index_offset + 1)
+		   index_offset + 0,
+		   index_offset + 3,
+		   index_offset + 2,
+		   index_offset + 0,
+		   index_offset + 2,
+		   index_offset + 1)
 }
 
 batch_renderer_submit_line :: proc(renderer: ^Batch_Renderer($Vertex), vertices: ^[2]Vertex) {
 	index_offset := cast(Batch_Renderer_Index)len(renderer.vertices)
 	append(&renderer.vertices, ..vertices[:])
 	append(&renderer.indices,
-	       index_offset + 0,
-	       index_offset + 1)
+		   index_offset + 0,
+		   index_offset + 1)
 }

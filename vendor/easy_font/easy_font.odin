@@ -1,5 +1,5 @@
 /*
-Modified version of the Odin-native port of [[ stb_easy_font.h ; https://github.com/nothings/stb/blob/master/stb_easy_font.h ]]
+Altered version of the Odin-native port of [[ stb_easy_font.h ; https://github.com/nothings/stb/blob/master/stb_easy_font.h ]]
 which can be found in the vendor collection.
 
 Credits:

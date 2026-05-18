@@ -98,16 +98,16 @@ bind_default_framebuffer :: proc() {
 
 attach_renderbuffer :: proc(framebuffer: Framebuffer, renderbuffer: Renderbuffer, attachment: u32) {
 	gl.NamedFramebufferRenderbuffer(framebuffer = framebuffer.id,
-					attachment = attachment,
-					renderbuffertarget = gl.RENDERBUFFER,
-					renderbuffer = renderbuffer.id)
+									attachment = attachment,
+									renderbuffertarget = gl.RENDERBUFFER,
+									renderbuffer = renderbuffer.id)
 }
 
 attach_texture :: proc(framebuffer: Framebuffer, texture: Texture, attachment: u32) {
 	gl.NamedFramebufferTexture(framebuffer = framebuffer.id,
-				   attachment = attachment,
-				   texture = texture.id,
-				   level = 0)
+							   attachment = attachment,
+							   texture = texture.id,
+							   level = 0)
 }
 
 Renderbuffer :: struct {
@@ -154,7 +154,7 @@ create_simple_shader_from_files :: proc(vertex_path, fragment_path: string) -> (
 	}
 
 	return create_simple_shader(string(vertex_source),
-				    string(fragment_source))
+								string(fragment_source))
 }
 
 destroy_shader :: proc(shader: Shader) {
@@ -329,17 +329,17 @@ set_vertex_array_format :: proc(va: Vertex_Array, format: []Vertex_Attribute) {
 		gl.EnableVertexArrayAttrib(va.id, u32(index))
 		if description.is_integer {
 			gl.VertexArrayAttribIFormat(va.id,
-						    u32(index),
-						    description.count,
-						    description.type,
-						    offset)
+										u32(index),
+										description.count,
+										description.type,
+										offset)
 		} else {
 			gl.VertexArrayAttribFormat(va.id,
-						   u32(index),
-						   description.count,
-						   description.type,
-						   gl.FALSE,
-						   offset)
+									   u32(index),
+									   description.count,
+									   description.type,
+									   gl.FALSE,
+									   offset)
 		}
 		gl.VertexArrayAttribBinding(va.id, u32(index), VERTEX_BUFFER_BINDING_INDEX)
 		offset += description.size
@@ -348,15 +348,15 @@ set_vertex_array_format :: proc(va: Vertex_Array, format: []Vertex_Attribute) {
 
 bind_vertex_buffer :: proc(va: Vertex_Array, buffer: Gl_Buffer, stride: i32) {
 	gl.VertexArrayVertexBuffer(va.id,
-				   bindingindex = VERTEX_BUFFER_BINDING_INDEX,
-				   buffer = buffer.id,
-				   offset = 0,
-				   stride = stride)
+							   bindingindex = VERTEX_BUFFER_BINDING_INDEX,
+							   buffer = buffer.id,
+							   offset = 0,
+							   stride = stride)
 }
 
 bind_index_buffer :: proc(va: Vertex_Array, buffer: Gl_Buffer) {
 	gl.VertexArrayElementBuffer(va.id,
-				    buffer = buffer.id)
+								buffer = buffer.id)
 }
 
 // Buffers can be either static or dynamic.
@@ -426,18 +426,18 @@ reserve_dynamic_gl_buffer_size :: proc(buffer: ^Gl_Buffer, min_size: int, usage:
 	defer destroy_gl_buffer(&temp_buffer)
 
 	gl.CopyNamedBufferSubData(readBuffer = buffer.id,
-				  writeBuffer = temp_buffer.id,
-				  readOffset = 0,
-				  writeOffset = 0,
-				  size = buffer.size)
+							  writeBuffer = temp_buffer.id,
+							  readOffset = 0,
+							  writeOffset = 0,
+							  size = buffer.size)
 
 	gl.NamedBufferData(buffer.id, new_size, nil, usage)
 
 	gl.CopyNamedBufferSubData(readBuffer = temp_buffer.id,
-				  writeBuffer = buffer.id,
-				  readOffset = 0,
-				  writeOffset = 0,
-				  size = buffer.size)
+							  writeBuffer = buffer.id,
+							  readOffset = 0,
+							  writeOffset = 0,
+							  size = buffer.size)
 
 	buffer.size = new_size
 }
@@ -473,42 +473,42 @@ DEFAULT_TEXTURE_PARAMETERS :: Texture_Parameters {
 }
 
 create_texture :: proc(width, height: u32,
-		       internal_format: u32 = gl.RGBA8,
-		       params := DEFAULT_TEXTURE_PARAMETERS) -> (texture: Texture) {
+					   internal_format: u32 = gl.RGBA8,
+					   params := DEFAULT_TEXTURE_PARAMETERS) -> (texture: Texture) {
 	gl.CreateTextures(gl.TEXTURE_2D, 1, &texture.id)
 	set_texture_parameters(texture, params)
 	gl.TextureStorage2D(texture.id,
-			    levels = 1,
-			    internalformat = internal_format,
-			    width = i32(width),
-			    height = i32(height))
+						levels = 1,
+						internalformat = internal_format,
+						width = i32(width),
+						height = i32(height))
 
 	texture.width, texture.height = width, height
 	return
 }
 
 create_texture_from_pixels :: proc(width, height: u32,
-				   channels: int,
-				   pixels: []byte,
-				   internal_format: u32 = gl.RGBA8,
-				   params := DEFAULT_TEXTURE_PARAMETERS) -> (texture: Texture) {
+								   channels: int,
+								   pixels: []byte,
+								   internal_format: u32 = gl.RGBA8,
+								   params := DEFAULT_TEXTURE_PARAMETERS) -> (texture: Texture) {
 	assert(slice.size(pixels) == int(width) * int(height) * channels * size_of(byte))
 	texture = create_texture(width, height, internal_format, params)
 	gl.TextureSubImage2D(texture.id,
-			     level = 0,
-			     xoffset = 0,
-			     yoffset = 0,
-			     width = i32(width),
-			     height = i32(height),
-			     format = gl_texture_format_from_channels(channels),
-			     type = gl.UNSIGNED_BYTE,
-			     pixels = raw_data(pixels))
+						 level = 0,
+						 xoffset = 0,
+						 yoffset = 0,
+						 width = i32(width),
+						 height = i32(height),
+						 format = gl_texture_format_from_channels(channels),
+						 type = gl.UNSIGNED_BYTE,
+						 pixels = raw_data(pixels))
 	return
 }
 
 create_texture_from_png_in_memory :: proc(png_file_data: []byte,
-					  internal_format: u32 = gl.RGBA8,
-					  params := DEFAULT_TEXTURE_PARAMETERS) -> (texture: Texture, ok := false) {
+										  internal_format: u32 = gl.RGBA8,
+										  params := DEFAULT_TEXTURE_PARAMETERS) -> (texture: Texture, ok := false) {
 	img, error := image.load(png_file_data, allocator = context.temp_allocator)
 	if error != nil {
 		log.errorf("Failed to load image from png file in memory: %v", error)
@@ -517,18 +517,18 @@ create_texture_from_png_in_memory :: proc(png_file_data: []byte,
 	defer image.destroy(img, context.temp_allocator)
 
 	texture = create_texture_from_pixels(u32(img.width),
-				 	     u32(img.height),
-					     img.channels,
-					     bytes.buffer_to_bytes(&img.pixels),
-					     internal_format,
-					     params)
+										 u32(img.height),
+										 img.channels,
+										 bytes.buffer_to_bytes(&img.pixels),
+										 internal_format,
+										 params)
 	ok = true
 	return
 }
 
 create_texture_from_aseprite_in_memory :: proc(aseprite_file_data: []byte,
-					       internal_format: u32 = gl.RGBA8,
-					       params := DEFAULT_TEXTURE_PARAMETERS) -> (texture: Texture, ok := false) {
+											   internal_format: u32 = gl.RGBA8,
+											   params := DEFAULT_TEXTURE_PARAMETERS) -> (texture: Texture, ok := false) {
 	document: ase.Document
 	defer ase.destroy_doc(&document)
 	unmarshal_error := ase.unmarshal(&document, aseprite_file_data, context.temp_allocator)
@@ -544,18 +544,18 @@ create_texture_from_aseprite_in_memory :: proc(aseprite_file_data: []byte,
 	defer ase_utils.destroy(image, context.temp_allocator)
 
 	texture = create_texture_from_pixels(u32(image.width),
-					     u32(image.height),
-					     channels_from_aseprite_bpp(image.bpp),
-					     image.data,
-					     internal_format,
-					     params)
+										 u32(image.height),
+										 channels_from_aseprite_bpp(image.bpp),
+										 image.data,
+										 internal_format,
+										 params)
 	ok = true
 	return
 }
 
 create_texture_from_png_file :: proc(path: string,
-				     internal_format: u32 = gl.RGBA8,
-				     params := DEFAULT_TEXTURE_PARAMETERS) -> (texture: Texture, ok := false) {
+									 internal_format: u32 = gl.RGBA8,
+									 params := DEFAULT_TEXTURE_PARAMETERS) -> (texture: Texture, ok := false) {
 	file_data, read_file_error := os.read_entire_file(path, context.temp_allocator)
 	if read_file_error != nil {
 		log.errorf("Failed to read png texture file `%v`: %v", path, read_file_error)
@@ -566,8 +566,8 @@ create_texture_from_png_file :: proc(path: string,
 }
 
 create_texture_from_aseprite_file :: proc(path: string,
-					  internal_format: u32 = gl.RGBA8,
-					  params := DEFAULT_TEXTURE_PARAMETERS) -> (texture: Texture, ok := false) {
+										  internal_format: u32 = gl.RGBA8,
+										  params := DEFAULT_TEXTURE_PARAMETERS) -> (texture: Texture, ok := false) {
 	file_data, read_file_error := os.read_entire_file(path, context.temp_allocator)
 	if read_file_error != nil {
 		log.errorf("Failed to read aseprite texture file `%v`: %v", path, read_file_error)

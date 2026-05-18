@@ -21,11 +21,11 @@ Action :: enum {
 }
 
 Watch_Callback :: #type proc "c" (watch_id: Watch_Id,
-				  action: Action,
-				  rootdir: cstring,
-				  filepath: cstring,
-				  oldfilepath: cstring,
-				  user: rawptr)
+								  action: Action,
+								  rootdir: cstring,
+								  filepath: cstring,
+								  oldfilepath: cstring,
+								  user: rawptr)
 
 @(default_calling_convention="c", link_prefix="dmon_")
 foreign dmon {

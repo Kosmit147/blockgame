@@ -17,11 +17,11 @@ when HOT_RELOAD {
 	// This callback gets called from a separate thread.
 	@(private="file")
 	watcher_callback :: proc "c" (watch_id: dmon.Watch_Id,
-				      action: dmon.Action,
-				      rootdir: cstring,
-				      filepath: cstring,
-				      oldfilepath: cstring,
-				      user: rawptr) {
+								  action: dmon.Action,
+								  rootdir: cstring,
+								  filepath: cstring,
+								  oldfilepath: cstring,
+								  user: rawptr) {
 		context = g_context
 
 		full_path_builder := strings.builder_make(context.temp_allocator)

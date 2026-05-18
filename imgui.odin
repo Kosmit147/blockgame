@@ -8,51 +8,51 @@ import "core:c"
 import "core:fmt"
 
 imgui_drag_double :: proc(label: cstring,
-			  v: ^c.double,
-			  v_speed := f32(1),
-			  v_min := f64(0),
-			  v_max := f64(0),
-			  format := cstring("%.3f"),
-			  flags := imgui.SliderFlags{}) -> bool {
+						  v: ^c.double,
+						  v_speed := f32(1),
+						  v_min := f64(0),
+						  v_max := f64(0),
+						  format := cstring("%.3f"),
+						  flags := imgui.SliderFlags{}) -> bool {
 	v_min, v_max := v_min, v_max
 	return imgui.DragScalar(label = label,
-				data_type = .Double,
-				p_data = v,
-				v_speed = v_speed,
-				p_min = &v_min,
-				p_max = &v_max,
-				format = format,
-				flags = flags)
+							data_type = .Double,
+							p_data = v,
+							v_speed = v_speed,
+							p_min = &v_min,
+							p_max = &v_max,
+							format = format,
+							flags = flags)
 }
 
 imgui_input_u32 :: proc(label: cstring,
-			v: ^u32,
-			step: u32 = 1,
-			step_fast: u32 = 100,
-			flags: imgui.InputTextFlags = {}) -> bool {
+						v: ^u32,
+						step: u32 = 1,
+						step_fast: u32 = 100,
+						flags: imgui.InputTextFlags = {}) -> bool {
 	step, step_fast := step, step_fast
 	return imgui.InputScalar(label = label,
-				 data_type = .U32,
-				 p_data = v,
-				 p_step = &step,
-				 p_step_fast = &step_fast,
-				 format = nil,
-				 flags = flags)
+							 data_type = .U32,
+							 p_data = v,
+							 p_step = &step,
+							 p_step_fast = &step_fast,
+							 format = nil,
+							 flags = flags)
 }
 
 imgui_input_i64 :: proc(label: cstring,
-			v: ^i64,
-			step: i64 = 1,
-			step_fast: i64 = 100,
-			flags: imgui.InputTextFlags = {}) -> bool {
+						v: ^i64,
+						step: i64 = 1,
+						step_fast: i64 = 100,
+						flags: imgui.InputTextFlags = {}) -> bool {
 	step, step_fast := step, step_fast
 	return imgui.InputScalar(label = label,
-				 data_type = .S64,
-				 p_data = v,
-				 p_step = &step,
-				 p_step_fast = &step_fast,
-				 format = nil,
-				 flags = flags)
+							 data_type = .S64,
+							 p_data = v,
+							 p_step = &step,
+							 p_step_fast = &step_fast,
+							 format = nil,
+							 flags = flags)
 }
 
 imgui_enum_select :: proc(label: cstring, value: ^$E) -> bool where intrinsics.type_is_enum(E) {

@@ -85,11 +85,11 @@ renderer_init :: proc() -> (ok := false) {
 	renderer_get_uniforms()
 
 	create_mesh(&s_renderer.flat_cube_mesh,
-		    vertices = slice.to_bytes(flat_cube_vertices[:]),
-		    vertex_stride = size_of(Flat_Cube_Mesh_Vertex),
-		    vertex_format = gl_vertex(Flat_Cube_Mesh_Vertex),
-		    indices = slice.to_bytes(flat_cube_indices[:]),
-		    index_type = gl_index(Flat_Cube_Mesh_Index))
+				vertices = slice.to_bytes(flat_cube_vertices[:]),
+				vertex_stride = size_of(Flat_Cube_Mesh_Vertex),
+				vertex_format = gl_vertex(Flat_Cube_Mesh_Vertex),
+				indices = slice.to_bytes(flat_cube_indices[:]),
+				index_type = gl_index(Flat_Cube_Mesh_Index))
 	defer if !ok do destroy_mesh(&s_renderer.flat_cube_mesh)
 
 	batch_renderer_init(&s_renderer.line_renderer)
@@ -134,16 +134,16 @@ renderer_init_framebuffer :: proc(size: [2]i32) -> (ok := false) {
 		border_color = MAGENTA, // We should never see this magenta color.
 	}
 	s_renderer.color_texture = create_texture(width = cast(u32)size.x,
-						  height = cast(u32)size.y,
-						  internal_format = gl.RGBA16F,
-						  params = COLOR_TEXTURE_PARAMS)
+											  height = cast(u32)size.y,
+											  internal_format = gl.RGBA16F,
+											  params = COLOR_TEXTURE_PARAMS)
 	defer if !ok do destroy_texture(&s_renderer.color_texture)
 	attach_texture(s_renderer.framebuffer, s_renderer.color_texture, gl.COLOR_ATTACHMENT0)
 
 	create_renderbuffer(renderbuffer = &s_renderer.depth_stencil_renderbuffer,
-			    width = size.x,
-			    height = size.y,
-			    format = gl.DEPTH24_STENCIL8)
+						width = size.x,
+						height = size.y,
+						format = gl.DEPTH24_STENCIL8)
 	defer if !ok do destroy_renderbuffer(&s_renderer.depth_stencil_renderbuffer)
 	attach_renderbuffer(s_renderer.framebuffer, s_renderer.depth_stencil_renderbuffer, gl.DEPTH_STENCIL_ATTACHMENT)
 
@@ -224,16 +224,16 @@ renderer_begin_3d_frame :: proc(camera: Camera, light: Directional_Light) {
 
 	camera_vectors := camera_vectors(camera)
 	view := linalg.matrix4_look_at_from_fru(eye = camera.position,
-						f = camera_vectors.forward,
-						r = camera_vectors.right,
-						u = camera_vectors.up)
+											f = camera_vectors.forward,
+											r = camera_vectors.right,
+											u = camera_vectors.up)
 	projection := linalg.matrix4_perspective(fovy = math.to_radians(f32(45)),
-						 aspect = window_aspect_ratio(),
-						 near = 0.1,
-						 far = 1000)
+											 aspect = window_aspect_ratio(),
+											 near = 0.1,
+											 far = 1000)
 	view_projection_uniform_buffer_data := View_Projection_Uniform_Buffer_Data { view, projection }
 	upload_static_gl_buffer_data(s_renderer.view_projection_uniform_buffer,
-				     mem.any_to_bytes(view_projection_uniform_buffer_data))
+								 mem.ptr_to_bytes(&view_projection_uniform_buffer_data))
 
 	light_data_uniform_buffer_data := Light_Data_Uniform_Buffer_Data {
 		light_ambient = light.ambient,
@@ -241,7 +241,7 @@ renderer_begin_3d_frame :: proc(camera: Camera, light: Directional_Light) {
 		light_direction = light.direction,
 	}
 	upload_static_gl_buffer_data(s_renderer.light_data_uniform_buffer,
-				     mem.any_to_bytes(light_data_uniform_buffer_data))
+								 mem.ptr_to_bytes(&light_data_uniform_buffer_data))
 }
 
 renderer_end_frame :: proc() {
@@ -281,16 +281,16 @@ renderer_end_frame :: proc() {
 renderer_render_mesh :: proc(mesh: Mesh) {
 	bind_mesh(mesh)
 	gl.DrawElements(gl.TRIANGLES,
-			i32(mesh.vertex_count),
-			mesh.index_type,
-			cast(rawptr)uintptr(mesh.index_data_offset))
+					i32(mesh.vertex_count),
+					mesh.index_type,
+					cast(rawptr)uintptr(mesh.index_data_offset))
 }
 
 renderer_render_chunk :: proc(chunk: Chunk) {
 	if chunk.mesh == nil do return
 	model := linalg.matrix4_translate(Vec3{ f32(chunk.coordinate.x * CHUNK_SIZE.x),
-						0,
-						f32(chunk.coordinate.z * CHUNK_SIZE.z) })
+									  0,
+									  f32(chunk.coordinate.z * CHUNK_SIZE.z) })
 	set_uniform(.Block, s_renderer.block_shader_model_uniform, model)
 	renderer_render_mesh(chunk.mesh.?)
 }
