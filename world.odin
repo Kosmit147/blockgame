@@ -80,7 +80,7 @@ chunk_task :: proc(task: thread.Task) {
 
 	switch &task in task {
 	case Generate_Chunk_Blocks_Task:
-		task.blocks = generate_chunk_blocks(task.chunk_coordinate, allocator)
+		task.blocks = generator_generate_chunk_blocks(task.chunk_coordinate, allocator)
 	case Generate_Chunk_Mesh_Task:
 		task.mesh_data = generate_chunk_mesh(task.blocks, allocator)
 	case nil:
@@ -89,10 +89,7 @@ chunk_task :: proc(task: thread.Task) {
 }
 
 when TRACK_MEMORY {
-	@(private="file") s_world_tracking_allocator: mem.Tracking_Allocator
-	get_world_tracking_allocator :: proc() -> ^mem.Tracking_Allocator {
-		return &s_world_tracking_allocator
-	}
+	g_world_tracking_allocator: mem.Tracking_Allocator
 }
 
 world_init :: proc(world: ^World, load_distance: u32) -> (ok := false) {
@@ -101,8 +98,8 @@ world_init :: proc(world: ^World, load_distance: u32) -> (ok := false) {
 	// We want to use a thread-safe heap allocator because the lifetimes of chunks are arbitrary and they are
 	// handled from multiple threads.
 	when TRACK_MEMORY {
-		mem.tracking_allocator_init(&s_world_tracking_allocator, runtime.heap_allocator())
-		world.allocator = mem.tracking_allocator(&s_world_tracking_allocator)
+		mem.tracking_allocator_init(&g_world_tracking_allocator, runtime.heap_allocator())
+		world.allocator = mem.tracking_allocator(&g_world_tracking_allocator)
 	} else {
 		world.allocator = runtime.heap_allocator()
 	}
@@ -117,14 +114,14 @@ world_init :: proc(world: ^World, load_distance: u32) -> (ok := false) {
 	thread.pool_start(&world.thread_pool)
 	world.chunk_tasks = make([dynamic]Chunk_Task, chunk_thread_count, world.allocator)
 
-	sunlight_angle := math.to_radians(f32(INITIAL_SUNLIGHT_ANGLE_DEG))
+	sunlight_angle := math.to_radians_f32(INITIAL_SUNLIGHT_ANGLE_DEG)
 	world.sunlight_angle = sunlight_angle
 	world.sunlight_angle_change_speed = SUNLIGHT_ANGLE_CHANGE_SPEED
 	world.timescale = 1
 	world.sunlight = Directional_Light{
 		ambient = INITIAL_SUNLIGHT_AMBIENT,
 		color = INITIAL_SUNLIGHT_COLOR,
-		direction = get_sunlight_direction(sunlight_angle),
+		direction = world_get_sunlight_direction(sunlight_angle),
 	}
 	world.sky_color = INITIAL_SKY_COLOR
 
@@ -152,8 +149,8 @@ world_deinit :: proc(world: ^World) {
 	delete(world.chunk_tasks)
 
 	when TRACK_MEMORY {
-		check_tracking_allocator(s_world_tracking_allocator)
-		mem.tracking_allocator_destroy(&s_world_tracking_allocator)
+		check_tracking_allocator(g_world_tracking_allocator)
+		mem.tracking_allocator_destroy(&g_world_tracking_allocator)
 	}
 }
 
@@ -162,7 +159,7 @@ world_regenerate :: proc(world: ^World) {
 	world_deinit(world)
 	world^ = {}
 	when TRACK_MEMORY {
-		s_world_tracking_allocator = {}
+		g_world_tracking_allocator = {}
 	}
 	world_init(world, load_distance)
 }
@@ -254,12 +251,11 @@ world_update :: proc(world: ^World, delta_time: f32, player_chunk: Chunk_Coordin
 	}
 
 	world.sunlight_angle += world.sunlight_angle_change_speed * world.timescale * delta_time
-	world.sunlight.direction = get_sunlight_direction(world.sunlight_angle)
+	world.sunlight.direction = world_get_sunlight_direction(world.sunlight_angle)
 	world.sunlight.direction = linalg.normalize(world.sunlight.direction)
 }
 
-@(private="file")
-get_sunlight_direction :: proc(angle: f32) -> Vec3 {
+world_get_sunlight_direction :: proc(angle: f32) -> Vec3 {
 	return Vec3{ math.sin(angle), math.cos(angle), 0 }
 }
 
@@ -651,7 +647,7 @@ generate_chunk_mesh :: proc(blocks: ^Chunk_Blocks, allocator: runtime.Allocator)
 	for block, block_position in iterate_chunk_blocks(&chunk_blocks_iterator) {
 		if block_is_invisible(block^) do continue
 		visible_faces_directions := visible_faces(blocks, block_position)
-		for face_vertices_data, facing_direction in block_faces {
+		for face_vertices_data, facing_direction in g_block_faces {
 			if facing_direction not_in visible_faces_directions do continue
 			vertices: [4]Chunk_Mesh_Vertex
 			assert(len(face_vertices_data) == len(vertices))
@@ -666,7 +662,7 @@ generate_chunk_mesh :: proc(blocks: ^Chunk_Blocks, allocator: runtime.Allocator)
 					ambient_occlusion = ambient_occlusion(blocks, corner_position),
 				}
 			}
-			indices := block_indices
+			indices := g_block_indices
 			for &index in indices do index += index_offset
 			append(&mesh.vertices, ..vertices[:])
 			append(&mesh.indices, ..indices[:])
@@ -677,8 +673,7 @@ generate_chunk_mesh :: proc(blocks: ^Chunk_Blocks, allocator: runtime.Allocator)
 	return
 }
 
-@(private="file")
-visible_faces :: proc(blocks: ^Chunk_Blocks, position: Grid_Chunk_Position) -> (directions: World_Directions) {
+visible_faces :: proc(blocks: ^Chunk_Blocks, block_position: Grid_Chunk_Position) -> (directions: World_Directions) {
 	offsets := [World_Direction][3]i32{
 		.Plus_X  = { +1,  0,  0 },
 		.Minus_X = { -1,  0,  0 },
@@ -689,13 +684,12 @@ visible_faces :: proc(blocks: ^Chunk_Blocks, position: Grid_Chunk_Position) -> (
 	}
 
 	for offset, direction in offsets {
-		neighbor, neighbor_ok := get_chunk_block_safe(blocks, position + Grid_Chunk_Position(offset))
+		neighbor, neighbor_ok := get_chunk_block_safe(blocks, block_position + Grid_Chunk_Position(offset))
 		if !neighbor_ok || (neighbor_ok && !block_is_fully_opaque(neighbor^)) do directions += { direction }
 	}
 	return
 }
 
-@(private="file")
 map_block_uv_to_atlas :: proc(uv: Vec2, block: Block, block_facing: World_Direction) -> Vec2 {
 	ATLAS_SIZE :: 10
 
@@ -720,7 +714,6 @@ map_block_uv_to_atlas :: proc(uv: Vec2, block: Block, block_facing: World_Direct
 
 // Ambient occlusion is a value between 0 and 8 which represents the number of light-occluding blocks around the block
 // corner.
-@(private="file")
 ambient_occlusion :: proc(blocks: ^Chunk_Blocks, position: Grid_Corner_Chunk_Position) -> (occlusion := u32(0)) {
 	// TODO: Fix occlusion not working properly on chunk boundaries.
 	neighboring_block_positions := [8]Grid_Chunk_Position{
@@ -757,8 +750,8 @@ Chunk_Mesh_Vertex_Input_Data :: struct {
 	uv: Vec2,
 }
 
-@(private="file", rodata)
-block_faces := [World_Direction][4]Chunk_Mesh_Vertex_Input_Data{
+@(rodata)
+g_block_faces := [World_Direction][4]Chunk_Mesh_Vertex_Input_Data{
 	// Front wall.
 	.Plus_Z = {
 		{ position = { 0, 0, 1 }, normal = {  0,  0,  1 }, uv = { 0, 1 } },
@@ -808,5 +801,5 @@ block_faces := [World_Direction][4]Chunk_Mesh_Vertex_Input_Data{
 	},
 }
 
-@(private="file", rodata)
-block_indices := [6]Chunk_Mesh_Index{ 0, 1, 2, 0, 2, 3 }
+@(rodata)
+g_block_indices := [6]Chunk_Mesh_Index{ 0, 1, 2, 0, 2, 3 }

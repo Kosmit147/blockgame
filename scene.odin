@@ -20,15 +20,14 @@ Scene :: struct #all_or_none {
 	scene_data_allocator: runtime.Allocator,
 }
 
-@(private="file")
-s_current_scene: Maybe(Scene)
+g_scene: Maybe(Scene)
 
 change_scene :: proc(scene_id: Scene_Id, scene_data_allocator := context.allocator) -> (ok := false) {
 	scene_deinit()
 
 	switch scene_id {
 	case .Main_Menu:
-		s_current_scene = Scene {
+		g_scene = Scene {
 			init_proc = main_menu_init,
 			deinit_proc = main_menu_deinit,
 			update_proc = main_menu_update,
@@ -38,7 +37,7 @@ change_scene :: proc(scene_id: Scene_Id, scene_data_allocator := context.allocat
 			scene_data_allocator = scene_data_allocator,
 		}
 	case .Overworld:
-		s_current_scene = Scene {
+		g_scene = Scene {
 			init_proc = overworld_init,
 			deinit_proc = overworld_deinit,
 			update_proc = overworld_update,
@@ -57,14 +56,13 @@ change_scene :: proc(scene_id: Scene_Id, scene_data_allocator := context.allocat
 	return
 }
 
-@(private="file")
 scene_init :: proc() -> (ok := false) {
-	scene := s_current_scene.? or_return
+	scene := g_scene.? or_return
 	return scene.init_proc(scene.scene_data)
 }
 
 scene_deinit :: proc() -> (ok := false) {
-	scene := s_current_scene.? or_return
+	scene := g_scene.? or_return
 	scene.deinit_proc(scene.scene_data)
 	free(scene.scene_data, scene.scene_data_allocator)
 	ok = true
@@ -72,21 +70,21 @@ scene_deinit :: proc() -> (ok := false) {
 }
 
 scene_update :: proc(delta_time: f32) -> (ok := false) {
-	scene := s_current_scene.? or_return
+	scene := g_scene.? or_return
 	scene.update_proc(delta_time, scene.scene_data)
 	ok = true
 	return
 }
 
 scene_on_event :: proc(event: Event) -> (ok := false) {
-	scene := s_current_scene.? or_return
+	scene := g_scene.? or_return
 	scene.on_event_proc(event, scene.scene_data)
 	ok = true
 	return
 }
 
 scene_render :: proc() -> (ok := false) {
-	scene := s_current_scene.? or_return
+	scene := g_scene.? or_return
 	scene.render_proc(scene.scene_data)
 	ok = true
 	return

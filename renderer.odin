@@ -56,8 +56,7 @@ Renderer :: struct {
 	wireframe_enabled: bool,
 }
 
-@(private="file")
-s_renderer: Renderer
+g_renderer: Renderer
 
 renderer_init :: proc() -> (ok := false) {
 	renderer_set_clear_color(BLACK)
@@ -71,29 +70,29 @@ renderer_init :: proc() -> (ok := false) {
 	}
 	defer if !ok do renderer_deinit_framebuffer()
 
-	create_vertex_array(&s_renderer.postprocess_vertex_array)
-	defer if !ok do destroy_vertex_array(&s_renderer.postprocess_vertex_array)
+	create_vertex_array(&g_renderer.postprocess_vertex_array)
+	defer if !ok do destroy_vertex_array(&g_renderer.postprocess_vertex_array)
 
-	create_static_gl_buffer(&s_renderer.view_projection_uniform_buffer, size_of(View_Projection_Uniform_Buffer_Data))
-	defer if !ok do destroy_gl_buffer(&s_renderer.view_projection_uniform_buffer)
-	bind_uniform_buffer(s_renderer.view_projection_uniform_buffer, VIEW_PROJECTION_UNIFORM_BUFFER_BINDING_POINT)
+	create_static_gl_buffer(&g_renderer.view_projection_uniform_buffer, size_of(View_Projection_Uniform_Buffer_Data))
+	defer if !ok do destroy_gl_buffer(&g_renderer.view_projection_uniform_buffer)
+	bind_uniform_buffer(g_renderer.view_projection_uniform_buffer, VIEW_PROJECTION_UNIFORM_BUFFER_BINDING_POINT)
 
-	create_static_gl_buffer(&s_renderer.light_data_uniform_buffer, size_of(Light_Data_Uniform_Buffer_Data))
-	defer if !ok do destroy_gl_buffer(&s_renderer.light_data_uniform_buffer)
-	bind_uniform_buffer(s_renderer.light_data_uniform_buffer, LIGHT_DATA_UNIFORM_BUFFER_BINDING_POINT)
+	create_static_gl_buffer(&g_renderer.light_data_uniform_buffer, size_of(Light_Data_Uniform_Buffer_Data))
+	defer if !ok do destroy_gl_buffer(&g_renderer.light_data_uniform_buffer)
+	bind_uniform_buffer(g_renderer.light_data_uniform_buffer, LIGHT_DATA_UNIFORM_BUFFER_BINDING_POINT)
 
 	renderer_get_uniforms()
 
-	create_mesh(&s_renderer.flat_cube_mesh,
-				vertices = slice.to_bytes(flat_cube_vertices[:]),
+	create_mesh(&g_renderer.flat_cube_mesh,
+				vertices = slice.to_bytes(g_flat_cube_vertices[:]),
 				vertex_stride = size_of(Flat_Cube_Mesh_Vertex),
 				vertex_format = gl_vertex(Flat_Cube_Mesh_Vertex),
-				indices = slice.to_bytes(flat_cube_indices[:]),
+				indices = slice.to_bytes(g_flat_cube_indices[:]),
 				index_type = gl_index(Flat_Cube_Mesh_Index))
-	defer if !ok do destroy_mesh(&s_renderer.flat_cube_mesh)
+	defer if !ok do destroy_mesh(&g_renderer.flat_cube_mesh)
 
-	batch_renderer_init(&s_renderer.line_renderer)
-	defer if !ok do batch_renderer_deinit(&s_renderer.line_renderer)
+	batch_renderer_init(&g_renderer.line_renderer)
+	defer if !ok do batch_renderer_deinit(&g_renderer.line_renderer)
 
 	renderer_set_gamma(DEFAULT_GAMMA)
 	renderer_set_wireframe_enabled(false)
@@ -103,13 +102,13 @@ renderer_init :: proc() -> (ok := false) {
 }
 
 renderer_deinit :: proc() {
-	batch_renderer_deinit(&s_renderer.line_renderer)
+	batch_renderer_deinit(&g_renderer.line_renderer)
 
-	destroy_mesh(&s_renderer.flat_cube_mesh)
-	destroy_gl_buffer(&s_renderer.view_projection_uniform_buffer)
-	destroy_gl_buffer(&s_renderer.light_data_uniform_buffer)
+	destroy_mesh(&g_renderer.flat_cube_mesh)
+	destroy_gl_buffer(&g_renderer.view_projection_uniform_buffer)
+	destroy_gl_buffer(&g_renderer.light_data_uniform_buffer)
 
-	destroy_vertex_array(&s_renderer.postprocess_vertex_array)
+	destroy_vertex_array(&g_renderer.postprocess_vertex_array)
 	renderer_deinit_framebuffer()
 }
 
@@ -121,10 +120,9 @@ renderer_on_event :: proc(event: Event) {
 	}
 }
 
-@(private="file")
 renderer_init_framebuffer :: proc(size: [2]i32) -> (ok := false) {
-	create_framebuffer(&s_renderer.framebuffer)
-	defer if !ok do destroy_framebuffer(&s_renderer.framebuffer)
+	create_framebuffer(&g_renderer.framebuffer)
+	defer if !ok do destroy_framebuffer(&g_renderer.framebuffer)
 
 	COLOR_TEXTURE_PARAMS :: Texture_Parameters {
 		wrap_s = gl.CLAMP_TO_BORDER,
@@ -133,21 +131,21 @@ renderer_init_framebuffer :: proc(size: [2]i32) -> (ok := false) {
 		mag_filter = gl.NEAREST,
 		border_color = MAGENTA, // We should never see this magenta color.
 	}
-	s_renderer.color_texture = create_texture(width = cast(u32)size.x,
+	g_renderer.color_texture = create_texture(width = cast(u32)size.x,
 											  height = cast(u32)size.y,
 											  internal_format = gl.RGBA16F,
 											  params = COLOR_TEXTURE_PARAMS)
-	defer if !ok do destroy_texture(&s_renderer.color_texture)
-	attach_texture(s_renderer.framebuffer, s_renderer.color_texture, gl.COLOR_ATTACHMENT0)
+	defer if !ok do destroy_texture(&g_renderer.color_texture)
+	attach_texture(g_renderer.framebuffer, g_renderer.color_texture, gl.COLOR_ATTACHMENT0)
 
-	create_renderbuffer(renderbuffer = &s_renderer.depth_stencil_renderbuffer,
+	create_renderbuffer(renderbuffer = &g_renderer.depth_stencil_renderbuffer,
 						width = size.x,
 						height = size.y,
 						format = gl.DEPTH24_STENCIL8)
-	defer if !ok do destroy_renderbuffer(&s_renderer.depth_stencil_renderbuffer)
-	attach_renderbuffer(s_renderer.framebuffer, s_renderer.depth_stencil_renderbuffer, gl.DEPTH_STENCIL_ATTACHMENT)
+	defer if !ok do destroy_renderbuffer(&g_renderer.depth_stencil_renderbuffer)
+	attach_renderbuffer(g_renderer.framebuffer, g_renderer.depth_stencil_renderbuffer, gl.DEPTH_STENCIL_ATTACHMENT)
 
-	if !framebuffer_is_complete(s_renderer.framebuffer) {
+	if !framebuffer_is_complete(g_renderer.framebuffer) {
 		log.fatal("Main framebuffer is not complete.")
 		return
 	}
@@ -158,40 +156,38 @@ renderer_init_framebuffer :: proc(size: [2]i32) -> (ok := false) {
 	return
 }
 
-@(private="file")
 renderer_deinit_framebuffer :: proc() {
-	destroy_renderbuffer(&s_renderer.depth_stencil_renderbuffer)
-	destroy_texture(&s_renderer.color_texture)
-	destroy_framebuffer(&s_renderer.framebuffer)
+	destroy_renderbuffer(&g_renderer.depth_stencil_renderbuffer)
+	destroy_texture(&g_renderer.color_texture)
+	destroy_framebuffer(&g_renderer.framebuffer)
 }
 
-@(private="file")
 renderer_get_uniforms :: proc() {
 	block_shader := get_shader(.Block)
-	s_renderer.block_shader_model_uniform = get_uniform(block_shader, "model", Mat4)
+	g_renderer.block_shader_model_uniform = get_uniform(block_shader, "model", Mat4)
 	flat_shader := get_shader(.Flat)
-	s_renderer.flat_shader_model_uniform = get_uniform(flat_shader, "model", Mat4)
-	s_renderer.flat_shader_color_uniform = get_uniform(flat_shader, "color", Vec4)
+	g_renderer.flat_shader_model_uniform = get_uniform(flat_shader, "model", Mat4)
+	g_renderer.flat_shader_color_uniform = get_uniform(flat_shader, "color", Vec4)
 	postprocess_shader := get_shader(.Postprocess)
-	s_renderer.postprocess_shader_gamma_uniform = get_uniform(postprocess_shader, "gamma", f32)
+	g_renderer.postprocess_shader_gamma_uniform = get_uniform(postprocess_shader, "gamma", f32)
 }
 
 renderer_set_wireframe_enabled :: proc(enabled: bool) {
-	s_renderer.wireframe_enabled = enabled
+	g_renderer.wireframe_enabled = enabled
 	gl.PolygonMode(gl.FRONT_AND_BACK, gl.LINE if enabled else gl.FILL)
 }
 
 renderer_wireframe_enabled :: proc() -> bool {
-	return s_renderer.wireframe_enabled
+	return g_renderer.wireframe_enabled
 }
 
 renderer_set_gamma :: proc(gamma: f32) {
-	s_renderer.gamma = gamma
-	set_uniform(.Postprocess, s_renderer.postprocess_shader_gamma_uniform, gamma)
+	g_renderer.gamma = gamma
+	set_uniform(.Postprocess, g_renderer.postprocess_shader_gamma_uniform, gamma)
 }
 
 renderer_gamma :: proc() -> f32 {
-	return s_renderer.gamma
+	return g_renderer.gamma
 }
 
 renderer_set_clear_color :: proc(color: Vec4) {
@@ -203,7 +199,7 @@ renderer_set_line_width :: proc(width: f32) {
 }
 
 renderer_clear :: proc() {
-	bind_framebuffer(s_renderer.framebuffer)
+	bind_framebuffer(g_renderer.framebuffer)
 	gl.Clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT | gl.STENCIL_BUFFER_BIT)
 	bind_default_framebuffer()
 	gl.Clear(gl.COLOR_BUFFER_BIT)
@@ -211,12 +207,12 @@ renderer_clear :: proc() {
 
 renderer_begin_2d_frame :: proc() {
 	renderer_clear()
-	bind_framebuffer(s_renderer.framebuffer)
+	bind_framebuffer(g_renderer.framebuffer)
 }
 
 renderer_begin_3d_frame :: proc(camera: Camera, light: Directional_Light) {
 	renderer_clear()
-	bind_framebuffer(s_renderer.framebuffer)
+	bind_framebuffer(g_renderer.framebuffer)
 
 	gl.Enable(gl.CULL_FACE)
 	gl.Enable(gl.DEPTH_TEST)
@@ -232,7 +228,7 @@ renderer_begin_3d_frame :: proc(camera: Camera, light: Directional_Light) {
 											 near = 0.1,
 											 far = 1000)
 	view_projection_uniform_buffer_data := View_Projection_Uniform_Buffer_Data { view, projection }
-	upload_static_gl_buffer_data(s_renderer.view_projection_uniform_buffer,
+	upload_static_gl_buffer_data(g_renderer.view_projection_uniform_buffer,
 								 mem.ptr_to_bytes(&view_projection_uniform_buffer_data))
 
 	light_data_uniform_buffer_data := Light_Data_Uniform_Buffer_Data {
@@ -240,7 +236,7 @@ renderer_begin_3d_frame :: proc(camera: Camera, light: Directional_Light) {
 		light_color = light.color,
 		light_direction = light.direction,
 	}
-	upload_static_gl_buffer_data(s_renderer.light_data_uniform_buffer,
+	upload_static_gl_buffer_data(g_renderer.light_data_uniform_buffer,
 								 mem.ptr_to_bytes(&light_data_uniform_buffer_data))
 }
 
@@ -249,12 +245,12 @@ renderer_end_frame :: proc() {
 	renderer_set_wireframe_enabled(false)
 	defer renderer_set_wireframe_enabled(wireframe_was_enabled)
 
-	bind_framebuffer(s_renderer.framebuffer)
+	bind_framebuffer(g_renderer.framebuffer)
 
 	gl.Disable(gl.CULL_FACE)
 	gl.Enable(gl.DEPTH_TEST)
 	gl.Enable(gl.BLEND)
-	batch_renderer_render(&s_renderer.line_renderer, .Lines, primitive_type = gl.LINES)
+	batch_renderer_render(&g_renderer.line_renderer, .Lines, primitive_type = gl.LINES)
 
 	gl.Disable(gl.CULL_FACE)
 	gl.Disable(gl.DEPTH_TEST)
@@ -265,16 +261,16 @@ renderer_end_frame :: proc() {
 
 	when ODIN_DEBUG {
 		framebuffer_size := window_framebuffer_size()
-		assert(s_renderer.color_texture.width == u32(framebuffer_size.x))
-		assert(s_renderer.color_texture.height == u32(framebuffer_size.y))
-		assert(s_renderer.depth_stencil_renderbuffer.width == framebuffer_size.x)
-		assert(s_renderer.depth_stencil_renderbuffer.height == framebuffer_size.y)
+		assert(g_renderer.color_texture.width == u32(framebuffer_size.x))
+		assert(g_renderer.color_texture.height == u32(framebuffer_size.y))
+		assert(g_renderer.depth_stencil_renderbuffer.width == framebuffer_size.x)
+		assert(g_renderer.depth_stencil_renderbuffer.height == framebuffer_size.y)
 	}
 
 	gl.Disable(gl.BLEND)
 	use_shader(.Postprocess)
-	bind_texture_object(s_renderer.color_texture, 0)
-	bind_vertex_array(s_renderer.postprocess_vertex_array)
+	bind_texture_object(g_renderer.color_texture, 0)
+	bind_vertex_array(g_renderer.postprocess_vertex_array)
 	gl.DrawArrays(gl.TRIANGLE_STRIP, 0, 4)
 }
 
@@ -291,7 +287,7 @@ renderer_render_chunk :: proc(chunk: Chunk) {
 	model := linalg.matrix4_translate(Vec3{ f32(chunk.coordinate.x * CHUNK_SIZE.x),
 									  0,
 									  f32(chunk.coordinate.z * CHUNK_SIZE.z) })
-	set_uniform(.Block, s_renderer.block_shader_model_uniform, model)
+	set_uniform(.Block, g_renderer.block_shader_model_uniform, model)
 	renderer_render_mesh(chunk.mesh.?)
 }
 
@@ -312,13 +308,13 @@ renderer_render_block_highlight :: proc(position: Grid_World_Position) {
 
 	use_shader(.Flat)
 	model := linalg.matrix4_translate(cast(Vec3)position)
-	set_uniform(.Flat, s_renderer.flat_shader_model_uniform, model)
-	set_uniform(.Flat, s_renderer.flat_shader_color_uniform, HIGHLIGHT_COLOR)
-	renderer_render_mesh(s_renderer.flat_cube_mesh)
+	set_uniform(.Flat, g_renderer.flat_shader_model_uniform, model)
+	set_uniform(.Flat, g_renderer.flat_shader_color_uniform, HIGHLIGHT_COLOR)
+	renderer_render_mesh(g_renderer.flat_cube_mesh)
 }
 
 renderer_render_line :: proc(vertices: ^[2]Line_Vertex) {
-	batch_renderer_submit_line(&s_renderer.line_renderer, vertices)
+	batch_renderer_submit_line(&g_renderer.line_renderer, vertices)
 }
 
 when HOT_RELOAD {
@@ -344,8 +340,8 @@ Light_Data_Uniform_Buffer_Data :: struct {
 Cube_Mesh_Vertex :: Standard_Vertex
 Cube_Mesh_Index  :: u8
 
-@(private="file", rodata)
-cube_vertices := [24]Cube_Mesh_Vertex{
+@(rodata)
+g_cube_vertices := [24]Cube_Mesh_Vertex{
 	// Front wall.
 	{ position = { 0, 0, 1 }, normal = {  0,  0,  1 }, uv = { 0, 1 } },
 	{ position = { 1, 0, 1 }, normal = {  0,  0,  1 }, uv = { 1, 1 } },
@@ -383,8 +379,8 @@ cube_vertices := [24]Cube_Mesh_Vertex{
 	{ position = { 1, 1, 0 }, normal = {  0,  1,  0 }, uv = { 1, 0 } },
 }
 
-@(private="file", rodata)
-cube_indices := [36]Cube_Mesh_Index{
+@(rodata)
+g_cube_indices := [36]Cube_Mesh_Index{
 	// Front wall.
 	0, 1, 2, 0, 2, 3,
 
@@ -407,8 +403,8 @@ cube_indices := [36]Cube_Mesh_Index{
 Flat_Cube_Mesh_Vertex :: Flat_Vertex
 Flat_Cube_Mesh_Index  :: u8
 
-@(private="file", rodata)
-flat_cube_vertices := [24]Flat_Cube_Mesh_Vertex{
+@(rodata)
+g_flat_cube_vertices := [24]Flat_Cube_Mesh_Vertex{
 	// Front wall.
 	{ position = { 0, 0, 1 } },
 	{ position = { 1, 0, 1 } },
@@ -446,8 +442,8 @@ flat_cube_vertices := [24]Flat_Cube_Mesh_Vertex{
 	{ position = { 1, 1, 0 } },
 }
 
-@(private="file", rodata)
-flat_cube_indices := [36]Flat_Cube_Mesh_Index{
+@(rodata)
+g_flat_cube_indices := [36]Flat_Cube_Mesh_Index{
 	// Front wall.
 	0, 1, 2, 0, 2, 3,
 

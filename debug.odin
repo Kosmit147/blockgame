@@ -15,12 +15,11 @@ Debug_Overlay :: struct {
 	fps_limit: u32,
 }
 
-@(private="file")
-s_overlay: Debug_Overlay
+g_debug_overlay: Debug_Overlay
 
 debug_overlay_init :: proc() -> (ok := false) {
-	s_overlay.enabled = ODIN_DEBUG
-	s_overlay.fps_limit = window_fps_limit() or_else 120
+	g_debug_overlay.enabled = ODIN_DEBUG
+	g_debug_overlay.fps_limit = window_fps_limit() or_else 120
 	ok = true
 	return
 }
@@ -29,10 +28,10 @@ debug_overlay_deinit :: proc() {}
 
 debug_overlay_on_event :: proc(event: Event) {
 	if key_pressed_event, is_key_pressed_event := event.(Key_Pressed_Event); is_key_pressed_event {
-		if key_pressed_event.key == DEBUG_OVERLAY_TOGGLE_KEY do s_overlay.enabled = !s_overlay.enabled
+		if key_pressed_event.key == DEBUG_OVERLAY_TOGGLE_KEY do g_debug_overlay.enabled = !g_debug_overlay.enabled
 	}
 
-	if !s_overlay.enabled do return
+	if !g_debug_overlay.enabled do return
 
 	#partial switch event in event {
 	case Key_Pressed_Event:
@@ -42,19 +41,18 @@ debug_overlay_on_event :: proc(event: Event) {
 }
 
 debug_overlay_update :: proc() {
-	if !s_overlay.enabled do return
-	settings_window()
-	music_player_window()
-	memory_window()
+	if !g_debug_overlay.enabled do return
+	debug_overlay_settings_window()
+	debug_overlay_music_player_window()
+	debug_overlay_memory_window()
 }
 
 @(require_results)
 debug_overlay_enabled :: proc() -> bool {
-	return s_overlay.enabled
+	return g_debug_overlay.enabled
 }
 
-@(private="file")
-settings_window :: proc() {
+debug_overlay_settings_window :: proc() {
 	imgui.Begin("Settings")
 	if imgui.BeginTabBar("Settings Tab Bar") {
 		if imgui.BeginTabItem("Window") {
@@ -63,13 +61,13 @@ settings_window :: proc() {
 			vsync_mode := window_vsync_mode()
 			if imgui_enum_select("Vertical Sync", &vsync_mode) do window_set_vsync_mode(vsync_mode)
 			fps_limit, fps_limit_set := window_fps_limit()
-			if fps_limit_set do s_overlay.fps_limit = fps_limit
+			if fps_limit_set do g_debug_overlay.fps_limit = fps_limit
 			if imgui.Checkbox("Enable FPS limit", &fps_limit_set) {
-				if fps_limit_set do window_enable_fps_limit(s_overlay.fps_limit)
+				if fps_limit_set do window_enable_fps_limit(g_debug_overlay.fps_limit)
 				else do window_disable_fps_limit()
 			}
-			if imgui_input_u32("FPS limit", &s_overlay.fps_limit) && fps_limit_set {
-				window_enable_fps_limit(s_overlay.fps_limit)
+			if imgui_input_u32("FPS limit", &g_debug_overlay.fps_limit) && fps_limit_set {
+				window_enable_fps_limit(g_debug_overlay.fps_limit)
 			}
 			imgui.TextUnformatted(fmt.ctprintf("Target frame time: %.6fs", window_target_frame_time()))
 			imgui.TextUnformatted(fmt.ctprintf("Window size: %v", window_size()))
@@ -82,11 +80,11 @@ settings_window :: proc() {
 			wireframe := renderer_wireframe_enabled()
 			if imgui.Checkbox("Wireframe", &wireframe) do renderer_set_wireframe_enabled(wireframe)
 			imgui.SeparatorText("OpenGL context info")
-			imgui.TextUnformatted(fmt.ctprintf("Vendor: %v", gl_get_vendor()))
-			imgui.TextUnformatted(fmt.ctprintf("Renderer: %v", gl_get_renderer()))
-			imgui.TextUnformatted(fmt.ctprintf("Version: %v", gl_get_version()))
+			imgui.TextUnformatted(fmt.ctprintf("Vendor: %v", g_gl_context.vendor))
+			imgui.TextUnformatted(fmt.ctprintf("Renderer: %v", g_gl_context.renderer))
+			imgui.TextUnformatted(fmt.ctprintf("Version: %v", g_gl_context.version))
 			imgui.SeparatorText("Available OpenGL extensions")
-			for extension in gl_get_extensions() {
+			for extension in g_gl_context.extensions {
 				imgui.TextUnformatted(extension)
 			}
 			imgui.EndTabItem()
@@ -107,16 +105,14 @@ settings_window :: proc() {
 	imgui.End()
 }
 
-@(private="file")
-music_player_window :: proc() {
+debug_overlay_music_player_window :: proc() {
 	imgui.Begin("Music Player")
 	track_index := sound_current_track_index()
 	if imgui_slice_list_select(&track_index, sound_tracks()) do sound_play_track(track_index)
 	imgui.End()
 }
 
-@(private="file")
-memory_window :: proc() {
+debug_overlay_memory_window :: proc() {
 	gpu_memory_info, have_gpu_memory_info := get_gpu_memory_info()
 	show_memory_window := have_gpu_memory_info || TRACK_MEMORY
 	if !show_memory_window do return
@@ -165,11 +161,11 @@ memory_window :: proc() {
 				}
 
 				imgui.SeparatorText("Global Allocator")
-				imgui.TextUnformatted(tracking_allocator_info_text(get_global_tracking_allocator()^))
+				imgui.TextUnformatted(tracking_allocator_info_text(g_tracking_allocator))
 				imgui.SeparatorText("World Allocator")
-				imgui.TextUnformatted(tracking_allocator_info_text(get_world_tracking_allocator()^))
+				imgui.TextUnformatted(tracking_allocator_info_text(g_world_tracking_allocator))
 				imgui.SeparatorText("Sound Arena")
-				imgui.TextUnformatted(arena_info_text(get_sound_arena()^))
+				imgui.TextUnformatted(arena_info_text(g_sound_system.arena))
 				imgui.EndTabItem()
 			}
 		}

@@ -30,7 +30,6 @@ gl_index :: proc($I: typeid) -> u32 {
 	}
 }
 
-@(private="file")
 gl_vertex_attribute :: proc(type_info: ^runtime.Type_Info) -> Vertex_Attribute {
 	type_info := runtime.type_info_base(type_info)
 
@@ -169,7 +168,6 @@ use_shader :: proc(id: Shader_Id) {
 	use_shader_object(get_shader(id))
 }
 
-@(private="file")
 create_sub_shader :: proc(shader_source: string, shader_type: u32) -> (shader_id: u32 = gl.NONE, ok := false) {
 	shader_type_string :: proc(type: u32) -> string {
 		switch type {
@@ -206,7 +204,6 @@ create_sub_shader :: proc(shader_source: string, shader_type: u32) -> (shader_id
 	return
 }
 
-@(private="file")
 link_shader_program :: proc(vertex_shader, fragment_shader: u32) -> (program_id: u32 = gl.NONE, ok := false) {
 	program_id = gl.CreateProgram()
 	defer if !ok do gl.DeleteProgram(program_id)
@@ -598,7 +595,6 @@ set_texture_parameters :: proc(texture: Texture, params: Texture_Parameters) {
 	gl.TextureParameterfv(texture.id, gl.TEXTURE_BORDER_COLOR, raw_data(&border_color))
 }
 
-@(private="file")
 gl_texture_format_from_channels :: proc(#any_int channels: int) -> u32 {
 	switch channels {
 	case 1: return gl.RED
@@ -611,7 +607,6 @@ gl_texture_format_from_channels :: proc(#any_int channels: int) -> u32 {
 	return gl.NONE
 }
 
-@(private="file")
 channels_from_aseprite_bpp :: proc(depth: ase_utils.Pixel_Depth) -> int {
 	switch depth {
 	case .Indexed:   return 1

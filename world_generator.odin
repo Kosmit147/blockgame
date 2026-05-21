@@ -14,19 +14,15 @@ DEFAULT_WORLD_GENERATOR_PARAMS :: World_Generator_Params {
 	smoothness = 0.021,
 }
 
-@(private="file")
-s_world_generator_params := DEFAULT_WORLD_GENERATOR_PARAMS
+g_world_generator_params := DEFAULT_WORLD_GENERATOR_PARAMS
 
-set_world_generator_params :: proc(params: World_Generator_Params) {
-	s_world_generator_params = params
-}
-
-generate_chunk_blocks :: proc(coordinate: Chunk_Coordinate, allocator: runtime.Allocator) -> (blocks: ^Chunk_Blocks) {
+generator_generate_chunk_blocks :: proc(coordinate: Chunk_Coordinate,
+										allocator: runtime.Allocator) -> (blocks: ^Chunk_Blocks) {
 	blocks = new(Chunk_Blocks, allocator)
 	for block_x in i32(0)..<CHUNK_SIZE.x {
 		for block_z in i32(0)..<CHUNK_SIZE.z {
-			height := get_height_at_world_coordinate({ coordinate.x * CHUNK_SIZE.x + block_x,
-													   coordinate.z * CHUNK_SIZE.z + block_z })
+			height := generator_get_height_at_world_coordinate({ coordinate.x * CHUNK_SIZE.x + block_x,
+																 coordinate.z * CHUNK_SIZE.z + block_z })
 			for block_y in 0..<height {
 				get_chunk_block(blocks, { block_x, block_y, block_z })^ = .Stone
 			}
@@ -38,10 +34,9 @@ generate_chunk_blocks :: proc(coordinate: Chunk_Coordinate, allocator: runtime.A
 	return
 }
 
-@(private="file")
-get_height_at_world_coordinate :: proc(coordinate: [2]i32) -> i32 {
-	noise_coordinate := cast(noise.Vec2)coordinate * s_world_generator_params.smoothness
-	noise := noise.noise_2d(s_world_generator_params.seed, noise_coordinate)
+generator_get_height_at_world_coordinate :: proc(coordinate: [2]i32) -> i32 {
+	noise_coordinate := cast(noise.Vec2)coordinate * g_world_generator_params.smoothness
+	noise := noise.noise_2d(g_world_generator_params.seed, noise_coordinate)
 	linear := noise * 0.5 + 0.5
 	height := i32(linear * f32(CHUNK_SIZE.y))
 	return clamp(height, 0, CHUNK_SIZE.y)

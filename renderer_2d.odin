@@ -20,24 +20,23 @@ Renderer_2D :: struct {
 	textured_quad_renderers: [Texture_Id]Batch_Renderer(Textured_Quad_Vertex),
 }
 
-@(private="file")
-s_renderer_2d: Renderer_2D
+g_renderer_2d: Renderer_2D
 
 renderer_2d_init :: proc() -> (ok := false) {
-	batch_renderer_init(&s_renderer_2d.quad_renderer)
-	for &renderer in s_renderer_2d.textured_quad_renderers do batch_renderer_init(&renderer)
+	batch_renderer_init(&g_renderer_2d.quad_renderer)
+	for &renderer in g_renderer_2d.textured_quad_renderers do batch_renderer_init(&renderer)
 	ok = true
 	return
 }
 
 renderer_2d_deinit :: proc() {
-	batch_renderer_deinit(&s_renderer_2d.quad_renderer)
-	for &renderer in s_renderer_2d.textured_quad_renderers do batch_renderer_deinit(&renderer)
+	batch_renderer_deinit(&g_renderer_2d.quad_renderer)
+	for &renderer in g_renderer_2d.textured_quad_renderers do batch_renderer_deinit(&renderer)
 }
 
 renderer_2d_render :: proc() {
-	batch_renderer_render(&s_renderer_2d.quad_renderer, .Quad, nil)
-	for &renderer, texture in s_renderer_2d.textured_quad_renderers {
+	batch_renderer_render(&g_renderer_2d.quad_renderer, .Quad, nil)
+	for &renderer, texture in g_renderer_2d.textured_quad_renderers {
 		batch_renderer_render(&renderer, .Textured_Quad, texture)
 	}
 }
@@ -63,7 +62,7 @@ renderer_2d_submit_quad :: proc(quad: Quad) {
 		{ position = quad.position + { quad.size.x, -quad.size.y }, color = quad.color },
 		{ position = quad.position + { 0, -quad.size.y },           color = quad.color },
 	}
-	batch_renderer_submit_quad(&s_renderer_2d.quad_renderer, &vertices)
+	batch_renderer_submit_quad(&g_renderer_2d.quad_renderer, &vertices)
 }
 
 renderer_2d_submit_textured_quad :: proc(quad: Quad, texture: Texture_Id) {
@@ -73,7 +72,7 @@ renderer_2d_submit_textured_quad :: proc(quad: Quad, texture: Texture_Id) {
 		{ position = quad.position + { quad.size.x, -quad.size.y }, uv = Vec2{ 1, 1 }, tint = quad.color },
 		{ position = quad.position + { 0, -quad.size.y },           uv = Vec2{ 0, 1 }, tint = quad.color },
 	}
-	batch_renderer_submit_quad(&s_renderer_2d.textured_quad_renderers[texture], &vertices)
+	batch_renderer_submit_quad(&g_renderer_2d.textured_quad_renderers[texture], &vertices)
 }
 
 renderer_2d_submit_rect :: proc(rect: Rect) {

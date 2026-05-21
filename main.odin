@@ -15,13 +15,12 @@ TRACK_MEMORY :: #config(TRACK_MEMORY, ODIN_DEBUG)
 
 when HOT_RELOAD {
 	// This callback gets called from a separate thread.
-	@(private="file")
-	watcher_callback :: proc "c" (watch_id: dmon.Watch_Id,
-								  action: dmon.Action,
-								  rootdir: cstring,
-								  filepath: cstring,
-								  oldfilepath: cstring,
-								  user: rawptr) {
+	dmon_watcher_callback :: proc "c" (watch_id: dmon.Watch_Id,
+									   action: dmon.Action,
+									   rootdir: cstring,
+									   filepath: cstring,
+									   oldfilepath: cstring,
+									   user: rawptr) {
 		context = g_context
 
 		full_path_builder := strings.builder_make(context.temp_allocator)
@@ -35,10 +34,7 @@ when HOT_RELOAD {
 
 g_context: runtime.Context
 when TRACK_MEMORY {
-	@(private="file") s_tracking_allocator: mem.Tracking_Allocator
-	get_global_tracking_allocator :: proc() -> ^mem.Tracking_Allocator {
-		return &s_tracking_allocator
-	}
+	g_tracking_allocator: mem.Tracking_Allocator
 }
 
 check_tracking_allocator :: proc(allocator: mem.Tracking_Allocator) -> (ok := true) {
@@ -62,11 +58,11 @@ main :: proc() {
 
 	when TRACK_MEMORY {
 		log.infof("Memory tracking enabled.")
-		mem.tracking_allocator_init(&s_tracking_allocator, runtime.heap_allocator())
-		context.allocator = mem.tracking_allocator(&s_tracking_allocator)
+		mem.tracking_allocator_init(&g_tracking_allocator, runtime.heap_allocator())
+		context.allocator = mem.tracking_allocator(&g_tracking_allocator)
 		defer {
-			check_tracking_allocator(s_tracking_allocator)
-			mem.tracking_allocator_destroy(&s_tracking_allocator)
+			check_tracking_allocator(g_tracking_allocator)
+			mem.tracking_allocator_destroy(&g_tracking_allocator)
 		}
 	} else {
 		context.allocator = runtime.heap_allocator()
@@ -83,8 +79,8 @@ main :: proc() {
 	when HOT_RELOAD {
 		dmon.init()
 		defer dmon.deinit()
-		dmon.watch(TEXTURES_PATH, watcher_callback, nil, nil)
-		dmon.watch(SHADERS_PATH, watcher_callback, nil, nil)
+		dmon.watch(TEXTURES_PATH, dmon_watcher_callback, nil, nil)
+		dmon.watch(SHADERS_PATH, dmon_watcher_callback, nil, nil)
 	}
 
 	starting_scene := Scene_Id.Main_Menu

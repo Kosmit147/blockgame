@@ -32,7 +32,6 @@ INITIAL_CAMERA_PITCH_DEG :: 0
 Overworld :: struct {
 	camera: Camera,
 	world: World,
-	world_generator_params: World_Generator_Params,
 
 	highlighted_block_position: Maybe(Grid_World_Position),
 	picked_block: Block,
@@ -51,8 +50,6 @@ overworld_init :: proc(scene_data: rawptr) -> (ok := false) {
 		yaw = math.to_radians(cast(f32)INITIAL_CAMERA_YAW_DEG),
 		pitch = math.to_radians(cast(f32)INITIAL_CAMERA_PITCH_DEG),
 	}
-	overworld.world_generator_params = DEFAULT_WORLD_GENERATOR_PARAMS
-	set_world_generator_params(overworld.world_generator_params)
 	world_init(&overworld.world, DEFAULT_WORLD_LOAD_DISTANCE)
 
 	overworld.picked_block = .Bricks
@@ -172,7 +169,6 @@ overworld_render :: proc(scene_data: rawptr) {
 	renderer_render_line(&overworld.test_line)
 }
 
-@(private="file")
 overworld_debug_ui :: proc(overworld: ^Overworld, player_chunk_coordinate: Chunk_Coordinate) {
 	if !debug_overlay_enabled() do return
 
@@ -183,16 +179,12 @@ overworld_debug_ui :: proc(overworld: ^Overworld, player_chunk_coordinate: Chunk
 			overworld.world.load_distance = clamp(overworld.world.load_distance,
 												  UI_LOAD_DISTANCE_MIN,
 												  UI_LOAD_DISTANCE_MAX)
-			if imgui_input_i64("Seed", &overworld.world_generator_params.seed) {
-				set_world_generator_params(overworld.world_generator_params)
-			}
-			if imgui_drag_double("Smoothness",
-								 &overworld.world_generator_params.smoothness,
-								 v_speed = 0.001,
-								 v_min = 0.000001,
-								 v_max = 1) {
-				set_world_generator_params(overworld.world_generator_params)
-			}
+			imgui_input_i64("Seed", &g_world_generator_params.seed)
+			imgui_drag_double("Smoothness",
+							  &g_world_generator_params.smoothness,
+							  v_speed = 0.001,
+							  v_min = 0.000001,
+							  v_max = 1)
 			if imgui.Button("Regenerate") {
 				player_chunk := world_position_to_chunk_coordinate(overworld.camera.position)
 				world_regenerate(&overworld.world)
