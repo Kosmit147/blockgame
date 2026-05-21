@@ -8,6 +8,6 @@ Mat3 :: matrix[3, 3]f32
 Mat4 :: matrix[4, 4]f32
 
 Ray :: struct {
-	origin: Vec3,
-	direction: Vec3,
+  origin: Vec3,
+  direction: Vec3,
 }

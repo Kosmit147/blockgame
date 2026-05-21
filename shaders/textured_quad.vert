@@ -8,7 +8,7 @@ out vec2 UV;
 out vec4 Tint;
 
 void main() {
-	UV = in_uv;
-	Tint = in_tint;
-	gl_Position = vec4(in_position, 0.0, 1.0);
+  UV = in_uv;
+  Tint = in_tint;
+  gl_Position = vec4(in_position, 0.0, 1.0);
 }

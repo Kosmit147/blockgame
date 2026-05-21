@@ -6,166 +6,164 @@ import "core:log"
 import "core:strings"
 
 Shader_Id :: enum {
-	Block,
-	Flat,
-	Quad,
-	Textured_Quad,
-	Lines,
-	Postprocess,
+  Block,
+  Flat,
+  Quad,
+  Textured_Quad,
+  Lines,
+  Postprocess,
 }
 
 Texture_Id :: enum {
-	White,
-	Black,
-	Transparent,
-	Blocks,
-	Crosshair,
+  White,
+  Black,
+  Transparent,
+  Blocks,
+  Crosshair,
 }
 
 g_shaders: [Shader_Id]Shader
 g_textures: [Texture_Id]Texture
 
 init_resources :: proc() -> (ok := false) {
-	init_shaders() or_return
-	defer if !ok do deinit_shaders()
-	init_textures() or_return
-	defer if !ok do deinit_textures()
+  init_shaders() or_return
+  defer if !ok do deinit_shaders()
+  init_textures() or_return
+  defer if !ok do deinit_textures()
 
-	ok = true
-	return
+  ok = true
+  return
 }
 
 deinit_resources :: proc() {
-	deinit_shaders()
-	deinit_textures()
+  deinit_shaders()
+  deinit_textures()
 }
 
 @(require_results)
 get_shader :: proc(id: Shader_Id) -> Shader {
-	when ODIN_DEBUG { assert(g_shaders[id].id != gl.NONE) }
-	return g_shaders[id]
+  when ODIN_DEBUG { assert(g_shaders[id].id != gl.NONE) }
+  return g_shaders[id]
 }
 
 @(require_results)
 get_texture :: proc(id: Texture_Id) -> Texture {
-	when ODIN_DEBUG { assert(g_textures[id].id != gl.NONE) }
-	return g_textures[id]
+  when ODIN_DEBUG { assert(g_textures[id].id != gl.NONE) }
+  return g_textures[id]
 }
 
 init_shaders :: proc() -> (ok := false) {
-	defer if !ok do deinit_shaders()
-	for &shader, shader_id in g_shaders {
-		vertex_source, fragment_source := g_shader_sources_map[shader_id][0], g_shader_sources_map[shader_id][1]
-		shader = create_simple_shader(vertex_source, fragment_source) or_return
-	}
+  defer if !ok do deinit_shaders()
+  for &shader, shader_id in g_shaders {
+    vertex_source, fragment_source := g_shader_sources_map[shader_id][0], g_shader_sources_map[shader_id][1]
+    shader = create_simple_shader(vertex_source, fragment_source) or_return
+  }
 
-	ok = true
-	return
+  ok = true
+  return
 }
 
 deinit_shaders :: proc() {
-	for shader in g_shaders do destroy_shader(shader)
+  for shader in g_shaders do destroy_shader(shader)
 }
 
 init_textures :: proc() -> (ok := false) {
-	defer if !ok do deinit_textures()
-	for &texture, texture_id in g_textures {
-		texture_file_data := g_texture_data_map[texture_id]
-		texture_format := g_texture_internal_formats[texture_id]
-		texture = create_texture_from_aseprite_in_memory(texture_file_data,
-														 internal_format = texture_format) or_return
-	}
+  defer if !ok do deinit_textures()
+  for &texture, texture_id in g_textures {
+    texture_file_data := g_texture_data_map[texture_id]
+    texture_format := g_texture_internal_formats[texture_id]
+    texture = create_texture_from_aseprite_in_memory(texture_file_data, internal_format = texture_format) or_return
+  }
 
-	ok = true
-	return
+  ok = true
+  return
 }
 
 deinit_textures :: proc() {
-	for &texture in g_textures do destroy_texture(&texture)
+  for &texture in g_textures do destroy_texture(&texture)
 }
 
 when HOT_RELOAD {
-	g_dirty_shaders: bit_set[Shader_Id]
-	g_dirty_textures: bit_set[Texture_Id]
+  g_dirty_shaders: bit_set[Shader_Id]
+  g_dirty_textures: bit_set[Texture_Id]
 
-	// Keep in mind that this will be called from a separate tread.
-	request_resource_reload :: proc(path: string) {
-		if strings.starts_with(path, SHADERS_PATH) {
-			mark_shader_as_dirty(path)
-		} else if strings.starts_with(path, TEXTURES_PATH) {
-			mark_texture_as_dirty(path)
-		} else {
-			log.warnf("Hot reload - unrecognized resource path: %v", path)
-		}
-	}
+  // Keep in mind that this will be called from a separate tread.
+  request_resource_reload :: proc(path: string) {
+    if strings.starts_with(path, SHADERS_PATH) {
+      mark_shader_as_dirty(path)
+    } else if strings.starts_with(path, TEXTURES_PATH) {
+      mark_texture_as_dirty(path)
+    } else {
+      log.warnf("Hot reload - unrecognized resource path: %v", path)
+    }
+  }
 
-	hot_reload :: proc() {
-		any_shader_reloaded := false
-		for dirty_shader in g_dirty_shaders {
-			if reload_shader(dirty_shader) {
-				any_shader_reloaded = true
-				log.infof("Reloaded shader %v", dirty_shader)
-			} else {
-				log.errorf("Failed to reload shader %v", dirty_shader)
-			}
-		}
-		g_dirty_shaders = {}
+  hot_reload :: proc() {
+    any_shader_reloaded := false
+    for dirty_shader in g_dirty_shaders {
+      if reload_shader(dirty_shader) {
+        any_shader_reloaded = true
+        log.infof("Reloaded shader %v", dirty_shader)
+      } else {
+        log.errorf("Failed to reload shader %v", dirty_shader)
+      }
+    }
+    g_dirty_shaders = {}
 
-		for dirty_texture in g_dirty_textures {
-			if reload_texture(dirty_texture) {
-				log.infof("Reloaded texture %v", dirty_texture)
-			} else {
-				log.errorf("Failed to reload texture %v", dirty_texture)
-			}
-		}
-		g_dirty_textures = {}
+    for dirty_texture in g_dirty_textures {
+      if reload_texture(dirty_texture) {
+        log.infof("Reloaded texture %v", dirty_texture)
+      } else {
+        log.errorf("Failed to reload texture %v", dirty_texture)
+      }
+    }
+    g_dirty_textures = {}
 
-		if any_shader_reloaded do renderer_on_shader_reload()
-	}
+    if any_shader_reloaded do renderer_on_shader_reload()
+  }
 
-	mark_shader_as_dirty :: proc(file_path: string) {
-		for paths, shader_id in g_shader_file_paths_map {
-			for path in paths {
-				if path == file_path {
-					g_dirty_shaders += { shader_id }
-					return
-				}
-			}
-		}
-		log.warnf("Hot reload - unrecognized shader resource: %v", file_path)
-	}
+  mark_shader_as_dirty :: proc(file_path: string) {
+    for paths, shader_id in g_shader_file_paths_map {
+      for path in paths {
+        if path == file_path {
+          g_dirty_shaders += { shader_id }
+          return
+        }
+      }
+    }
+    log.warnf("Hot reload - unrecognized shader resource: %v", file_path)
+  }
 
-	mark_texture_as_dirty :: proc(file_path: string) {
-		for path, texture_id in g_texture_file_paths_map {
-			if path == file_path {
-				g_dirty_textures += { texture_id }
-				return
-			}
-		}
-		log.warnf("Hot reload - unrecognized texture resource: %v", file_path)
-	}
+  mark_texture_as_dirty :: proc(file_path: string) {
+    for path, texture_id in g_texture_file_paths_map {
+      if path == file_path {
+        g_dirty_textures += { texture_id }
+        return
+      }
+    }
+    log.warnf("Hot reload - unrecognized texture resource: %v", file_path)
+  }
 
-	reload_shader :: proc(id: Shader_Id) -> (ok := false) {
-		vertex_path, fragment_path := g_shader_file_paths_map[id][0], g_shader_file_paths_map[id][1]
-		reloaded_shader := create_simple_shader_from_files(vertex_path, fragment_path) or_return
-		destroy_shader(g_shaders[id])
-		g_shaders[id] = reloaded_shader
+  reload_shader :: proc(id: Shader_Id) -> (ok := false) {
+    vertex_path, fragment_path := g_shader_file_paths_map[id][0], g_shader_file_paths_map[id][1]
+    reloaded_shader := create_simple_shader_from_files(vertex_path, fragment_path) or_return
+    destroy_shader(g_shaders[id])
+    g_shaders[id] = reloaded_shader
 
-		ok = true
-		return
-	}
+    ok = true
+    return
+  }
 
-	reload_texture :: proc(id: Texture_Id) -> (ok := false) {
-		texture_path := g_texture_file_paths_map[id]
-		texture_format := g_texture_internal_formats[id]
-		reloaded_texture := create_texture_from_aseprite_file(texture_path,
-															  internal_format = texture_format) or_return
-		destroy_texture(&g_textures[id])
-		g_textures[id] = reloaded_texture
+  reload_texture :: proc(id: Texture_Id) -> (ok := false) {
+    texture_path := g_texture_file_paths_map[id]
+    texture_format := g_texture_internal_formats[id]
+    reloaded_texture := create_texture_from_aseprite_file(texture_path, internal_format = texture_format) or_return
+    destroy_texture(&g_textures[id])
+    g_textures[id] = reloaded_texture
 
-		ok = true
-		return
-	}
+    ok = true
+    return
+  }
 }
 
 SHADERS_PATH                       :: "shaders/"
@@ -191,49 +189,49 @@ CROSSHAIR_TEXTURE_PATH   :: "textures/crosshair.aseprite"
 
 @(rodata)
 g_shader_sources_map := [Shader_Id][2]string{
-	.Block = { #load(BLOCK_SHADER_VERTEX_PATH, string), #load(BLOCK_SHADER_FRAGMENT_PATH, string) },
-	.Flat = { #load(FLAT_SHADER_VERTEX_PATH, string), #load(FLAT_SHADER_FRAGMENT_PATH, string) },
-	.Quad = { #load(QUAD_SHADER_VERTEX_PATH, string), #load(QUAD_SHADER_FRAGMENT_PATH, string) },
-	.Textured_Quad = { #load(TEXTURED_QUAD_SHADER_VERTEX_PATH, string), #load(TEXTURED_QUAD_SHADER_FRAGMENT_PATH, string) },
-	.Lines = { #load(LINES_SHADER_VERTEX_PATH, string), #load(LINES_SHADER_FRAGMENT_PATH, string) },
-	.Postprocess = { #load(POSTPROCESS_SHADER_VERTEX_PATH, string), #load(POSTPROCESS_SHADER_FRAGMENT_PATH, string) },
+  .Block = { #load(BLOCK_SHADER_VERTEX_PATH, string), #load(BLOCK_SHADER_FRAGMENT_PATH, string) },
+  .Flat = { #load(FLAT_SHADER_VERTEX_PATH, string), #load(FLAT_SHADER_FRAGMENT_PATH, string) },
+  .Quad = { #load(QUAD_SHADER_VERTEX_PATH, string), #load(QUAD_SHADER_FRAGMENT_PATH, string) },
+  .Textured_Quad = { #load(TEXTURED_QUAD_SHADER_VERTEX_PATH, string), #load(TEXTURED_QUAD_SHADER_FRAGMENT_PATH, string) },
+  .Lines = { #load(LINES_SHADER_VERTEX_PATH, string), #load(LINES_SHADER_FRAGMENT_PATH, string) },
+  .Postprocess = { #load(POSTPROCESS_SHADER_VERTEX_PATH, string), #load(POSTPROCESS_SHADER_FRAGMENT_PATH, string) },
 }
 
 @(rodata)
 g_texture_data_map := [Texture_Id][]byte{
-	.White = #load(WHITE_TEXTURE_PATH),
-	.Black = #load(BLACK_TEXTURE_PATH),
-	.Transparent = #load(TRANSPARENT_TEXTURE_PATH),
-	.Blocks = #load(BLOCKS_TEXTURE_PATH),
-	.Crosshair = #load(CROSSHAIR_TEXTURE_PATH)
+  .White = #load(WHITE_TEXTURE_PATH),
+  .Black = #load(BLACK_TEXTURE_PATH),
+  .Transparent = #load(TRANSPARENT_TEXTURE_PATH),
+  .Blocks = #load(BLOCKS_TEXTURE_PATH),
+  .Crosshair = #load(CROSSHAIR_TEXTURE_PATH)
 }
 
 @(rodata)
 g_texture_internal_formats := [Texture_Id]u32{
-	.White = gl.RGBA8,
-	.Black = gl.RGBA8,
-	.Transparent = gl.RGBA8,
-	.Blocks = gl.SRGB8_ALPHA8,
-	.Crosshair = gl.SRGB8_ALPHA8,
+  .White = gl.RGBA8,
+  .Black = gl.RGBA8,
+  .Transparent = gl.RGBA8,
+  .Blocks = gl.SRGB8_ALPHA8,
+  .Crosshair = gl.SRGB8_ALPHA8,
 }
 
 when HOT_RELOAD {
-	@(rodata)
-	g_shader_file_paths_map := [Shader_Id][2]string{
-		.Block = { BLOCK_SHADER_VERTEX_PATH, BLOCK_SHADER_FRAGMENT_PATH },
-		.Flat = { FLAT_SHADER_VERTEX_PATH, FLAT_SHADER_FRAGMENT_PATH },
-		.Quad = { QUAD_SHADER_VERTEX_PATH, QUAD_SHADER_FRAGMENT_PATH },
-		.Textured_Quad = { TEXTURED_QUAD_SHADER_VERTEX_PATH, TEXTURED_QUAD_SHADER_FRAGMENT_PATH },
-		.Lines = { LINES_SHADER_VERTEX_PATH, LINES_SHADER_FRAGMENT_PATH },
-		.Postprocess = { POSTPROCESS_SHADER_VERTEX_PATH, POSTPROCESS_SHADER_FRAGMENT_PATH },
-	}
+  @(rodata)
+  g_shader_file_paths_map := [Shader_Id][2]string{
+    .Block = { BLOCK_SHADER_VERTEX_PATH, BLOCK_SHADER_FRAGMENT_PATH },
+    .Flat = { FLAT_SHADER_VERTEX_PATH, FLAT_SHADER_FRAGMENT_PATH },
+    .Quad = { QUAD_SHADER_VERTEX_PATH, QUAD_SHADER_FRAGMENT_PATH },
+    .Textured_Quad = { TEXTURED_QUAD_SHADER_VERTEX_PATH, TEXTURED_QUAD_SHADER_FRAGMENT_PATH },
+    .Lines = { LINES_SHADER_VERTEX_PATH, LINES_SHADER_FRAGMENT_PATH },
+    .Postprocess = { POSTPROCESS_SHADER_VERTEX_PATH, POSTPROCESS_SHADER_FRAGMENT_PATH },
+  }
 
-	@(rodata)
-	g_texture_file_paths_map := [Texture_Id]string{
-		.White = WHITE_TEXTURE_PATH,
-		.Black = BLACK_TEXTURE_PATH,
-		.Transparent = TRANSPARENT_TEXTURE_PATH,
-		.Blocks = BLOCKS_TEXTURE_PATH,
-		.Crosshair = CROSSHAIR_TEXTURE_PATH,
-	}
+  @(rodata)
+  g_texture_file_paths_map := [Texture_Id]string{
+    .White = WHITE_TEXTURE_PATH,
+    .Black = BLACK_TEXTURE_PATH,
+    .Transparent = TRANSPARENT_TEXTURE_PATH,
+    .Blocks = BLOCKS_TEXTURE_PATH,
+    .Crosshair = CROSSHAIR_TEXTURE_PATH,
+  }
 }

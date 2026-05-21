@@ -19,601 +19,601 @@ import "core:os"
 _ :: png
 
 gl_index :: proc($I: typeid) -> u32 {
-	when I == u8 {
-		return gl.UNSIGNED_BYTE
-	} else when I == u16 {
-		return gl.UNSIGNED_SHORT
-	} else when I == u32 {
-		return gl.UNSIGNED_INT
-	} else {
-		#panic("T cannot be used for indexing in OpenGL.")
-	}
+  when I == u8 {
+    return gl.UNSIGNED_BYTE
+  } else when I == u16 {
+    return gl.UNSIGNED_SHORT
+  } else when I == u32 {
+    return gl.UNSIGNED_INT
+  } else {
+    #panic("T cannot be used for indexing in OpenGL.")
+  }
 }
 
 gl_vertex_attribute :: proc(type_info: ^runtime.Type_Info) -> Vertex_Attribute {
-	type_info := runtime.type_info_base(type_info)
+  type_info := runtime.type_info_base(type_info)
 
-	if float_info, is_float := type_info.variant.(runtime.Type_Info_Float); is_float {
-		assert(type_info.size == size_of(f32), "only 32-bit floats are supported")
-		return .Float_1
-	}
+  if float_info, is_float := type_info.variant.(runtime.Type_Info_Float); is_float {
+    assert(type_info.size == size_of(f32), "only 32-bit floats are supported")
+    return .Float_1
+  }
 
-	if int_info, is_int := type_info.variant.(runtime.Type_Info_Integer); is_int {
-		assert(type_info.size == size_of(i32), "only 32-bit ints are supported")
-		return .Int_1 if int_info.signed else .Uint_1
-	}
+  if int_info, is_int := type_info.variant.(runtime.Type_Info_Integer); is_int {
+    assert(type_info.size == size_of(i32), "only 32-bit ints are supported")
+    return .Int_1 if int_info.signed else .Uint_1
+  }
 
-	if array_info, is_array := type_info.variant.(runtime.Type_Info_Array); is_array {
-		ASSERT_MESSAGE :: "only arrays of 32-bit floats are supported"
-		elem_info := runtime.type_info_base(array_info.elem)
-		assert(elem_info.size == size_of(f32), ASSERT_MESSAGE)
-		_, is_float := elem_info.variant.(runtime.Type_Info_Float)
-		assert(is_float, ASSERT_MESSAGE)
+  if array_info, is_array := type_info.variant.(runtime.Type_Info_Array); is_array {
+    ASSERT_MESSAGE :: "only arrays of 32-bit floats are supported"
+    elem_info := runtime.type_info_base(array_info.elem)
+    assert(elem_info.size == size_of(f32), ASSERT_MESSAGE)
+    _, is_float := elem_info.variant.(runtime.Type_Info_Float)
+    assert(is_float, ASSERT_MESSAGE)
 
-		switch array_info.count {
-		case 1: return .Float_1
-		case 2: return .Float_2
-		case 3: return .Float_3
-		case 4: return .Float_4
-		}
-	}
+    switch array_info.count {
+    case 1: return .Float_1
+    case 2: return .Float_2
+    case 3: return .Float_3
+    case 4: return .Float_4
+    }
+  }
 
-	assert(false, "unsupported type")
-	return nil
+  assert(false, "unsupported type")
+  return nil
 }
 
 gl_vertex :: proc($V: typeid) -> []Vertex_Attribute {
-	@(static) attributes: [intrinsics.type_struct_field_count(V)]Vertex_Attribute
-	field_types := reflect.struct_field_types(V)
-	for type, i in field_types do attributes[i] = gl_vertex_attribute(type)
-	return attributes[:]
+  @(static) attributes: [intrinsics.type_struct_field_count(V)]Vertex_Attribute
+  field_types := reflect.struct_field_types(V)
+  for type, i in field_types do attributes[i] = gl_vertex_attribute(type)
+  return attributes[:]
 }
 
 Framebuffer :: struct {
-	id: u32,
+  id: u32,
 }
 
 DEFAULT_FRAMEBUFFER :: 0
 
 create_framebuffer :: proc(framebuffer: ^Framebuffer) {
-	gl.CreateFramebuffers(1, &framebuffer.id)
+  gl.CreateFramebuffers(1, &framebuffer.id)
 }
 
 destroy_framebuffer :: proc(framebuffer: ^Framebuffer) {
-	gl.DeleteFramebuffers(1, &framebuffer.id)
+  gl.DeleteFramebuffers(1, &framebuffer.id)
 }
 
 framebuffer_is_complete :: proc(framebuffer: Framebuffer) -> bool {
-	return gl.CheckNamedFramebufferStatus(framebuffer.id, gl.FRAMEBUFFER) == gl.FRAMEBUFFER_COMPLETE
+  return gl.CheckNamedFramebufferStatus(framebuffer.id, gl.FRAMEBUFFER) == gl.FRAMEBUFFER_COMPLETE
 }
 
 bind_framebuffer :: proc(framebuffer: Framebuffer) {
-	gl.BindFramebuffer(gl.FRAMEBUFFER, framebuffer.id)
+  gl.BindFramebuffer(gl.FRAMEBUFFER, framebuffer.id)
 }
 
 bind_default_framebuffer :: proc() {
-	gl.BindFramebuffer(gl.FRAMEBUFFER, DEFAULT_FRAMEBUFFER)
+  gl.BindFramebuffer(gl.FRAMEBUFFER, DEFAULT_FRAMEBUFFER)
 }
 
 attach_renderbuffer :: proc(framebuffer: Framebuffer, renderbuffer: Renderbuffer, attachment: u32) {
-	gl.NamedFramebufferRenderbuffer(framebuffer = framebuffer.id,
-									attachment = attachment,
-									renderbuffertarget = gl.RENDERBUFFER,
-									renderbuffer = renderbuffer.id)
+  gl.NamedFramebufferRenderbuffer(framebuffer = framebuffer.id,
+                                  attachment = attachment,
+                                  renderbuffertarget = gl.RENDERBUFFER,
+                                  renderbuffer = renderbuffer.id)
 }
 
 attach_texture :: proc(framebuffer: Framebuffer, texture: Texture, attachment: u32) {
-	gl.NamedFramebufferTexture(framebuffer = framebuffer.id,
-							   attachment = attachment,
-							   texture = texture.id,
-							   level = 0)
+  gl.NamedFramebufferTexture(framebuffer = framebuffer.id,
+                             attachment = attachment,
+                             texture = texture.id,
+                             level = 0)
 }
 
 Renderbuffer :: struct {
-	id: u32,
-	width: i32,
-	height: i32,
+  id: u32,
+  width: i32,
+  height: i32,
 }
 
 create_renderbuffer :: proc(renderbuffer: ^Renderbuffer, width, height: i32, format: u32) {
-	gl.CreateRenderbuffers(1, &renderbuffer.id)
-	gl.NamedRenderbufferStorage(renderbuffer.id, format, width, height)
-	renderbuffer.width, renderbuffer.height = width, height
+  gl.CreateRenderbuffers(1, &renderbuffer.id)
+  gl.NamedRenderbufferStorage(renderbuffer.id, format, width, height)
+  renderbuffer.width, renderbuffer.height = width, height
 }
 
 destroy_renderbuffer :: proc(renderbuffer: ^Renderbuffer) {
-	gl.DeleteRenderbuffers(1, &renderbuffer.id)
+  gl.DeleteRenderbuffers(1, &renderbuffer.id)
 }
 
 Shader :: struct {
-	id: u32,
+  id: u32,
 }
 
 create_simple_shader :: proc(vertex_source, fragment_source: string) -> (shader: Shader, ok := false) {
-	vertex_shader := create_sub_shader(vertex_source, gl.VERTEX_SHADER) or_return
-	defer gl.DeleteShader(vertex_shader)
-	fragment_shader := create_sub_shader(fragment_source, gl.FRAGMENT_SHADER) or_return
-	defer gl.DeleteShader(fragment_shader)
+  vertex_shader := create_sub_shader(vertex_source, gl.VERTEX_SHADER) or_return
+  defer gl.DeleteShader(vertex_shader)
+  fragment_shader := create_sub_shader(fragment_source, gl.FRAGMENT_SHADER) or_return
+  defer gl.DeleteShader(fragment_shader)
 
-	shader.id = link_shader_program(vertex_shader, fragment_shader) or_return
-	ok = true
-	return
+  shader.id = link_shader_program(vertex_shader, fragment_shader) or_return
+  ok = true
+  return
 }
 
 create_simple_shader_from_files :: proc(vertex_path, fragment_path: string) -> (shader: Shader, ok := false) {
-	vertex_source, vertex_error := os.read_entire_file(vertex_path, context.temp_allocator)
-	if vertex_error != nil {
-		log.errorf("Failed to load vertex shader source from file `%v`: %v", vertex_path, vertex_error)
-		return
-	}
-	fragment_source, fragment_error := os.read_entire_file(fragment_path, context.temp_allocator)
-	if fragment_error != nil {
-		log.errorf("Failed to load fragment shader source from file `%v`: %v", fragment_path, fragment_error)
-		return
-	}
+  vertex_source, vertex_error := os.read_entire_file(vertex_path, context.temp_allocator)
+  if vertex_error != nil {
+    log.errorf("Failed to load vertex shader source from file `%v`: %v", vertex_path, vertex_error)
+    return
+  }
+  fragment_source, fragment_error := os.read_entire_file(fragment_path, context.temp_allocator)
+  if fragment_error != nil {
+    log.errorf("Failed to load fragment shader source from file `%v`: %v", fragment_path, fragment_error)
+    return
+  }
 
-	return create_simple_shader(string(vertex_source),
-								string(fragment_source))
+  return create_simple_shader(string(vertex_source),
+                              string(fragment_source))
 }
 
 destroy_shader :: proc(shader: Shader) {
-	gl.DeleteProgram(shader.id)
+  gl.DeleteProgram(shader.id)
 }
 
 use_shader_object :: proc(shader: Shader) {
-	gl.UseProgram(shader.id)
+  gl.UseProgram(shader.id)
 }
 
 use_shader :: proc(id: Shader_Id) {
-	use_shader_object(get_shader(id))
+  use_shader_object(get_shader(id))
 }
 
 create_sub_shader :: proc(shader_source: string, shader_type: u32) -> (shader_id: u32 = gl.NONE, ok := false) {
-	shader_type_string :: proc(type: u32) -> string {
-		switch type {
-		case gl.VERTEX_SHADER: return "vertex"
-		case gl.FRAGMENT_SHADER: return "fragment"
-		}
+  shader_type_string :: proc(type: u32) -> string {
+    switch type {
+    case gl.VERTEX_SHADER: return "vertex"
+    case gl.FRAGMENT_SHADER: return "fragment"
+    }
 
-		assert(false)
-		return "ERROR - unknown shader type"
-	}
+    assert(false)
+    return "ERROR - unknown shader type"
+  }
 
-	sources_array := [1]cstring{ cast(cstring)raw_data(shader_source) }
-	lengths_array := [1]i32{ cast(i32)len(shader_source) }
+  sources_array := [1]cstring{ cast(cstring)raw_data(shader_source) }
+  lengths_array := [1]i32{ cast(i32)len(shader_source) }
 
-	shader_id = gl.CreateShader(shader_type)
-	defer if !ok do gl.DeleteShader(shader_id)
-	gl.ShaderSource(shader_id, 1, raw_data(sources_array[:]), raw_data(lengths_array[:]))
+  shader_id = gl.CreateShader(shader_type)
+  defer if !ok do gl.DeleteShader(shader_id)
+  gl.ShaderSource(shader_id, 1, raw_data(sources_array[:]), raw_data(lengths_array[:]))
 
-	gl.CompileShader(shader_id)
-	is_compiled: i32
-	if gl.GetShaderiv(shader_id, gl.COMPILE_STATUS, &is_compiled); is_compiled == i32(gl.FALSE) {
-		info_log_length: i32
-		gl.GetShaderiv(shader_id, gl.INFO_LOG_LENGTH, &info_log_length)
-		info_log_buffer := make([]byte, info_log_length, context.temp_allocator)
-		gl.GetShaderInfoLog(shader_id, info_log_length, nil, raw_data(info_log_buffer))
-		info_log := string(info_log_buffer)
-		info_log = strings.trim_null(info_log)
+  gl.CompileShader(shader_id)
+  is_compiled: i32
+  if gl.GetShaderiv(shader_id, gl.COMPILE_STATUS, &is_compiled); is_compiled == i32(gl.FALSE) {
+    info_log_length: i32
+    gl.GetShaderiv(shader_id, gl.INFO_LOG_LENGTH, &info_log_length)
+    info_log_buffer := make([]byte, info_log_length, context.temp_allocator)
+    gl.GetShaderInfoLog(shader_id, info_log_length, nil, raw_data(info_log_buffer))
+    info_log := string(info_log_buffer)
+    info_log = strings.trim_null(info_log)
 
-		log.errorf("Failed to compile %v shader: %v", shader_type_string(shader_type), info_log)
-		return
-	}
+    log.errorf("Failed to compile %v shader: %v", shader_type_string(shader_type), info_log)
+    return
+  }
 
-	ok = true
-	return
+  ok = true
+  return
 }
 
 link_shader_program :: proc(vertex_shader, fragment_shader: u32) -> (program_id: u32 = gl.NONE, ok := false) {
-	program_id = gl.CreateProgram()
-	defer if !ok do gl.DeleteProgram(program_id)
+  program_id = gl.CreateProgram()
+  defer if !ok do gl.DeleteProgram(program_id)
 
-	gl.AttachShader(program_id, vertex_shader)
-	gl.AttachShader(program_id, fragment_shader)
+  gl.AttachShader(program_id, vertex_shader)
+  gl.AttachShader(program_id, fragment_shader)
 
-	gl.LinkProgram(program_id)
-	is_linked: i32
-	if gl.GetProgramiv(program_id, gl.LINK_STATUS, &is_linked); is_linked == i32(gl.FALSE) {
-		info_log_length: i32
-		gl.GetProgramiv(program_id, gl.INFO_LOG_LENGTH, &info_log_length)
-		info_log_buffer := make([]byte, info_log_length, context.temp_allocator)
-		gl.GetProgramInfoLog(program_id, info_log_length, nil, raw_data(info_log_buffer))
-		info_log := string(info_log_buffer)
-		info_log = strings.trim_null(info_log)
+  gl.LinkProgram(program_id)
+  is_linked: i32
+  if gl.GetProgramiv(program_id, gl.LINK_STATUS, &is_linked); is_linked == i32(gl.FALSE) {
+    info_log_length: i32
+    gl.GetProgramiv(program_id, gl.INFO_LOG_LENGTH, &info_log_length)
+    info_log_buffer := make([]byte, info_log_length, context.temp_allocator)
+    gl.GetProgramInfoLog(program_id, info_log_length, nil, raw_data(info_log_buffer))
+    info_log := string(info_log_buffer)
+    info_log = strings.trim_null(info_log)
 
-		log.errorf("Failed to link shader: %v", info_log)
-		return
-	}
+    log.errorf("Failed to link shader: %v", info_log)
+    return
+  }
 
-	gl.DetachShader(program_id, vertex_shader)
-	gl.DetachShader(program_id, fragment_shader)
+  gl.DetachShader(program_id, vertex_shader)
+  gl.DetachShader(program_id, fragment_shader)
 
-	ok = true
-	return
+  ok = true
+  return
 }
 
 Uniform :: struct($T: typeid) {
-	location: i32,
+  location: i32,
 }
 
 get_uniform :: proc(shader: Shader, uniform: cstring, $T: typeid) -> (Uniform(T), bool) #optional_ok {
-	location := gl.GetUniformLocation(shader.id, uniform)
-	when ODIN_DEBUG { if location == -1 do log.warnf("Uniform \"%v\" does not exist!", uniform) }
-	return Uniform(T) { location }, location != -1
+  location := gl.GetUniformLocation(shader.id, uniform)
+  when ODIN_DEBUG { if location == -1 do log.warnf("Uniform \"%v\" does not exist!", uniform) }
+  return Uniform(T) { location }, location != -1
 }
 
 set_uniform :: proc(shader: Shader_Id, uniform: Uniform($T), value: T) {
-	shader := get_shader(shader)
-	location := uniform.location
-	when ODIN_DEBUG { assert(location != -1) }
+  shader := get_shader(shader)
+  location := uniform.location
+  when ODIN_DEBUG { assert(location != -1) }
 
-	when T == i32 {
-		gl.ProgramUniform1i(shader.id, location, value)
-	} else when T == f32 {
-		gl.ProgramUniform1f(shader.id, location, value)
-	} else when T == Vec2 {
-		gl.ProgramUniform2f(shader.id, location, value.x, value.y)
-	} else when T == Vec3 {
-		gl.ProgramUniform3f(shader.id, location, value.x, value.y, value.z)
-	} else when T == Vec4 {
-		gl.ProgramUniform4f(shader.id, location, value.x, value.y, value.z, value.w)
-	} else when T == Mat4 {
-		value := value
-		gl.ProgramUniformMatrix4fv(shader.id, location, 1, false, raw_data(&value))
-	} else {
- 		#panic("Type T not implemented for set_shader_uniform.")
-	}
+  when T == i32 {
+    gl.ProgramUniform1i(shader.id, location, value)
+  } else when T == f32 {
+    gl.ProgramUniform1f(shader.id, location, value)
+  } else when T == Vec2 {
+    gl.ProgramUniform2f(shader.id, location, value.x, value.y)
+  } else when T == Vec3 {
+    gl.ProgramUniform3f(shader.id, location, value.x, value.y, value.z)
+  } else when T == Vec4 {
+    gl.ProgramUniform4f(shader.id, location, value.x, value.y, value.z, value.w)
+  } else when T == Mat4 {
+    value := value
+    gl.ProgramUniformMatrix4fv(shader.id, location, 1, false, raw_data(&value))
+  } else {
+    #panic("Type T not implemented for set_shader_uniform.")
+  }
 }
 
 Vertex_Array :: struct {
-	id: u32,
+  id: u32,
 }
 
 create_vertex_array :: proc(va: ^Vertex_Array) {
-	gl.CreateVertexArrays(1, &va.id)
+  gl.CreateVertexArrays(1, &va.id)
 }
 
 destroy_vertex_array :: proc(va: ^Vertex_Array) {
-	gl.DeleteVertexArrays(1, &va.id)
+  gl.DeleteVertexArrays(1, &va.id)
 }
 
 bind_vertex_array :: proc(va: Vertex_Array) {
-	gl.BindVertexArray(va.id)
+  gl.BindVertexArray(va.id)
 }
 
 Vertex_Attribute :: enum {
-	Float_1,
-	Float_2,
-	Float_3,
-	Float_4,
-	Uint_1,
-	Int_1,
+  Float_1,
+  Float_2,
+  Float_3,
+  Float_4,
+  Uint_1,
+  Int_1,
 }
 
 Vertex_Attribute_Description :: struct #all_or_none {
-	count: i32,
-	type: u32,
-	size: u32,
-	is_integer: bool,
+  count: i32,
+  type: u32,
+  size: u32,
+  is_integer: bool,
 }
 
 describe_vertex_attribute :: proc(attribute: Vertex_Attribute) -> Vertex_Attribute_Description {
-	switch attribute {
-	case .Float_1:
-		return { count = 1, type = gl.FLOAT, size = 1 * size_of(f32), is_integer = false }
-	case .Float_2:
-		return { count = 2, type = gl.FLOAT, size = 2 * size_of(f32), is_integer = false }
-	case .Float_3:
-		return { count = 3, type = gl.FLOAT, size = 3 * size_of(f32), is_integer = false }
-	case .Float_4:
-		return { count = 4, type = gl.FLOAT, size = 4 * size_of(f32), is_integer = false }
-	case .Uint_1:
-		return { count = 1, type = gl.UNSIGNED_INT, size = 1 * size_of(u32), is_integer = true }
-	case .Int_1:
-		return { count = 1, type = gl.INT, size = 1 * size_of(i32), is_integer = true }
-	case:
-		assert(false)
-		return {}
-	}
+  switch attribute {
+  case .Float_1:
+    return { count = 1, type = gl.FLOAT, size = 1 * size_of(f32), is_integer = false }
+  case .Float_2:
+    return { count = 2, type = gl.FLOAT, size = 2 * size_of(f32), is_integer = false }
+  case .Float_3:
+    return { count = 3, type = gl.FLOAT, size = 3 * size_of(f32), is_integer = false }
+  case .Float_4:
+    return { count = 4, type = gl.FLOAT, size = 4 * size_of(f32), is_integer = false }
+  case .Uint_1:
+    return { count = 1, type = gl.UNSIGNED_INT, size = 1 * size_of(u32), is_integer = true }
+  case .Int_1:
+    return { count = 1, type = gl.INT, size = 1 * size_of(i32), is_integer = true }
+  case:
+    assert(false)
+    return {}
+  }
 }
 
 VERTEX_BUFFER_BINDING_INDEX :: 0
 
 set_vertex_array_format :: proc(va: Vertex_Array, format: []Vertex_Attribute) {
-	offset: u32 = 0
-	for attribute, index in format {
-		description := describe_vertex_attribute(attribute)
-		gl.EnableVertexArrayAttrib(va.id, u32(index))
-		if description.is_integer {
-			gl.VertexArrayAttribIFormat(va.id,
-										u32(index),
-										description.count,
-										description.type,
-										offset)
-		} else {
-			gl.VertexArrayAttribFormat(va.id,
-									   u32(index),
-									   description.count,
-									   description.type,
-									   gl.FALSE,
-									   offset)
-		}
-		gl.VertexArrayAttribBinding(va.id, u32(index), VERTEX_BUFFER_BINDING_INDEX)
-		offset += description.size
-	}
+  offset: u32 = 0
+  for attribute, index in format {
+    description := describe_vertex_attribute(attribute)
+    gl.EnableVertexArrayAttrib(va.id, u32(index))
+    if description.is_integer {
+      gl.VertexArrayAttribIFormat(va.id,
+                                  u32(index),
+                                  description.count,
+                                  description.type,
+                                  offset)
+    } else {
+      gl.VertexArrayAttribFormat(va.id,
+                                 u32(index),
+                                 description.count,
+                                 description.type,
+                                 gl.FALSE,
+                                 offset)
+    }
+    gl.VertexArrayAttribBinding(va.id, u32(index), VERTEX_BUFFER_BINDING_INDEX)
+    offset += description.size
+  }
 }
 
 bind_vertex_buffer :: proc(va: Vertex_Array, buffer: Gl_Buffer, stride: i32) {
-	gl.VertexArrayVertexBuffer(va.id,
-							   bindingindex = VERTEX_BUFFER_BINDING_INDEX,
-							   buffer = buffer.id,
-							   offset = 0,
-							   stride = stride)
+  gl.VertexArrayVertexBuffer(va.id,
+                             bindingindex = VERTEX_BUFFER_BINDING_INDEX,
+                             buffer = buffer.id,
+                             offset = 0,
+                             stride = stride)
 }
 
 bind_index_buffer :: proc(va: Vertex_Array, buffer: Gl_Buffer) {
-	gl.VertexArrayElementBuffer(va.id,
-								buffer = buffer.id)
+  gl.VertexArrayElementBuffer(va.id,
+                              buffer = buffer.id)
 }
 
 // Buffers can be either static or dynamic.
 // Static buffers have a fixed size.
 // Dynamic buffers have a dynamic size.
 Gl_Buffer :: struct {
-	id: u32,
-	size: int,
+  id: u32,
+  size: int,
 }
 
 create_static_gl_buffer :: proc(buffer: ^Gl_Buffer, size: int) {
-	gl.CreateBuffers(1, &buffer.id)
-	gl.NamedBufferStorage(buffer.id, size, nil, gl.DYNAMIC_STORAGE_BIT)
-	buffer.size = size
+  gl.CreateBuffers(1, &buffer.id)
+  gl.NamedBufferStorage(buffer.id, size, nil, gl.DYNAMIC_STORAGE_BIT)
+  buffer.size = size
 }
 
 create_static_gl_buffer_with_data :: proc(buffer: ^Gl_Buffer, data: []byte) {
-	gl.CreateBuffers(1, &buffer.id)
-	data_size := slice.size(data)
-	gl.NamedBufferStorage(buffer.id, data_size, raw_data(data), gl.DYNAMIC_STORAGE_BIT)
-	buffer.size = data_size
+  gl.CreateBuffers(1, &buffer.id)
+  data_size := slice.size(data)
+  gl.NamedBufferStorage(buffer.id, data_size, raw_data(data), gl.DYNAMIC_STORAGE_BIT)
+  buffer.size = data_size
 }
 
 upload_static_gl_buffer_data :: proc(buffer: Gl_Buffer, data: []byte, offset := 0) {
-	data_size := slice.size(data)
-	assert(offset + data_size <= buffer.size)
-	gl.NamedBufferSubData(buffer.id, offset, data_size, raw_data(data))
+  data_size := slice.size(data)
+  assert(offset + data_size <= buffer.size)
+  gl.NamedBufferSubData(buffer.id, offset, data_size, raw_data(data))
 }
 
 create_dynamic_gl_buffer :: proc(buffer: ^Gl_Buffer, size := 0, usage: u32 = gl.DYNAMIC_DRAW) {
-	gl.CreateBuffers(1, &buffer.id)
-	gl.NamedBufferData(buffer.id, size, nil, usage)
-	buffer.size = size
+  gl.CreateBuffers(1, &buffer.id)
+  gl.NamedBufferData(buffer.id, size, nil, usage)
+  buffer.size = size
 }
 
 create_dynamic_gl_buffer_with_data :: proc(buffer: ^Gl_Buffer, data: []byte, usage: u32 = gl.DYNAMIC_DRAW) {
-	gl.CreateBuffers(1, &buffer.id)
-	data_size := slice.size(data)
-	gl.NamedBufferData(buffer.id, data_size, raw_data(data), usage)
-	buffer.size = data_size
+  gl.CreateBuffers(1, &buffer.id)
+  data_size := slice.size(data)
+  gl.NamedBufferData(buffer.id, data_size, raw_data(data), usage)
+  buffer.size = data_size
 }
 
 upload_dynamic_gl_buffer_data :: proc(buffer: ^Gl_Buffer, data: []byte, usage: u32 = gl.DYNAMIC_DRAW) {
-	data_size := slice.size(data)
-	reserve_dynamic_gl_buffer_size(buffer, data_size, usage)
-	gl.NamedBufferSubData(buffer.id, 0, data_size, raw_data(data))
+  data_size := slice.size(data)
+  reserve_dynamic_gl_buffer_size(buffer, data_size, usage)
+  gl.NamedBufferSubData(buffer.id, 0, data_size, raw_data(data))
 }
 
 reserve_dynamic_gl_buffer_size :: proc(buffer: ^Gl_Buffer, min_size: int, usage: u32 = gl.DYNAMIC_DRAW) {
-	// We can't just create a new buffer and copy the old data into it, because we want the id of the buffer to
-	// remain the same. So we copy the data into a temporary buffer, initialize the new data store for the buffer
-	// and copy over the data from the temporary buffer back into the old buffer.
+  // We can't just create a new buffer and copy the old data into it, because we want the id of the buffer to
+  // remain the same. So we copy the data into a temporary buffer, initialize the new data store for the buffer
+  // and copy over the data from the temporary buffer back into the old buffer.
 
-	if buffer.size >= min_size do return
+  if buffer.size >= min_size do return
 
-	new_size := max(buffer.size + buffer.size / 2, min_size)
+  new_size := max(buffer.size + buffer.size / 2, min_size)
 
-	if buffer.size == 0 {
-		// No need to do any copying.
-		gl.NamedBufferData(buffer.id, new_size, nil, usage)
-		buffer.size = new_size
-		return
-	}
+  if buffer.size == 0 {
+    // No need to do any copying.
+    gl.NamedBufferData(buffer.id, new_size, nil, usage)
+    buffer.size = new_size
+    return
+  }
 
-	temp_buffer: Gl_Buffer
-	create_static_gl_buffer(&temp_buffer, buffer.size)
-	defer destroy_gl_buffer(&temp_buffer)
+  temp_buffer: Gl_Buffer
+  create_static_gl_buffer(&temp_buffer, buffer.size)
+  defer destroy_gl_buffer(&temp_buffer)
 
-	gl.CopyNamedBufferSubData(readBuffer = buffer.id,
-							  writeBuffer = temp_buffer.id,
-							  readOffset = 0,
-							  writeOffset = 0,
-							  size = buffer.size)
+  gl.CopyNamedBufferSubData(readBuffer = buffer.id,
+                            writeBuffer = temp_buffer.id,
+                            readOffset = 0,
+                            writeOffset = 0,
+                            size = buffer.size)
 
-	gl.NamedBufferData(buffer.id, new_size, nil, usage)
+  gl.NamedBufferData(buffer.id, new_size, nil, usage)
 
-	gl.CopyNamedBufferSubData(readBuffer = temp_buffer.id,
-							  writeBuffer = buffer.id,
-							  readOffset = 0,
-							  writeOffset = 0,
-							  size = buffer.size)
+  gl.CopyNamedBufferSubData(readBuffer = temp_buffer.id,
+                            writeBuffer = buffer.id,
+                            readOffset = 0,
+                            writeOffset = 0,
+                            size = buffer.size)
 
-	buffer.size = new_size
+  buffer.size = new_size
 }
 
 destroy_gl_buffer :: proc(buffer: ^Gl_Buffer) {
-	gl.DeleteBuffers(1, &buffer.id)
+  gl.DeleteBuffers(1, &buffer.id)
 }
 
 bind_uniform_buffer :: proc(buffer: Gl_Buffer, binding_point: u32) {
-	gl.BindBufferBase(gl.UNIFORM_BUFFER, binding_point, buffer.id)
+  gl.BindBufferBase(gl.UNIFORM_BUFFER, binding_point, buffer.id)
 }
 
 Texture :: struct {
-	id: u32,
-	width: u32,
-	height: u32,
+  id: u32,
+  width: u32,
+  height: u32,
 }
 
 Texture_Parameters :: struct {
-	wrap_s: i32,
-	wrap_t: i32,
-	min_filter: i32,
-	mag_filter: i32,
-	border_color: Vec4,
+  wrap_s: i32,
+  wrap_t: i32,
+  min_filter: i32,
+  mag_filter: i32,
+  border_color: Vec4,
 }
 
 DEFAULT_TEXTURE_PARAMETERS :: Texture_Parameters {
-	wrap_s = gl.CLAMP_TO_EDGE,
-	wrap_t = gl.CLAMP_TO_EDGE,
-	min_filter = gl.NEAREST,
-	mag_filter = gl.NEAREST,
-	border_color = TRANSPARENT,
+  wrap_s = gl.CLAMP_TO_EDGE,
+  wrap_t = gl.CLAMP_TO_EDGE,
+  min_filter = gl.NEAREST,
+  mag_filter = gl.NEAREST,
+  border_color = TRANSPARENT,
 }
 
 create_texture :: proc(width, height: u32,
-					   internal_format: u32 = gl.RGBA8,
-					   params := DEFAULT_TEXTURE_PARAMETERS) -> (texture: Texture) {
-	gl.CreateTextures(gl.TEXTURE_2D, 1, &texture.id)
-	set_texture_parameters(texture, params)
-	gl.TextureStorage2D(texture.id,
-						levels = 1,
-						internalformat = internal_format,
-						width = i32(width),
-						height = i32(height))
+                       internal_format: u32 = gl.RGBA8,
+                       params := DEFAULT_TEXTURE_PARAMETERS) -> (texture: Texture) {
+  gl.CreateTextures(gl.TEXTURE_2D, 1, &texture.id)
+  set_texture_parameters(texture, params)
+  gl.TextureStorage2D(texture.id,
+                      levels = 1,
+                      internalformat = internal_format,
+                      width = i32(width),
+                      height = i32(height))
 
-	texture.width, texture.height = width, height
-	return
+  texture.width, texture.height = width, height
+  return
 }
 
 create_texture_from_pixels :: proc(width, height: u32,
-								   channels: int,
-								   pixels: []byte,
-								   internal_format: u32 = gl.RGBA8,
-								   params := DEFAULT_TEXTURE_PARAMETERS) -> (texture: Texture) {
-	assert(slice.size(pixels) == int(width) * int(height) * channels * size_of(byte))
-	texture = create_texture(width, height, internal_format, params)
-	gl.TextureSubImage2D(texture.id,
-						 level = 0,
-						 xoffset = 0,
-						 yoffset = 0,
-						 width = i32(width),
-						 height = i32(height),
-						 format = gl_texture_format_from_channels(channels),
-						 type = gl.UNSIGNED_BYTE,
-						 pixels = raw_data(pixels))
-	return
+                                   channels: int,
+                                   pixels: []byte,
+                                   internal_format: u32 = gl.RGBA8,
+                                   params := DEFAULT_TEXTURE_PARAMETERS) -> (texture: Texture) {
+  assert(slice.size(pixels) == int(width) * int(height) * channels * size_of(byte))
+  texture = create_texture(width, height, internal_format, params)
+  gl.TextureSubImage2D(texture.id,
+                       level = 0,
+                       xoffset = 0,
+                       yoffset = 0,
+                       width = i32(width),
+                       height = i32(height),
+                       format = gl_texture_format_from_channels(channels),
+                       type = gl.UNSIGNED_BYTE,
+                       pixels = raw_data(pixels))
+  return
 }
 
 create_texture_from_png_in_memory :: proc(png_file_data: []byte,
-										  internal_format: u32 = gl.RGBA8,
-										  params := DEFAULT_TEXTURE_PARAMETERS) -> (texture: Texture, ok := false) {
-	img, error := image.load(png_file_data, allocator = context.temp_allocator)
-	if error != nil {
-		log.errorf("Failed to load image from png file in memory: %v", error)
-		return
-	}
-	defer image.destroy(img, context.temp_allocator)
+                                          internal_format: u32 = gl.RGBA8,
+                                          params := DEFAULT_TEXTURE_PARAMETERS) -> (texture: Texture, ok := false) {
+  img, error := image.load(png_file_data, allocator = context.temp_allocator)
+  if error != nil {
+    log.errorf("Failed to load image from png file in memory: %v", error)
+    return
+  }
+  defer image.destroy(img, context.temp_allocator)
 
-	texture = create_texture_from_pixels(u32(img.width),
-										 u32(img.height),
-										 img.channels,
-										 bytes.buffer_to_bytes(&img.pixels),
-										 internal_format,
-										 params)
-	ok = true
-	return
+  texture = create_texture_from_pixels(u32(img.width),
+                                       u32(img.height),
+                                       img.channels,
+                                       bytes.buffer_to_bytes(&img.pixels),
+                                       internal_format,
+                                       params)
+  ok = true
+  return
 }
 
 create_texture_from_aseprite_in_memory :: proc(aseprite_file_data: []byte,
-											   internal_format: u32 = gl.RGBA8,
-											   params := DEFAULT_TEXTURE_PARAMETERS) -> (texture: Texture, ok := false) {
-	document: ase.Document
-	defer ase.destroy_doc(&document)
-	unmarshal_error := ase.unmarshal(&document, aseprite_file_data, context.temp_allocator)
-	if unmarshal_error != nil {
-		log.errorf("Failed to unmarshal aseprite file in memory: %v", unmarshal_error)
-		return
-	}
-	image, image_error := ase_utils.get_image(&document, alloc = context.temp_allocator)
-	if image_error != nil {
-		log.errorf("Failed to get aseprite image: %v", image_error)
-		return
-	}
-	defer ase_utils.destroy(image, context.temp_allocator)
+                                               internal_format: u32 = gl.RGBA8,
+                                               params := DEFAULT_TEXTURE_PARAMETERS) -> (texture: Texture, ok := false) {
+  document: ase.Document
+  defer ase.destroy_doc(&document)
+  unmarshal_error := ase.unmarshal(&document, aseprite_file_data, context.temp_allocator)
+  if unmarshal_error != nil {
+    log.errorf("Failed to unmarshal aseprite file in memory: %v", unmarshal_error)
+    return
+  }
+  image, image_error := ase_utils.get_image(&document, alloc = context.temp_allocator)
+  if image_error != nil {
+    log.errorf("Failed to get aseprite image: %v", image_error)
+    return
+  }
+  defer ase_utils.destroy(image, context.temp_allocator)
 
-	texture = create_texture_from_pixels(u32(image.width),
-										 u32(image.height),
-										 channels_from_aseprite_bpp(image.bpp),
-										 image.data,
-										 internal_format,
-										 params)
-	ok = true
-	return
+  texture = create_texture_from_pixels(u32(image.width),
+                                       u32(image.height),
+                                       channels_from_aseprite_bpp(image.bpp),
+                                       image.data,
+                                       internal_format,
+                                       params)
+  ok = true
+  return
 }
 
 create_texture_from_png_file :: proc(path: string,
-									 internal_format: u32 = gl.RGBA8,
-									 params := DEFAULT_TEXTURE_PARAMETERS) -> (texture: Texture, ok := false) {
-	file_data, read_file_error := os.read_entire_file(path, context.temp_allocator)
-	if read_file_error != nil {
-		log.errorf("Failed to read png texture file `%v`: %v", path, read_file_error)
-		return
-	}
-	assert(strings.to_lower(os.ext(path), context.temp_allocator) == ".png", "expected a png file")
-	return create_texture_from_png_in_memory(file_data, internal_format, params)
+                                     internal_format: u32 = gl.RGBA8,
+                                     params := DEFAULT_TEXTURE_PARAMETERS) -> (texture: Texture, ok := false) {
+  file_data, read_file_error := os.read_entire_file(path, context.temp_allocator)
+  if read_file_error != nil {
+    log.errorf("Failed to read png texture file `%v`: %v", path, read_file_error)
+    return
+  }
+  assert(strings.to_lower(os.ext(path), context.temp_allocator) == ".png", "expected a png file")
+  return create_texture_from_png_in_memory(file_data, internal_format, params)
 }
 
 create_texture_from_aseprite_file :: proc(path: string,
-										  internal_format: u32 = gl.RGBA8,
-										  params := DEFAULT_TEXTURE_PARAMETERS) -> (texture: Texture, ok := false) {
-	file_data, read_file_error := os.read_entire_file(path, context.temp_allocator)
-	if read_file_error != nil {
-		log.errorf("Failed to read aseprite texture file `%v`: %v", path, read_file_error)
-		return
-	}
-	assert(strings.to_lower(os.ext(path), context.temp_allocator) == ".aseprite", "expected an aseprite file")
-	return create_texture_from_aseprite_in_memory(file_data, internal_format, params)
+                                          internal_format: u32 = gl.RGBA8,
+                                          params := DEFAULT_TEXTURE_PARAMETERS) -> (texture: Texture, ok := false) {
+  file_data, read_file_error := os.read_entire_file(path, context.temp_allocator)
+  if read_file_error != nil {
+    log.errorf("Failed to read aseprite texture file `%v`: %v", path, read_file_error)
+    return
+  }
+  assert(strings.to_lower(os.ext(path), context.temp_allocator) == ".aseprite", "expected an aseprite file")
+  return create_texture_from_aseprite_in_memory(file_data, internal_format, params)
 }
 
 destroy_texture :: proc(texture: ^Texture) {
-	gl.DeleteTextures(1, &texture.id)
+  gl.DeleteTextures(1, &texture.id)
 }
 
 bind_texture_object :: proc(texture: Texture, slot: u32) {
-	gl.BindTextureUnit(slot, texture.id)
+  gl.BindTextureUnit(slot, texture.id)
 }
 
 bind_texture :: proc(id: Texture_Id, slot: u32) {
-	bind_texture_object(get_texture(id), slot)
+  bind_texture_object(get_texture(id), slot)
 }
 
 set_texture_parameters :: proc(texture: Texture, params: Texture_Parameters) {
-	gl.TextureParameteri(texture.id, gl.TEXTURE_WRAP_S, params.wrap_s)
-	gl.TextureParameteri(texture.id, gl.TEXTURE_WRAP_T, params.wrap_t)
-	gl.TextureParameteri(texture.id, gl.TEXTURE_MIN_FILTER, params.min_filter)
-	gl.TextureParameteri(texture.id, gl.TEXTURE_MAG_FILTER, params.mag_filter)
-	border_color := params.border_color
-	gl.TextureParameterfv(texture.id, gl.TEXTURE_BORDER_COLOR, raw_data(&border_color))
+  gl.TextureParameteri(texture.id, gl.TEXTURE_WRAP_S, params.wrap_s)
+  gl.TextureParameteri(texture.id, gl.TEXTURE_WRAP_T, params.wrap_t)
+  gl.TextureParameteri(texture.id, gl.TEXTURE_MIN_FILTER, params.min_filter)
+  gl.TextureParameteri(texture.id, gl.TEXTURE_MAG_FILTER, params.mag_filter)
+  border_color := params.border_color
+  gl.TextureParameterfv(texture.id, gl.TEXTURE_BORDER_COLOR, raw_data(&border_color))
 }
 
 gl_texture_format_from_channels :: proc(#any_int channels: int) -> u32 {
-	switch channels {
-	case 1: return gl.RED
-	case 2: return gl.RG
-	case 3: return gl.RGB
-	case 4: return gl.RGBA
-	}
+  switch channels {
+  case 1: return gl.RED
+  case 2: return gl.RG
+  case 3: return gl.RGB
+  case 4: return gl.RGBA
+  }
 
-	assert(false)
-	return gl.NONE
+  assert(false)
+  return gl.NONE
 }
 
 channels_from_aseprite_bpp :: proc(depth: ase_utils.Pixel_Depth) -> int {
-	switch depth {
-	case .Indexed:   return 1
-	case .Grayscale: return 2
-	case .RGBA:      return 4
-	}
+  switch depth {
+  case .Indexed:   return 1
+  case .Grayscale: return 2
+  case .RGBA:      return 4
+  }
 
-	assert(false)
-	return 0
+  assert(false)
+  return 0
 }
