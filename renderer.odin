@@ -36,7 +36,7 @@ LIGHT_DATA_UNIFORM_BUFFER_BINDING_POINT :: 1
 Renderer :: struct {
   framebuffer: Framebuffer,
   color_texture: Texture,
-  depth_stencil_renderbuffer: Renderbuffer,
+  depth_renderbuffer: Renderbuffer,
   postprocess_vertex_array: Vertex_Array,
   gamma: f32,
   postprocess_shader_gamma_uniform: Uniform(f32),
@@ -138,12 +138,12 @@ renderer_init_framebuffer :: proc(size: [2]i32) -> (ok := false) {
   defer if !ok do destroy_texture(&g_renderer.color_texture)
   attach_texture(g_renderer.framebuffer, g_renderer.color_texture, gl.COLOR_ATTACHMENT0)
 
-  create_renderbuffer(renderbuffer = &g_renderer.depth_stencil_renderbuffer,
+  create_renderbuffer(renderbuffer = &g_renderer.depth_renderbuffer,
                       width = size.x,
                       height = size.y,
                       format = gl.DEPTH24_STENCIL8)
-  defer if !ok do destroy_renderbuffer(&g_renderer.depth_stencil_renderbuffer)
-  attach_renderbuffer(g_renderer.framebuffer, g_renderer.depth_stencil_renderbuffer, gl.DEPTH_STENCIL_ATTACHMENT)
+  defer if !ok do destroy_renderbuffer(&g_renderer.depth_renderbuffer)
+  attach_renderbuffer(g_renderer.framebuffer, g_renderer.depth_renderbuffer, gl.DEPTH_STENCIL_ATTACHMENT)
 
   if !framebuffer_is_complete(g_renderer.framebuffer) {
     log.fatal("Main framebuffer is not complete.")
@@ -157,7 +157,7 @@ renderer_init_framebuffer :: proc(size: [2]i32) -> (ok := false) {
 }
 
 renderer_deinit_framebuffer :: proc() {
-  destroy_renderbuffer(&g_renderer.depth_stencil_renderbuffer)
+  destroy_renderbuffer(&g_renderer.depth_renderbuffer)
   destroy_texture(&g_renderer.color_texture)
   destroy_framebuffer(&g_renderer.framebuffer)
 }
@@ -258,14 +258,6 @@ renderer_end_frame :: proc() {
   renderer_2d_render()
 
   bind_default_framebuffer()
-
-  when ODIN_DEBUG {
-    framebuffer_size := window_framebuffer_size()
-    assert(g_renderer.color_texture.width == u32(framebuffer_size.x))
-    assert(g_renderer.color_texture.height == u32(framebuffer_size.y))
-    assert(g_renderer.depth_stencil_renderbuffer.width == framebuffer_size.x)
-    assert(g_renderer.depth_stencil_renderbuffer.height == framebuffer_size.y)
-  }
 
   gl.Disable(gl.BLEND)
   use_shader(.Postprocess)
