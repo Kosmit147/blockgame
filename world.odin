@@ -440,6 +440,7 @@ Block :: enum u8 {
   Grass,
   Bricks,
   Sand,
+  Iron_Ore,
   Snow,
 }
 
@@ -725,8 +726,9 @@ map_block_uv_to_atlas :: proc(uv: Vec2, block: Block, block_facing: World_Direct
     case .Minus_Y:     atlas_rect_origin = Vec2{ 0.1, 0.0 }
     case:              atlas_rect_origin = Vec2{ 0.3, 0.0 }
     }
-  case .Bricks:  atlas_rect_origin = Vec2{ 0.4, 0.0 }
-  case .Sand:    atlas_rect_origin = Vec2{ 0.5, 0.0 }
+  case .Bricks:    atlas_rect_origin = Vec2{ 0.4, 0.0 }
+  case .Sand:      atlas_rect_origin = Vec2{ 0.5, 0.0 }
+  case .Iron_Ore:  atlas_rect_origin = Vec2{ 0.0, 0.1 }
   case .Snow:
     #partial switch block_facing {
     case .Plus_Y:      atlas_rect_origin = Vec2{ 0.2, 0.1 }

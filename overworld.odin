@@ -237,6 +237,9 @@ overworld_debug_ui :: proc(overworld: ^Overworld, player_chunk_coordinate: Chunk
       if imgui.InputFloat("Max Height", &g_world_generator_params.max_height) {
         g_world_generator_params.max_height = clamp(g_world_generator_params.max_height, 1, f32(CHUNK_SIZE.y))
       }
+      if imgui.InputFloat("Iron Ore Chance", &g_world_generator_params.iron_ore_chance) {
+        g_world_generator_params.iron_ore_chance = clamp(g_world_generator_params.iron_ore_chance, 0, 1)
+      }
       if imgui.Button("Regenerate") {
         player_chunk := world_position_to_chunk_coordinate(overworld.camera.position)
         world_regenerate(&overworld.world)

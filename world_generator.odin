@@ -5,6 +5,7 @@ import "base:runtime"
 import "core:math"
 import "core:math/noise"
 import "core:math/linalg"
+import "core:math/rand"
 
 World_Generator_Params :: struct {
   seed: i64,
@@ -20,6 +21,7 @@ World_Generator_Params :: struct {
   biome_smoothness: f64,
   min_height: f32,
   max_height: f32,
+  iron_ore_chance: f32,
 }
 
 DEFAULT_WORLD_GENERATOR_PARAMS :: World_Generator_Params {
@@ -36,6 +38,7 @@ DEFAULT_WORLD_GENERATOR_PARAMS :: World_Generator_Params {
   biome_smoothness = 0.001,
   min_height = f32(min(40, CHUNK_SIZE.y)),
   max_height = f32(max(CHUNK_SIZE.y - 10, 0)),
+  iron_ore_chance = 0.01,
 }
 
 g_world_generator_params := DEFAULT_WORLD_GENERATOR_PARAMS
@@ -126,7 +129,13 @@ generator_generate_chunk_blocks :: proc(
           world_coordinate := [3]i32{ world_x, block_y, world_z }
           cave := generator_cheese_cave(world_coordinate) || generator_spaghetti_cave(world_coordinate)
           if cave && block_y != 0 do continue
-          get_chunk_block(blocks, { block_x, block_y, block_z })^ = layer.block
+          block_to_place := layer.block
+          if layer.block == .Stone {
+            if rand.float32() < g_world_generator_params.iron_ore_chance {
+              block_to_place = .Iron_Ore
+            }
+          }
+          get_chunk_block(blocks, { block_x, block_y, block_z })^ = block_to_place
         }
       }
     }
