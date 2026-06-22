@@ -189,6 +189,27 @@ overworld_debug_ui :: proc(overworld: ^Overworld, player_chunk_coordinate: Chunk
         v_min = 0.1,
         v_max = 100,
       )
+      imgui_drag_double(
+        "Cheese Cave Smoothness",
+        &g_world_generator_params.cheese_cave_smoothness,
+        v_speed = 0.001,
+        v_min = 0.000001,
+        v_max = 1,
+      )
+      imgui.DragFloat(
+        "Cheese Cave Threshold",
+        &g_world_generator_params.cheese_cave_threshold,
+        v_speed = 0.001,
+        v_min = -1,
+        v_max = 1,
+      )
+      imgui.DragFloat(
+        "Cheese Cave Exponent",
+        &g_world_generator_params.cheese_cave_exponent,
+        v_speed = 0.01,
+        v_min = 0.1,
+        v_max = 100,
+      )
       if imgui.InputInt("Min Height", &g_world_generator_params.min_height) {
         g_world_generator_params.min_height = clamp(g_world_generator_params.min_height, 0, CHUNK_SIZE.y)
       }

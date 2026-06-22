@@ -12,6 +12,9 @@ World_Generator_Params :: struct {
   spaghetti_cave_smoothness: f64,
   spaghetti_cave_threshold: f32,
   spaghetti_cave_exponent: f32,
+  cheese_cave_smoothness: f64,
+  cheese_cave_threshold: f32,
+  cheese_cave_exponent: f32,
   min_height: i32,
 }
 
@@ -21,6 +24,9 @@ DEFAULT_WORLD_GENERATOR_PARAMS :: World_Generator_Params {
   spaghetti_cave_smoothness = 0.017,
   spaghetti_cave_threshold = 0.133,
   spaghetti_cave_exponent = 1.14,
+  cheese_cave_smoothness = 0.03,
+  cheese_cave_threshold = 0.87,
+  cheese_cave_exponent = 1.00,
   min_height = 1,
 }
 
@@ -66,7 +72,9 @@ generator_generate_chunk_blocks :: proc(
         layer_start := max(height + layer.offset, 0)
         layer_end := min(layer_start + layer.span, height)
         for block_y in layer_start..<layer_end {
-          if generator_spaghetti_cave({ world_x, block_y, world_z }) && block_y != 0 do continue
+          world_coordinate := [3]i32{ world_x, block_y, world_z }
+          cave := generator_cheese_cave(world_coordinate) || generator_spaghetti_cave(world_coordinate)
+          if cave && block_y != 0 do continue
           get_chunk_block(blocks, { block_x, block_y, block_z })^ = layer.block
         }
       }
@@ -83,6 +91,14 @@ generator_height :: proc(coordinate: [2]i32) -> i32 {
   return clamp(height, 0, CHUNK_SIZE.y)
 }
 
+generator_cheese_cave :: proc(coordinate: [3]i32) -> bool {
+  noise_coordinate := cast(noise.Vec3)coordinate * g_world_generator_params.cheese_cave_smoothness
+  exponent := g_world_generator_params.cheese_cave_exponent
+  noise := math.pow(cheese_cave_noise(g_world_generator_params.seed, noise_coordinate), exponent)
+  threshold := g_world_generator_params.cheese_cave_threshold
+  return noise > threshold
+}
+
 generator_spaghetti_cave :: proc(coordinate: [3]i32) -> bool {
   noise_coordinate := cast(noise.Vec3)coordinate * g_world_generator_params.spaghetti_cave_smoothness
   exponent := g_world_generator_params.spaghetti_cave_exponent
@@ -95,6 +111,10 @@ generator_spaghetti_cave :: proc(coordinate: [3]i32) -> bool {
 
 height_noise :: proc(seed: i64, coordinate: [2]f64) -> f32 {
   return noise.noise_2d(seed, coordinate)
+}
+
+cheese_cave_noise :: proc(seed: i64, coordinate: [3]f64) -> f32 {
+  return noise.noise_3d_improve_xz(seed, coordinate)
 }
 
 spaghetti_cave_noise :: proc(seed: i64, coordinate: [3]f64) -> f32 {
