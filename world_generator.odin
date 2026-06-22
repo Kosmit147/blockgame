@@ -17,6 +17,7 @@ World_Generator_Params :: struct {
   cheese_cave_threshold_low: f32,
   cheese_cave_threshold_high: f32,
   cheese_cave_exponent: f32,
+  biome_smoothness: f64,
   min_height: f32,
   max_height: f32,
 }
@@ -32,11 +33,18 @@ DEFAULT_WORLD_GENERATOR_PARAMS :: World_Generator_Params {
   cheese_cave_threshold_low = 0.683,
   cheese_cave_threshold_high = 0.973,
   cheese_cave_exponent = 1.00,
+  biome_smoothness = 0.001,
   min_height = f32(min(40, CHUNK_SIZE.y)),
   max_height = f32(max(CHUNK_SIZE.y - 10, 0)),
 }
 
 g_world_generator_params := DEFAULT_WORLD_GENERATOR_PARAMS
+
+Biome :: enum {
+  Tundra,
+  Grassland,
+  Desert,
+}
 
 Chunk_Layer :: struct {
   block: Block,
@@ -44,21 +52,57 @@ Chunk_Layer :: struct {
   span: i32,
 }
 
-@(rodata) chunk_layers := []Chunk_Layer {
-  {
-    block = .Stone,
-    offset = -CHUNK_SIZE.y,
-    span = CHUNK_SIZE.y,
+@(rodata) chunk_layers := [Biome][]Chunk_Layer {
+  .Tundra = {
+    {
+      block = .Stone,
+      offset = -CHUNK_SIZE.y,
+      span = CHUNK_SIZE.y,
+    },
+    {
+      block = .Dirt,
+      offset = -3,
+      span = 2,
+    },
+    {
+      block = .Snow,
+      offset = -1,
+      span = 1,
+    },
   },
-  {
-    block = .Dirt,
-    offset = -3,
-    span = 2,
+  .Grassland = {
+    {
+      block = .Stone,
+      offset = -CHUNK_SIZE.y,
+      span = CHUNK_SIZE.y,
+    },
+    {
+      block = .Dirt,
+      offset = -3,
+      span = 2,
+    },
+    {
+      block = .Grass,
+      offset = -1,
+      span = 1,
+    },
   },
-  {
-    block = .Grass,
-    offset = -1,
-    span = 1,
+  .Desert = {
+    {
+      block = .Stone,
+      offset = -CHUNK_SIZE.y,
+      span = CHUNK_SIZE.y,
+    },
+    {
+      block = .Sand,
+      offset = -3,
+      span = 2,
+    },
+    {
+      block = .Sand,
+      offset = -1,
+      span = 1,
+    },
   },
 }
 
@@ -73,8 +117,9 @@ generator_generate_chunk_blocks :: proc(
       world_z := coordinate.z * CHUNK_SIZE.z + block_z
 
       height := generator_height({ world_x, world_z })
+      biome := generator_biome({ world_x, world_z })
 
-      for layer in chunk_layers {
+      for layer in chunk_layers[biome] {
         layer_start := max(height + layer.offset, 0)
         layer_end := min(layer_start + layer.span, height)
         for block_y in layer_start..<layer_end {
@@ -125,6 +170,20 @@ generator_spaghetti_cave :: proc(coordinate: [3]i32) -> bool {
   return math.abs(noise_1) < threshold && math.abs(noise_2) < threshold && math.abs(noise_3) < threshold
 }
 
+generator_biome :: proc(coordinate: [2]i32) -> (biome: Biome) {
+  noise_coordinate := cast(noise.Vec2)coordinate * g_world_generator_params.biome_smoothness
+  noise := biome_noise(g_world_generator_params.seed, noise_coordinate)
+  if noise >= -1 && noise < -0.4 {
+    biome = .Tundra
+  } else if noise >= -0.4 && noise < 0.4 {
+    biome = .Grassland
+  } else if noise >= 0.4 && noise <= 1 {
+    biome = .Desert
+  }
+
+  return
+}
+
 height_noise :: proc(seed: i64, coordinate: [2]f64) -> f32 {
   return noise.noise_2d(seed, coordinate)
 }
@@ -135,4 +194,8 @@ cheese_cave_noise :: proc(seed: i64, coordinate: [3]f64) -> f32 {
 
 spaghetti_cave_noise :: proc(seed: i64, coordinate: [3]f64) -> f32 {
   return noise.noise_3d_improve_xz(seed, coordinate)
+}
+
+biome_noise :: proc(seed: i64, coordinate: [2]f64) -> f32 {
+  return noise.noise_2d(seed, coordinate)
 }

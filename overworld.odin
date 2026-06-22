@@ -224,6 +224,13 @@ overworld_debug_ui :: proc(overworld: ^Overworld, player_chunk_coordinate: Chunk
         v_min = 0.1,
         v_max = 100,
       )
+      imgui_drag_double(
+        "Biome Smoothness",
+        &g_world_generator_params.biome_smoothness,
+        v_speed = 0.001,
+        v_min = 0.000001,
+        v_max = 1,
+      )
       if imgui.InputFloat("Min Height", &g_world_generator_params.min_height) {
         g_world_generator_params.min_height = clamp(g_world_generator_params.min_height, 0, f32(CHUNK_SIZE.y))
       }
