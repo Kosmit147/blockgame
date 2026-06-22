@@ -11,7 +11,7 @@ BASE_MOVEMENT_SPEED   :: 5
 SPRINT_MOVEMENT_SPEED :: 15
 PLAYER_REACH          :: 8
 
-DEFAULT_WORLD_LOAD_DISTANCE :: 6
+DEFAULT_WORLD_LOAD_DISTANCE :: 12
 UI_LOAD_DISTANCE_MIN :: MIN_WORLD_LOAD_DISTANCE
 // Currently, setting the load distance to a big value makes the game unplayable, so limit it to 20 for now.
 UI_LOAD_DISTANCE_MAX :: MAX_WORLD_LOAD_DISTANCE
@@ -38,8 +38,6 @@ Overworld :: struct {
   destroy_block_on_update: bool,
   place_block_on_update: bool,
   pick_block_on_update: bool,
-
-  test_line: [2]Line_Vertex, // TODO: Remove once it's not needed.
 }
 
 overworld_init :: proc(scene_data: rawptr) -> (ok := false) {
@@ -54,17 +52,6 @@ overworld_init :: proc(scene_data: rawptr) -> (ok := false) {
 
   overworld.picked_block = .Bricks
   renderer_set_clear_color(Vec4{ expand_values(overworld.world.sky_color), 1 })
-
-  overworld.test_line = {
-    Line_Vertex {
-      position = { -10,  50,  10 },
-      color = MAGENTA,
-    },
-    Line_Vertex {
-      position = {  10,  50, -10 },
-      color = MAGENTA,
-    }
-  }
 
   ok = true
   return
@@ -163,8 +150,6 @@ overworld_render :: proc(scene_data: rawptr) {
       color = crosshair_color,
     }, .Crosshair)
   }
-
-  renderer_render_line(&overworld.test_line)
 }
 
 overworld_debug_ui :: proc(overworld: ^Overworld, player_chunk_coordinate: Chunk_Coordinate) {
@@ -177,12 +162,29 @@ overworld_debug_ui :: proc(overworld: ^Overworld, player_chunk_coordinate: Chunk
       overworld.world.load_distance = clamp(overworld.world.load_distance, UI_LOAD_DISTANCE_MIN, UI_LOAD_DISTANCE_MAX)
       imgui_input_i64("Seed", &g_world_generator_params.seed)
       imgui_drag_double(
-        "Smoothness",
-        &g_world_generator_params.smoothness,
+        "Terrain Smoothness",
+        &g_world_generator_params.terrain_smoothness,
         v_speed = 0.001,
         v_min = 0.000001,
         v_max = 1,
       )
+      imgui_drag_double(
+        "Cave Smoothness",
+        &g_world_generator_params.cave_smoothness,
+        v_speed = 0.001,
+        v_min = 0.000001,
+        v_max = 1,
+      )
+      imgui.DragFloat(
+        "Cave Threshold",
+        &g_world_generator_params.cave_threshold,
+        v_speed = 0.01,
+        v_min = -1,
+        v_max = 1,
+      )
+      if imgui.InputInt("Min Height", &g_world_generator_params.min_height) {
+        g_world_generator_params.min_height = clamp(g_world_generator_params.min_height, 0, CHUNK_SIZE.y)
+      }
       if imgui.Button("Regenerate") {
         player_chunk := world_position_to_chunk_coordinate(overworld.camera.position)
         world_regenerate(&overworld.world)
@@ -235,14 +237,5 @@ overworld_debug_ui :: proc(overworld: ^Overworld, player_chunk_coordinate: Chunk
   imgui.TextUnformatted(fmt.ctprintf("Position: %v", overworld.camera.position))
   imgui.TextUnformatted(fmt.ctprintf("Player chunk: %v", world_position_to_chunk_coordinate(overworld.camera.position)))
   imgui_enum_select("Picked block", &overworld.picked_block)
-  imgui.End()
-
-  imgui.Begin("Line")
-  imgui.SeparatorText("Point A")
-  imgui.DragFloat3("Position##A", &overworld.test_line[0].position)
-  imgui.ColorEdit4("Color##A", &overworld.test_line[0].color)
-  imgui.SeparatorText("Point B")
-  imgui.DragFloat3("Position##B", &overworld.test_line[1].position)
-  imgui.ColorEdit4("Color##B", &overworld.test_line[1].color)
   imgui.End()
 }
