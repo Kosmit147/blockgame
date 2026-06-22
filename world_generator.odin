@@ -10,24 +10,30 @@ World_Generator_Params :: struct {
   seed: i64,
   terrain_smoothness: f64,
   spaghetti_cave_smoothness: f64,
-  spaghetti_cave_threshold: f32,
+  spaghetti_cave_threshold_low: f32,
+  spaghetti_cave_threshold_high: f32,
   spaghetti_cave_exponent: f32,
   cheese_cave_smoothness: f64,
-  cheese_cave_threshold: f32,
+  cheese_cave_threshold_low: f32,
+  cheese_cave_threshold_high: f32,
   cheese_cave_exponent: f32,
-  min_height: i32,
+  min_height: f32,
+  max_height: f32,
 }
 
 DEFAULT_WORLD_GENERATOR_PARAMS :: World_Generator_Params {
   seed = 0,
   terrain_smoothness = 0.013,
   spaghetti_cave_smoothness = 0.017,
-  spaghetti_cave_threshold = 0.133,
+  spaghetti_cave_threshold_low = 0.033,
+  spaghetti_cave_threshold_high = 0.22,
   spaghetti_cave_exponent = 1.14,
   cheese_cave_smoothness = 0.03,
-  cheese_cave_threshold = 0.87,
+  cheese_cave_threshold_low = 0.683,
+  cheese_cave_threshold_high = 0.973,
   cheese_cave_exponent = 1.00,
-  min_height = 1,
+  min_height = f32(min(40, CHUNK_SIZE.y)),
+  max_height = f32(max(CHUNK_SIZE.y - 10, 0)),
 }
 
 g_world_generator_params := DEFAULT_WORLD_GENERATOR_PARAMS
@@ -66,7 +72,7 @@ generator_generate_chunk_blocks :: proc(
       world_x := coordinate.x * CHUNK_SIZE.x + block_x
       world_z := coordinate.z * CHUNK_SIZE.z + block_z
 
-      height := max(generator_height({ world_x, world_z }), g_world_generator_params.min_height)
+      height := generator_height({ world_x, world_z })
 
       for layer in chunk_layers {
         layer_start := max(height + layer.offset, 0)
@@ -87,7 +93,7 @@ generator_height :: proc(coordinate: [2]i32) -> i32 {
   noise_coordinate := cast(noise.Vec2)coordinate * g_world_generator_params.terrain_smoothness
   noise := height_noise(g_world_generator_params.seed, noise_coordinate)
   linear := noise * 0.5 + 0.5
-  height := i32(linear * f32(CHUNK_SIZE.y))
+  height := i32(math.lerp(g_world_generator_params.min_height, g_world_generator_params.max_height, linear))
   return clamp(height, 0, CHUNK_SIZE.y)
 }
 
@@ -95,7 +101,12 @@ generator_cheese_cave :: proc(coordinate: [3]i32) -> bool {
   noise_coordinate := cast(noise.Vec3)coordinate * g_world_generator_params.cheese_cave_smoothness
   exponent := g_world_generator_params.cheese_cave_exponent
   noise := math.pow(cheese_cave_noise(g_world_generator_params.seed, noise_coordinate), exponent)
-  threshold := g_world_generator_params.cheese_cave_threshold
+  height_factor := f32(coordinate.y) / f32(CHUNK_SIZE.y)
+  threshold := math.lerp(
+    g_world_generator_params.cheese_cave_threshold_low,
+    g_world_generator_params.cheese_cave_threshold_high,
+    height_factor,
+  )
   return noise > threshold
 }
 
@@ -105,7 +116,12 @@ generator_spaghetti_cave :: proc(coordinate: [3]i32) -> bool {
   noise_1 := math.abs(math.pow(spaghetti_cave_noise(g_world_generator_params.seed, noise_coordinate), exponent))
   noise_2 := math.abs(math.pow(spaghetti_cave_noise(g_world_generator_params.seed + 1, noise_coordinate), exponent))
   noise_3 := math.abs(math.pow(spaghetti_cave_noise(g_world_generator_params.seed + 2, noise_coordinate), exponent))
-  threshold := g_world_generator_params.spaghetti_cave_threshold
+  height_factor := f32(coordinate.y) / f32(CHUNK_SIZE.y)
+  threshold := math.lerp(
+    g_world_generator_params.spaghetti_cave_threshold_low,
+    g_world_generator_params.spaghetti_cave_threshold_high,
+    height_factor,
+  )
   return math.abs(noise_1) < threshold && math.abs(noise_2) < threshold && math.abs(noise_3) < threshold
 }
 
