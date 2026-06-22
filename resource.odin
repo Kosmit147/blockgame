@@ -187,8 +187,7 @@ TRANSPARENT_TEXTURE_PATH :: "textures/transparent.aseprite"
 BLOCKS_TEXTURE_PATH      :: "textures/blocks.aseprite"
 CROSSHAIR_TEXTURE_PATH   :: "textures/crosshair.aseprite"
 
-@(rodata)
-g_shader_sources_map := [Shader_Id][2]string{
+@(rodata) g_shader_sources_map := [Shader_Id][2]string{
   .Block = { #load(BLOCK_SHADER_VERTEX_PATH, string), #load(BLOCK_SHADER_FRAGMENT_PATH, string) },
   .Flat = { #load(FLAT_SHADER_VERTEX_PATH, string), #load(FLAT_SHADER_FRAGMENT_PATH, string) },
   .Quad = { #load(QUAD_SHADER_VERTEX_PATH, string), #load(QUAD_SHADER_FRAGMENT_PATH, string) },
@@ -197,8 +196,7 @@ g_shader_sources_map := [Shader_Id][2]string{
   .Postprocess = { #load(POSTPROCESS_SHADER_VERTEX_PATH, string), #load(POSTPROCESS_SHADER_FRAGMENT_PATH, string) },
 }
 
-@(rodata)
-g_texture_data_map := [Texture_Id][]byte{
+@(rodata) g_texture_data_map := [Texture_Id][]byte{
   .White = #load(WHITE_TEXTURE_PATH),
   .Black = #load(BLACK_TEXTURE_PATH),
   .Transparent = #load(TRANSPARENT_TEXTURE_PATH),
@@ -206,8 +204,7 @@ g_texture_data_map := [Texture_Id][]byte{
   .Crosshair = #load(CROSSHAIR_TEXTURE_PATH)
 }
 
-@(rodata)
-g_texture_internal_formats := [Texture_Id]u32{
+@(rodata) g_texture_internal_formats := [Texture_Id]u32{
   .White = gl.RGBA8,
   .Black = gl.RGBA8,
   .Transparent = gl.RGBA8,
@@ -216,8 +213,7 @@ g_texture_internal_formats := [Texture_Id]u32{
 }
 
 when HOT_RELOAD {
-  @(rodata)
-  g_shader_file_paths_map := [Shader_Id][2]string{
+  @(rodata) g_shader_file_paths_map := [Shader_Id][2]string{
     .Block = { BLOCK_SHADER_VERTEX_PATH, BLOCK_SHADER_FRAGMENT_PATH },
     .Flat = { FLAT_SHADER_VERTEX_PATH, FLAT_SHADER_FRAGMENT_PATH },
     .Quad = { QUAD_SHADER_VERTEX_PATH, QUAD_SHADER_FRAGMENT_PATH },
@@ -226,8 +222,7 @@ when HOT_RELOAD {
     .Postprocess = { POSTPROCESS_SHADER_VERTEX_PATH, POSTPROCESS_SHADER_FRAGMENT_PATH },
   }
 
-  @(rodata)
-  g_texture_file_paths_map := [Texture_Id]string{
+  @(rodata) g_texture_file_paths_map := [Texture_Id]string{
     .White = WHITE_TEXTURE_PATH,
     .Black = BLACK_TEXTURE_PATH,
     .Transparent = TRANSPARENT_TEXTURE_PATH,

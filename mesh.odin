@@ -10,12 +10,14 @@ Mesh :: struct {
   index_data_offset: u32,
 }
 
-create_mesh :: proc(mesh: ^Mesh,
-                    vertices: []byte,
-                    vertex_stride: u32,
-                    vertex_format: []Vertex_Attribute,
-                    indices: []byte,
-                    index_type: u32) {
+create_mesh :: proc(
+  mesh: ^Mesh,
+  vertices: []byte,
+  vertex_stride: u32,
+  vertex_format: []Vertex_Attribute,
+  indices: []byte,
+  index_type: u32,
+) {
   vertex_data_offset := 0
   index_data_offset := slice.size(vertices[:])
   buffer_size := slice.size(vertices[:]) + slice.size(indices[:])

@@ -176,11 +176,13 @@ overworld_debug_ui :: proc(overworld: ^Overworld, player_chunk_coordinate: Chunk
       imgui_input_u32("Load Distance", &overworld.world.load_distance)
       overworld.world.load_distance = clamp(overworld.world.load_distance, UI_LOAD_DISTANCE_MIN, UI_LOAD_DISTANCE_MAX)
       imgui_input_i64("Seed", &g_world_generator_params.seed)
-      imgui_drag_double("Smoothness",
-                        &g_world_generator_params.smoothness,
-                        v_speed = 0.001,
-                        v_min = 0.000001,
-                        v_max = 1)
+      imgui_drag_double(
+        "Smoothness",
+        &g_world_generator_params.smoothness,
+        v_speed = 0.001,
+        v_min = 0.000001,
+        v_max = 1,
+      )
       if imgui.Button("Regenerate") {
         player_chunk := world_position_to_chunk_coordinate(overworld.camera.position)
         world_regenerate(&overworld.world)
@@ -195,11 +197,13 @@ overworld_debug_ui :: proc(overworld: ^Overworld, player_chunk_coordinate: Chunk
       imgui.SeparatorText("Directional Light")
       imgui.ColorEdit3("Ambient", &overworld.world.sunlight.ambient)
       imgui.ColorEdit3("Color", &overworld.world.sunlight.color)
-      if imgui.DragFloat3("Direction",
-                          &overworld.world.sunlight.direction,
-                          v_speed = 0.001,
-                          v_min = -1,
-                          v_max = 1) {
+      if imgui.DragFloat3(
+        "Direction",
+        &overworld.world.sunlight.direction,
+        v_speed = 0.001,
+        v_min = -1,
+        v_max = 1
+      ) {
         overworld.world.sunlight.direction = linalg.normalize(overworld.world.sunlight.direction)
       }
       imgui.EndTabItem()

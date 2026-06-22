@@ -21,8 +21,10 @@ generator_generate_chunk_blocks :: proc(coordinate: Chunk_Coordinate,
   blocks = new(Chunk_Blocks, allocator)
   for block_x in i32(0)..<CHUNK_SIZE.x {
     for block_z in i32(0)..<CHUNK_SIZE.z {
-      height := generator_get_height_at_world_coordinate({ coordinate.x * CHUNK_SIZE.x + block_x,
-                                                           coordinate.z * CHUNK_SIZE.z + block_z })
+      height := generator_get_height_at_world_coordinate({
+        coordinate.x * CHUNK_SIZE.x + block_x,
+        coordinate.z * CHUNK_SIZE.z + block_z,
+      })
       for block_y in 0..<height {
         get_chunk_block(blocks, { block_x, block_y, block_z })^ = .Stone
       }

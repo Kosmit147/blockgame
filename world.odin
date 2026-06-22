@@ -186,10 +186,12 @@ world_update :: proc(world: ^World, delta_time: f32, player_chunk: Chunk_Coordin
           blocks = chunk.blocks,
           mesh_version = next_mesh_version,
         }
-        thread.pool_add_task(&world.thread_pool,
-                             world.allocator,
-                             chunk_task,
-                             task)
+        thread.pool_add_task(
+          &world.thread_pool,
+          world.allocator,
+          chunk_task,
+          task,
+        )
         chunk.mesh_regen_pending = false
       }
     } else if len(free_tasks) > 0 {
@@ -208,10 +210,12 @@ world_update :: proc(world: ^World, delta_time: f32, player_chunk: Chunk_Coordin
       task^ = Generate_Chunk_Blocks_Task{
         chunk_coordinate = chunk_coordinate,
       }
-      thread.pool_add_task(&world.thread_pool,
-                           world.allocator,
-                           chunk_task,
-                           task)
+      thread.pool_add_task(
+        &world.thread_pool,
+        world.allocator,
+        chunk_task,
+        task,
+      )
     }
   }
 
@@ -259,17 +263,22 @@ world_get_sunlight_direction :: proc(angle: f32) -> Vec3 {
   return Vec3{ math.sin(angle), math.cos(angle), 0 }
 }
 
-world_raycast :: proc(world: World, ray: Ray, max_distance: f32) -> (block: ^Block,
-                                                                     block_position: Grid_World_Position,
-                                                                     place_block_offset: Grid_World_Position,
-                                                                     hit := false) {
-  grid_traversal_direction := [3]i32{ 1 if ray.direction.x >= 0 else -1,
-                                      1 if ray.direction.y >= 0 else -1,
-                                      1 if ray.direction.z >= 0 else -1 }
+world_raycast :: proc(
+  world: World,
+  ray: Ray,
+  max_distance: f32,
+) -> (block: ^Block, block_position: Grid_World_Position, place_block_offset: Grid_World_Position, hit := false) {
+  grid_traversal_direction := [3]i32{
+    1 if ray.direction.x >= 0 else -1,
+    1 if ray.direction.y >= 0 else -1,
+    1 if ray.direction.z >= 0 else -1,
+  }
 
-  grid_boundary_increment := [3]i32{ 1 if ray.direction.x >= 0 else 0,
-                                     1 if ray.direction.y >= 0 else 0,
-                                     1 if ray.direction.z >= 0 else 0 }
+  grid_boundary_increment := [3]i32{
+    1 if ray.direction.x >= 0 else 0,
+    1 if ray.direction.y >= 0 else 0,
+    1 if ray.direction.z >= 0 else 0,
+  }
 
   origin_block := cast([3]i32)linalg.floor(ray.origin)
   current_block := [3]i32{ 0, 0, 0 }
@@ -366,7 +375,7 @@ Chunk :: struct {
   keep: bool,
 }
 
-CHUNK_SIZE :: [3]i32{ 16, 64, 16 }
+CHUNK_SIZE   :: [3]i32{ 16, 64, 16 }
 Chunk_Blocks :: [CHUNK_SIZE.y][CHUNK_SIZE.x][CHUNK_SIZE.z]Block
 
 Chunk_Coordinate :: struct {
@@ -472,16 +481,22 @@ Grid_Corner_Chunk_Position :: distinct [3]i32
 Grid_Corner_World_Position :: distinct [3]i32
 
 to_grid_chunk_position :: proc(position: Grid_World_Position) -> Grid_Chunk_Position {
-  return { position.x %% CHUNK_SIZE.x,
-           position.y,
-           position.z %% CHUNK_SIZE.z }
+  return {
+    position.x %% CHUNK_SIZE.x,
+    position.y,
+    position.z %% CHUNK_SIZE.z,
+  }
 }
 
-to_grid_world_position :: proc(position: Grid_Chunk_Position,
-                 chunk_coordinate: Chunk_Coordinate) -> Grid_World_Position {
-  return { chunk_coordinate.x * CHUNK_SIZE.x + position.x,
-           position.y,
-           chunk_coordinate.z * CHUNK_SIZE.z + position.z }
+to_grid_world_position :: proc(
+  position: Grid_Chunk_Position,
+  chunk_coordinate: Chunk_Coordinate
+) -> Grid_World_Position {
+  return {
+    chunk_coordinate.x * CHUNK_SIZE.x + position.x,
+    position.y,
+    chunk_coordinate.z * CHUNK_SIZE.z + position.z,
+  }
 }
 
 Chunk_Blocks_Iterator :: struct {
@@ -626,12 +641,14 @@ delete_chunk_mesh_data :: proc(mesh_data: Chunk_Mesh_Data) {
 
 // This function can be called from the main thread only because it makes OpenGL calls.
 create_chunk_mesh :: proc(mesh_data: Chunk_Mesh_Data) -> (mesh: Mesh) {
-  create_mesh(&mesh,
-              vertices = slice.to_bytes(mesh_data.vertices[:]),
-              vertex_stride = size_of(Chunk_Mesh_Vertex),
-              vertex_format = gl_vertex(Chunk_Mesh_Vertex),
-              indices = slice.to_bytes(mesh_data.indices[:]),
-              index_type = gl_index(Chunk_Mesh_Index))
+  create_mesh(
+    &mesh,
+    vertices = slice.to_bytes(mesh_data.vertices[:]),
+    vertex_stride = size_of(Chunk_Mesh_Vertex),
+    vertex_format = gl_vertex(Chunk_Mesh_Vertex),
+    indices = slice.to_bytes(mesh_data.indices[:]),
+    index_type = gl_index(Chunk_Mesh_Index),
+  )
   return
 }
 
@@ -750,8 +767,7 @@ Chunk_Mesh_Vertex_Input_Data :: struct {
   uv: Vec2,
 }
 
-@(rodata)
-g_block_faces := [World_Direction][4]Chunk_Mesh_Vertex_Input_Data{
+@(rodata) g_block_faces := [World_Direction][4]Chunk_Mesh_Vertex_Input_Data{
   // Front wall.
   .Plus_Z = {
     { position = { 0, 0, 1 }, normal = {  0,  0,  1 }, uv = { 0, 1 } },
@@ -801,5 +817,4 @@ g_block_faces := [World_Direction][4]Chunk_Mesh_Vertex_Input_Data{
   },
 }
 
-@(rodata)
-g_block_indices := [6]Chunk_Mesh_Index{ 0, 1, 2, 0, 2, 3 }
+@(rodata) g_block_indices := [6]Chunk_Mesh_Index{ 0, 1, 2, 0, 2, 3 }
