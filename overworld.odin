@@ -253,6 +253,9 @@ overworld_debug_ui :: proc(overworld: ^Overworld, player_chunk_coordinate: Chunk
       if imgui.InputFloat("Iron Ore Chance", &g_world_generator_params.iron_ore_chance) {
         g_world_generator_params.iron_ore_chance = clamp(g_world_generator_params.iron_ore_chance, 0, 1)
       }
+      if imgui.InputFloat("Snow Tree Chance", &g_world_generator_params.snow_tree_chance) {
+        g_world_generator_params.snow_tree_chance = clamp(g_world_generator_params.snow_tree_chance, 0, 1)
+      }
       if imgui.InputFloat("Grassland Tree Chance", &g_world_generator_params.grassland_tree_chance) {
         g_world_generator_params.grassland_tree_chance = clamp(g_world_generator_params.grassland_tree_chance, 0, 1)
       }

@@ -450,6 +450,7 @@ Block :: enum u8 {
   Cactus,
   Iron_Ore,
   Snow,
+  Snow_Covered_Leaves,
 }
 
 @(require_results)
@@ -746,6 +747,7 @@ map_block_uv_to_atlas :: proc(uv: Vec2, block: Block, block_facing: World_Direct
     case .Minus_Y:     atlas_rect_origin = Vec2{ 0.1, 0.0 }
     case:              atlas_rect_origin = Vec2{ 0.3, 0.1 }
     }
+  case .Snow_Covered_Leaves:  atlas_rect_origin = Vec2{ 0.6, 0.1 }
   }
 
   return atlas_rect_origin + uv * atlas_rect_size
