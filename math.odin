@@ -11,3 +11,12 @@ Ray :: struct {
   origin: Vec3,
   direction: Vec3,
 }
+
+Orthographic_Projection :: struct {
+  left: f32,
+  right: f32,
+  bottom: f32,
+  top: f32,
+  near: f32,
+  far: f32,
+}

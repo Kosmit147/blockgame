@@ -33,10 +33,26 @@ DEFAULT_GAMMA :: 2.2
 VIEW_PROJECTION_UNIFORM_BUFFER_BINDING_POINT :: 0
 LIGHT_DATA_UNIFORM_BUFFER_BINDING_POINT :: 1
 
+SHADOW_MAP_SIZE     :: 4096
+SUNLIGHT_DISTANCE   :: 100
+SUNLIGHT_PROJECTION :: Orthographic_Projection {
+  left = -100,
+  right = 100,
+  bottom = -100,
+  top = 100,
+  near = 0.1,
+  far = SUNLIGHT_DISTANCE * 2,
+}
+
 Renderer :: struct {
+  viewport: [2]i32,
+
   framebuffer: Framebuffer,
   color_texture: Texture,
   depth_renderbuffer: Renderbuffer,
+  shadow_map_framebuffer: Framebuffer,
+  shadow_map_texture: Texture,
+
   postprocess_vertex_array: Vertex_Array,
   gamma: f32,
   postprocess_shader_gamma_uniform: Uniform(f32),
@@ -47,6 +63,7 @@ Renderer :: struct {
   block_shader_model_uniform: Uniform(Mat4),
   flat_shader_model_uniform: Uniform(Mat4),
   flat_shader_color_uniform: Uniform(Vec4),
+  block_shadow_map_shader_model_uniform: Uniform(Mat4),
 
   flat_cube_mesh: Mesh,
 
@@ -69,6 +86,12 @@ renderer_init :: proc() -> (ok := false) {
     return
   }
   defer if !ok do renderer_deinit_framebuffer()
+
+  if !renderer_init_shadow_map_framebuffer() {
+    log.error("Failed to initialize the shadow map framebuffer.")
+    return
+  }
+  defer if !ok do renderer_deinit_shadow_map_framebuffer()
 
   create_vertex_array(&g_renderer.postprocess_vertex_array)
   defer if !ok do destroy_vertex_array(&g_renderer.postprocess_vertex_array)
@@ -111,6 +134,7 @@ renderer_deinit :: proc() {
   destroy_gl_buffer(&g_renderer.light_data_uniform_buffer)
 
   destroy_vertex_array(&g_renderer.postprocess_vertex_array)
+  renderer_deinit_shadow_map_framebuffer()
   renderer_deinit_framebuffer()
 }
 
@@ -156,7 +180,7 @@ renderer_init_framebuffer :: proc(size: [2]i32) -> (ok := false) {
     return
   }
 
-  gl.Viewport(0, 0, size.x, size.y)
+  g_renderer.viewport = size
 
   ok = true
   return
@@ -168,9 +192,44 @@ renderer_deinit_framebuffer :: proc() {
   destroy_framebuffer(&g_renderer.framebuffer)
 }
 
+renderer_init_shadow_map_framebuffer :: proc() -> (ok := false) {
+  create_framebuffer(&g_renderer.shadow_map_framebuffer)
+  defer if !ok do destroy_framebuffer(&g_renderer.shadow_map_framebuffer)
+
+  SHADOW_MAP_TEXTURE_PARAMS :: Texture_Parameters {
+    wrap_s = gl.CLAMP_TO_BORDER,
+    wrap_t = gl.CLAMP_TO_BORDER,
+    min_filter = gl.LINEAR,
+    mag_filter = gl.LINEAR,
+    border_color = WHITE,
+  }
+  g_renderer.shadow_map_texture = create_texture(
+    width = SHADOW_MAP_SIZE,
+    height = SHADOW_MAP_SIZE,
+    internal_format = gl.DEPTH_COMPONENT24,
+    params = SHADOW_MAP_TEXTURE_PARAMS,
+  )
+  defer if !ok do destroy_texture(&g_renderer.shadow_map_texture)
+  attach_texture(g_renderer.shadow_map_framebuffer, g_renderer.shadow_map_texture, gl.DEPTH_ATTACHMENT)
+
+  gl.NamedFramebufferDrawBuffer(g_renderer.shadow_map_framebuffer.id, gl.NONE)
+  gl.NamedFramebufferReadBuffer(g_renderer.shadow_map_framebuffer.id, gl.NONE)
+
+  ok = true
+  return
+}
+
+renderer_deinit_shadow_map_framebuffer :: proc() {
+  destroy_renderbuffer(&g_renderer.depth_renderbuffer)
+  destroy_texture(&g_renderer.color_texture)
+  destroy_framebuffer(&g_renderer.framebuffer)
+}
+
 renderer_get_uniforms :: proc() {
   block_shader := get_shader(.Block)
   g_renderer.block_shader_model_uniform = get_uniform(block_shader, "model", Mat4)
+  block_shadow_map_shader := get_shader(.Block_Shadow_Map)
+  g_renderer.block_shadow_map_shader_model_uniform = get_uniform(block_shadow_map_shader, "model", Mat4)
   flat_shader := get_shader(.Flat)
   g_renderer.flat_shader_model_uniform = get_uniform(flat_shader, "model", Mat4)
   g_renderer.flat_shader_color_uniform = get_uniform(flat_shader, "color", Vec4)
@@ -214,11 +273,13 @@ renderer_clear :: proc() {
 renderer_begin_2d_frame :: proc() {
   renderer_clear()
   bind_framebuffer(g_renderer.framebuffer)
+  gl.Viewport(0, 0, g_renderer.viewport.x, g_renderer.viewport.y)
 }
 
 renderer_begin_3d_frame :: proc(camera: Camera, light: Directional_Light) {
   renderer_clear()
   bind_framebuffer(g_renderer.framebuffer)
+  gl.Viewport(0, 0, g_renderer.viewport.x, g_renderer.viewport.y)
 
   gl.Enable(gl.CULL_FACE)
   gl.Enable(gl.DEPTH_TEST)
@@ -243,7 +304,35 @@ renderer_begin_3d_frame :: proc(camera: Camera, light: Directional_Light) {
     mem.ptr_to_bytes(&view_projection_uniform_buffer_data),
   )
 
+  light_forward := light.direction
+  light_right := linalg.normalize(linalg.cross(light_forward, WORLD_UP))
+  light_up := linalg.normalize(linalg.cross(light_right, light_forward))
+
+  // light_view := linalg.matrix4_look_at(
+  //   eye = camera.position - SUNLIGHT_DISTANCE * light.direction,
+  //   centre = camera.position,
+  //   up = light_up,
+  // )
+
+  light_view := linalg.matrix4_look_at_from_fru(
+    eye = camera.position - SUNLIGHT_DISTANCE * light.direction,
+    f = light_forward,
+    r = light_right,
+    u = light_up,
+  )
+
+  light_projection := linalg.matrix_ortho3d(
+    left = SUNLIGHT_PROJECTION.left,
+    right = SUNLIGHT_PROJECTION.right,
+    bottom = SUNLIGHT_PROJECTION.bottom,
+    top = SUNLIGHT_PROJECTION.top,
+    near = SUNLIGHT_PROJECTION.near,
+    far = SUNLIGHT_PROJECTION.far,
+  )
+
   light_data_uniform_buffer_data := Light_Data_Uniform_Buffer_Data {
+    light_view = light_view,
+    light_projection = light_projection,
     light_ambient = light.ambient,
     light_color = light.color,
     light_direction = light.direction,
@@ -260,6 +349,7 @@ renderer_end_frame :: proc() {
   defer renderer_set_wireframe_enabled(wireframe_was_enabled)
 
   bind_framebuffer(g_renderer.framebuffer)
+  gl.Viewport(0, 0, g_renderer.viewport.x, g_renderer.viewport.y)
 
   gl.Disable(gl.CULL_FACE)
   gl.Enable(gl.DEPTH_TEST)
@@ -272,12 +362,38 @@ renderer_end_frame :: proc() {
   renderer_2d_render()
 
   bind_default_framebuffer()
+  gl.Viewport(0, 0, g_renderer.viewport.x, g_renderer.viewport.y)
 
   gl.Disable(gl.BLEND)
   use_shader(.Postprocess)
   bind_texture_object(g_renderer.color_texture, 0)
   bind_vertex_array(g_renderer.postprocess_vertex_array)
   gl.DrawArrays(gl.TRIANGLE_STRIP, 0, 4)
+}
+
+renderer_render_chunk_to_shadow_map :: proc(chunk: Chunk) {
+  if chunk.mesh == nil do return
+  model := linalg.matrix4_translate(
+    Vec3{ f32(chunk.coordinate.x * CHUNK_SIZE.x),
+    0,
+    f32(chunk.coordinate.z * CHUNK_SIZE.z) }
+  )
+  set_uniform(.Block_Shadow_Map, g_renderer.block_shadow_map_shader_model_uniform, model)
+  renderer_render_mesh(chunk.mesh.?)
+}
+
+renderer_render_shadow_map :: proc(world: World) {
+  bind_framebuffer(g_renderer.shadow_map_framebuffer)
+  gl.Viewport(0, 0, SHADOW_MAP_SIZE, SHADOW_MAP_SIZE)
+  gl.Clear(gl.DEPTH_BUFFER_BIT)
+
+  gl.Enable(gl.CULL_FACE)
+  // gl.CullFace(gl.FRONT)
+  gl.Enable(gl.DEPTH_TEST)
+  gl.Disable(gl.BLEND)
+
+  use_shader(.Block_Shadow_Map)
+  for _, &chunk in world.chunk_map do renderer_render_chunk_to_shadow_map(chunk)
 }
 
 renderer_render_mesh :: proc(mesh: Mesh) {
@@ -302,8 +418,18 @@ renderer_render_chunk :: proc(chunk: Chunk) {
 }
 
 renderer_render_world :: proc(world: World) {
+  renderer_render_shadow_map(world)
+
+  bind_framebuffer(g_renderer.framebuffer)
+  gl.Viewport(0, 0, g_renderer.viewport.x, g_renderer.viewport.y)
+  gl.Enable(gl.CULL_FACE)
+  // gl.CullFace(gl.BACK)
+  gl.Enable(gl.DEPTH_TEST)
+  gl.Enable(gl.BLEND)
+
   use_shader(.Block)
   bind_texture(.Blocks, 0)
+  bind_texture_object(g_renderer.shadow_map_texture, 1)
   for _, &chunk in world.chunk_map do renderer_render_chunk(chunk)
 }
 
@@ -340,6 +466,8 @@ View_Projection_Uniform_Buffer_Data :: struct {
 }
 
 Light_Data_Uniform_Buffer_Data :: struct {
+  light_view: Mat4,
+  light_projection: Mat4,
   light_ambient: Vec3,
   _: [4]byte,
   light_color: Vec3,
