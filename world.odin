@@ -22,7 +22,7 @@ MAX_WORLD_LOAD_DISTANCE :: 20
 
 INITIAL_SKY_COLOR           :: Vec3{ 0.7, 0.95, 1 }
 // INITIAL_SUNLIGHT_AMBIENT    :: Vec3{ 0.5, 0.5, 0.5 }
-INITIAL_SUNLIGHT_AMBIENT    :: Vec3{ 0.05, 0.05, 0.05 }
+INITIAL_SUNLIGHT_AMBIENT    :: Vec3{ 0.1, 0.1, 0.1 }
 INITIAL_SUNLIGHT_COLOR      :: Vec3{ 0.8, 0.8, 0.8 }
 INITIAL_SUNLIGHT_ANGLE_DEG  :: 180
 SUNLIGHT_ANGLE_CHANGE_SPEED :: 0.001
@@ -447,6 +447,7 @@ Block :: enum u8 {
   Sand,
   Leaves,
   Log,
+  Cactus,
   Iron_Ore,
   Snow,
 }
@@ -737,6 +738,7 @@ map_block_uv_to_atlas :: proc(uv: Vec2, block: Block, block_facing: World_Direct
   case .Sand:      atlas_rect_origin = Vec2{ 0.5, 0.0 }
   case .Leaves:    atlas_rect_origin = Vec2{ 0.6, 0.0 }
   case .Log:       atlas_rect_origin = Vec2{ 0.7, 0.0 }
+  case .Cactus:    atlas_rect_origin = Vec2{ 0.8, 0.0 }
   case .Iron_Ore:  atlas_rect_origin = Vec2{ 0.0, 0.1 }
   case .Snow:
     #partial switch block_facing {

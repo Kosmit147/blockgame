@@ -7,8 +7,8 @@ import "core:math"
 import "core:math/linalg"
 
 MOUSE_SENSITIVITY     :: 1
-BASE_MOVEMENT_SPEED   :: 5
-SPRINT_MOVEMENT_SPEED :: 15
+BASE_MOVEMENT_SPEED   :: 10
+SPRINT_MOVEMENT_SPEED :: 30
 PLAYER_REACH          :: 8
 
 DEFAULT_WORLD_LOAD_DISTANCE :: 12
@@ -253,8 +253,11 @@ overworld_debug_ui :: proc(overworld: ^Overworld, player_chunk_coordinate: Chunk
       if imgui.InputFloat("Iron Ore Chance", &g_world_generator_params.iron_ore_chance) {
         g_world_generator_params.iron_ore_chance = clamp(g_world_generator_params.iron_ore_chance, 0, 1)
       }
-      if imgui.InputFloat("Tree Chance", &g_world_generator_params.tree_chance) {
-        g_world_generator_params.tree_chance = clamp(g_world_generator_params.tree_chance, 0, 1)
+      if imgui.InputFloat("Grassland Tree Chance", &g_world_generator_params.grassland_tree_chance) {
+        g_world_generator_params.grassland_tree_chance = clamp(g_world_generator_params.grassland_tree_chance, 0, 1)
+      }
+      if imgui.InputFloat("Desert Cactus Chance", &g_world_generator_params.desert_cactus_chance) {
+        g_world_generator_params.desert_cactus_chance = clamp(g_world_generator_params.desert_cactus_chance, 0, 1)
       }
       if imgui.Button("Regenerate") {
         player_chunk := world_position_to_chunk_coordinate(overworld.camera.position)

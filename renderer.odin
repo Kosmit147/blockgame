@@ -311,12 +311,6 @@ renderer_begin_3d_frame :: proc(camera: Camera, light: Directional_Light) {
   light_right := linalg.normalize(linalg.cross(light_forward, WORLD_UP))
   light_up := linalg.normalize(linalg.cross(light_right, light_forward))
 
-  // light_view := linalg.matrix4_look_at(
-  //   eye = camera.position - SUNLIGHT_DISTANCE * light.direction,
-  //   centre = camera.position,
-  //   up = light_up,
-  // )
-
   light_eye := camera.position - SUNLIGHT_DISTANCE * light.direction
 
   light_view := linalg.matrix4_look_at_from_fru(

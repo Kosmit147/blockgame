@@ -22,7 +22,8 @@ World_Generator_Params :: struct {
   min_height: f32,
   max_height: f32,
   iron_ore_chance: f32,
-  tree_chance: f32,
+  grassland_tree_chance: f32,
+  desert_cactus_chance: f32,
 }
 
 DEFAULT_WORLD_GENERATOR_PARAMS :: World_Generator_Params {
@@ -40,7 +41,8 @@ DEFAULT_WORLD_GENERATOR_PARAMS :: World_Generator_Params {
   min_height = f32(min(40, CHUNK_SIZE.y)),
   max_height = f32(max(CHUNK_SIZE.y - 10, 0)),
   iron_ore_chance = 0.01,
-  tree_chance = 0.01,
+  grassland_tree_chance = 0.01,
+  desert_cactus_chance = 0.005,
 }
 
 g_world_generator_params := DEFAULT_WORLD_GENERATOR_PARAMS
@@ -143,6 +145,12 @@ Structure :: []Structure_Block
   { { 0, 5, 0 }, .Leaves },
 }
 
+@(rodata) cactus := Structure {
+  { { 0, 0, 0 }, .Cactus },
+  { { 0, 1, 0 }, .Cactus },
+  { { 0, 2, 0 }, .Cactus },
+}
+
 generator_generate_chunk_blocks :: proc(
   coordinate: Chunk_Coordinate,
   allocator: runtime.Allocator,
@@ -173,8 +181,15 @@ generator_generate_chunk_blocks :: proc(
         }
       }
 
-      if biome == .Grassland && rand.float32() < g_world_generator_params.tree_chance {
-        try_place_structure(blocks, { block_x, height, block_z }, tree)
+      #partial switch biome {
+      case .Grassland:
+        if rand.float32() < g_world_generator_params.grassland_tree_chance {
+          try_place_structure(blocks, { block_x, height, block_z }, tree)
+        }
+      case .Desert:
+        if rand.float32() < g_world_generator_params.desert_cactus_chance {
+          try_place_structure(blocks, { block_x, height, block_z }, cactus)
+        }
       }
     }
   }
