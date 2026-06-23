@@ -173,7 +173,7 @@ renderer_init_framebuffer :: proc(size: [2]i32) -> (ok := false) {
     renderbuffer = &g_renderer.depth_renderbuffer,
     width = size.x,
     height = size.y,
-    format = gl.DEPTH24_STENCIL8
+    format = gl.DEPTH24_STENCIL8,
   )
   defer if !ok do destroy_renderbuffer(&g_renderer.depth_renderbuffer)
   attach_renderbuffer(g_renderer.framebuffer, g_renderer.depth_renderbuffer, gl.DEPTH_STENCIL_ATTACHMENT)
@@ -317,8 +317,10 @@ renderer_begin_3d_frame :: proc(camera: Camera, light: Directional_Light) {
   //   up = light_up,
   // )
 
+  light_eye := camera.position - SUNLIGHT_DISTANCE * light.direction
+
   light_view := linalg.matrix4_look_at_from_fru(
-    eye = camera.position - SUNLIGHT_DISTANCE * light.direction,
+    eye = light_eye - Vec3{ math.mod(light_eye.x, 10), math.mod(light_eye.y, 10), math.mod(light_eye.z, 10) },
     f = light_forward,
     r = light_right,
     u = light_up,

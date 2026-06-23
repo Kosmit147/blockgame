@@ -22,7 +22,7 @@ MAX_WORLD_LOAD_DISTANCE :: 20
 
 INITIAL_SKY_COLOR           :: Vec3{ 0.7, 0.95, 1 }
 // INITIAL_SUNLIGHT_AMBIENT    :: Vec3{ 0.5, 0.5, 0.5 }
-INITIAL_SUNLIGHT_AMBIENT    :: Vec3{ 0.1, 0.1, 0.1 }
+INITIAL_SUNLIGHT_AMBIENT    :: Vec3{ 0.05, 0.05, 0.05 }
 INITIAL_SUNLIGHT_COLOR      :: Vec3{ 0.8, 0.8, 0.8 }
 INITIAL_SUNLIGHT_ANGLE_DEG  :: 180
 SUNLIGHT_ANGLE_CHANGE_SPEED :: 0.001
@@ -118,7 +118,7 @@ world_init :: proc(world: ^World, load_distance: u32) -> (ok := false) {
   sunlight_angle := math.to_radians_f32(INITIAL_SUNLIGHT_ANGLE_DEG)
   world.sunlight_angle = sunlight_angle
   world.sunlight_angle_change_speed = SUNLIGHT_ANGLE_CHANGE_SPEED
-  world.timescale = 1
+  world.timescale = 0
   world.sunlight = Directional_Light{
     ambient = INITIAL_SUNLIGHT_AMBIENT,
     color = INITIAL_SUNLIGHT_COLOR,
