@@ -106,6 +106,10 @@ debug_overlay_settings_window :: proc() {
       if imgui.SliderFloat("Master Volume", &master_volume, 0, 1) {
         sound_set_master_volume(master_volume)
       }
+      effect_volume := sound_effect_volume()
+      if imgui.SliderFloat("Effect Volume", &effect_volume, 0, 1) {
+        sound_set_effect_volume(effect_volume)
+      }
       music_volume := sound_music_volume()
       if imgui.SliderFloat("Music Volume", &music_volume, 0, 1) {
         sound_set_music_volume(music_volume)

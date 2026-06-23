@@ -107,11 +107,17 @@ overworld_update :: proc(delta_time: f32, scene_data: rawptr) {
       overworld.picked_block = block^
     }
     if overworld.destroy_block_on_update {
-      world_destroy_block(overworld.world, block_position)
+      block_destroyed := world_destroy_block(overworld.world, block_position)
+      if block_destroyed {
+        sound_play_destroy_sound()
+      }
     }
     if overworld.place_block_on_update {
       place_position := block_position + Grid_World_Position(place_offset)
-      world_place_block(overworld.world, place_position, overworld.picked_block)
+      block_placed := world_place_block(overworld.world, place_position, overworld.picked_block)
+      if block_placed {
+        sound_play_place_sound()
+      }
     }
   } else {
     overworld.highlighted_block_position = nil
