@@ -22,6 +22,7 @@ World_Generator_Params :: struct {
   min_height: f32,
   max_height: f32,
   iron_ore_chance: f32,
+  tree_chance: f32,
 }
 
 DEFAULT_WORLD_GENERATOR_PARAMS :: World_Generator_Params {
@@ -39,6 +40,7 @@ DEFAULT_WORLD_GENERATOR_PARAMS :: World_Generator_Params {
   min_height = f32(min(40, CHUNK_SIZE.y)),
   max_height = f32(max(CHUNK_SIZE.y - 10, 0)),
   iron_ore_chance = 0.01,
+  tree_chance = 0.01,
 }
 
 g_world_generator_params := DEFAULT_WORLD_GENERATOR_PARAMS
@@ -109,6 +111,38 @@ Chunk_Layer :: struct {
   },
 }
 
+Structure_Block :: struct {
+  offset: [3]i32,
+  block: Block,
+}
+
+Structure :: []Structure_Block
+
+@(rodata) tree := Structure {
+  { { 0, 0, 0 }, .Log },
+  { { 0, 1, 0 }, .Log },
+  { { 0, 2, 0 }, .Log },
+  { { 0, 3, 0 }, .Log },
+  { { 1, 3, 0 }, .Leaves },
+  { { -1, 3, 0 }, .Leaves },
+  { { 1, 3, 1 }, .Leaves },
+  { { -1, 3, -1 }, .Leaves },
+  { { 2, 3, 0 }, .Leaves },
+  { { -2, 3, 0 }, .Leaves },
+  { { 0, 3, 1 }, .Leaves },
+  { { 0, 3, -1 }, .Leaves },
+  { { -1, 3, 1 }, .Leaves },
+  { { 1, 3, -1 }, .Leaves },
+  { { 0, 3, 2 }, .Leaves },
+  { { 0, 3, -2 }, .Leaves },
+  { { 0, 4, 0 }, .Leaves },
+  { { 1, 4, 0 }, .Leaves },
+  { { -1, 4, 0 }, .Leaves },
+  { { 0, 4, 1 }, .Leaves },
+  { { 0, 4, -1 }, .Leaves },
+  { { 0, 5, 0 }, .Leaves },
+}
+
 generator_generate_chunk_blocks :: proc(
   coordinate: Chunk_Coordinate,
   allocator: runtime.Allocator,
@@ -138,9 +172,26 @@ generator_generate_chunk_blocks :: proc(
           get_chunk_block(blocks, { block_x, block_y, block_z })^ = block_to_place
         }
       }
+
+      if biome == .Grassland && rand.float32() < g_world_generator_params.tree_chance {
+        try_place_structure(blocks, { block_x, height, block_z }, tree)
+      }
     }
   }
   return
+}
+
+try_place_structure :: proc(blocks: ^Chunk_Blocks, coordinate: [3]i32, structure: Structure) -> bool {
+  for block in structure {
+    existing_block := get_chunk_block_safe(blocks, Grid_Chunk_Position(coordinate + block.offset)) or_return
+    if existing_block^ != .Air do return false
+  }
+
+  for block in structure {
+    get_chunk_block(blocks, Grid_Chunk_Position(coordinate + block.offset))^ = block.block
+  }
+
+  return true
 }
 
 generator_height :: proc(coordinate: [2]i32) -> i32 {

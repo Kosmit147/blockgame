@@ -400,11 +400,15 @@ get_chunk_block :: proc(blocks: ^Chunk_Blocks, position: Grid_Chunk_Position) ->
 }
 
 get_chunk_block_safe :: proc(blocks: ^Chunk_Blocks, position: Grid_Chunk_Position) -> (^Block, bool) {
+  if !chunk_position_in_bounds(position) do return nil, false
+  return get_chunk_block(blocks, position), true
+}
+
+chunk_position_in_bounds :: proc(position: Grid_Chunk_Position) -> bool {
   x_in_bounds := position.x >= 0 && position.x < CHUNK_SIZE.x
   y_in_bounds := position.y >= 0 && position.y < CHUNK_SIZE.y
   z_in_bounds := position.z >= 0 && position.z < CHUNK_SIZE.z
-  if !x_in_bounds || !y_in_bounds || !z_in_bounds do return nil, false
-  return get_chunk_block(blocks, position), true
+  return x_in_bounds && y_in_bounds && z_in_bounds
 }
 
 grid_world_position_to_chunk_coordinate :: proc(world_position: Grid_World_Position) -> Chunk_Coordinate {
@@ -441,6 +445,8 @@ Block :: enum u8 {
   Grass,
   Bricks,
   Sand,
+  Leaves,
+  Log,
   Iron_Ore,
   Snow,
 }
@@ -729,6 +735,8 @@ map_block_uv_to_atlas :: proc(uv: Vec2, block: Block, block_facing: World_Direct
     }
   case .Bricks:    atlas_rect_origin = Vec2{ 0.4, 0.0 }
   case .Sand:      atlas_rect_origin = Vec2{ 0.5, 0.0 }
+  case .Leaves:    atlas_rect_origin = Vec2{ 0.6, 0.0 }
+  case .Log:       atlas_rect_origin = Vec2{ 0.7, 0.0 }
   case .Iron_Ore:  atlas_rect_origin = Vec2{ 0.0, 0.1 }
   case .Snow:
     #partial switch block_facing {
