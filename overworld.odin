@@ -286,6 +286,7 @@ overworld_debug_ui :: proc(overworld: ^Overworld, player_chunk_coordinate: Chunk
     }
     if imgui.BeginTabItem("Time") {
       imgui.DragFloat("Timescale", &overworld.world.timescale)
+      imgui.DragFloat("Time", &overworld.world.sunlight_angle, v_speed = 0.001)
       imgui.EndTabItem()
     }
     if imgui.BeginTabItem("Chunks") {
