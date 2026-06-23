@@ -20,18 +20,26 @@ layout (binding = 1) uniform sampler2D shadow_map;
 layout (location = 0) out vec4 out_color;
 
 float shadow_factor() {
+  float shadow_bias = max(0.05 * (1.0 - dot(Normal, -light_direction)), 0.005);
+
   vec4 clip = LightSpacePosition / LightSpacePosition.w;
   vec4 ndc = clip * 0.5 + 0.5;
 
-  float closest_depth = texture(shadow_map, ndc.xy).r;
   float current_depth = ndc.z;
-
   if (current_depth > 1.0)
     current_depth = 1.0;
 
-  float shadow_bias = max(0.05 * (1.0 - dot(Normal, -light_direction)), 0.005);
-  float shadow = current_depth - shadow_bias > closest_depth ? 1.0 : 0.0;
-  return shadow;
+  vec2 texel_size = 1.0 / textureSize(shadow_map, 0);
+
+  float shadow = 0.0;
+  for (int x = -1; x <= 1; x++) {
+    for (int y = -1; y <= 1; y++) {
+      float depth = texture(shadow_map, ndc.xy + vec2(x, y) * texel_size).r;
+      shadow += current_depth - shadow_bias > depth ? 1.0 : 0.0;
+    }
+  }
+
+  return shadow / 9.0;
 }
 
 void main() {
