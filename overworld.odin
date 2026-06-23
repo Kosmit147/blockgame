@@ -13,7 +13,6 @@ PLAYER_REACH          :: 8
 
 DEFAULT_WORLD_LOAD_DISTANCE :: 12
 UI_LOAD_DISTANCE_MIN :: MIN_WORLD_LOAD_DISTANCE
-// Currently, setting the load distance to a big value makes the game unplayable, so limit it to 20 for now.
 UI_LOAD_DISTANCE_MAX :: MAX_WORLD_LOAD_DISTANCE
 
 CROSSHAIR_SIZE  :: 0.03
@@ -72,6 +71,11 @@ overworld_on_event :: proc(event: Event, scene_data: rawptr) {
     case PLACE_BLOCK_BUTTON:    overworld.place_block_on_update = true
     case PICK_BLOCK_BUTTON:     overworld.pick_block_on_update = true
     }
+  case Scroll_Event:
+    delta := int(event.scroll.y)
+    block := int(overworld.picked_block)
+    block = (block + delta) %% len(Block)
+    overworld.picked_block = Block(block)
   }
 }
 

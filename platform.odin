@@ -72,6 +72,7 @@ window_init :: proc() -> (ok := false) {
   glfw.SetKeyCallback(g_window.handle, glfw_key_callback)
   glfw.SetCursorPosCallback(g_window.handle, glfw_cursor_pos_callback)
   glfw.SetMouseButtonCallback(g_window.handle, glfw_mouse_button_callback)
+  glfw.SetScrollCallback(g_window.handle, glfw_scroll_callback)
 
   window_set_cursor_enabled(false)
   if glfw.RawMouseMotionSupported() do glfw.SetInputMode(g_window.handle, glfw.RAW_MOUSE_MOTION, i32(glfw.TRUE))
@@ -643,6 +644,15 @@ glfw_mouse_button_callback :: proc "c" (window_handle: glfw.WindowHandle, button
   }
 }
 
+Scroll_Event :: struct {
+  scroll: [2]f64,
+}
+
+glfw_scroll_callback :: proc "c" (window_handle: glfw.WindowHandle, xoffset, yoffset: f64) {
+  context = g_context
+  window_push_event(Scroll_Event{{ xoffset, yoffset }})
+}
+
 Event :: union #no_nil {
   Window_Resize_Event,
   Framebuffer_Resize_Event,
@@ -650,6 +660,7 @@ Event :: union #no_nil {
   Key_Released_Event,
   Mouse_Button_Pressed_Event,
   Mouse_Button_Released_Event,
+  Scroll_Event,
 }
 
 g_event_queue: queue.Queue(Event)
