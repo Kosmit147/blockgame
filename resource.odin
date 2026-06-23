@@ -12,6 +12,7 @@ Shader_Id :: enum {
   Textured_Quad,
   Lines,
   Postprocess,
+  Block_Shadow_Map,
 }
 
 Texture_Id :: enum {
@@ -166,19 +167,21 @@ when HOT_RELOAD {
   }
 }
 
-SHADERS_PATH                       :: "shaders/"
-BLOCK_SHADER_VERTEX_PATH           :: "shaders/block.vert"
-BLOCK_SHADER_FRAGMENT_PATH         :: "shaders/block.frag"
-FLAT_SHADER_VERTEX_PATH            :: "shaders/flat.vert"
-FLAT_SHADER_FRAGMENT_PATH          :: "shaders/flat.frag"
-QUAD_SHADER_VERTEX_PATH            :: "shaders/quad.vert"
-QUAD_SHADER_FRAGMENT_PATH          :: "shaders/quad.frag"
-TEXTURED_QUAD_SHADER_VERTEX_PATH   :: "shaders/textured_quad.vert"
-TEXTURED_QUAD_SHADER_FRAGMENT_PATH :: "shaders/textured_quad.frag"
-LINES_SHADER_VERTEX_PATH           :: "shaders/lines.vert"
-LINES_SHADER_FRAGMENT_PATH         :: "shaders/lines.frag"
-POSTPROCESS_SHADER_VERTEX_PATH     :: "shaders/postprocess.vert"
-POSTPROCESS_SHADER_FRAGMENT_PATH   :: "shaders/postprocess.frag"
+SHADERS_PATH                            :: "shaders/"
+BLOCK_SHADER_VERTEX_PATH                :: "shaders/block.vert"
+BLOCK_SHADER_FRAGMENT_PATH              :: "shaders/block.frag"
+FLAT_SHADER_VERTEX_PATH                 :: "shaders/flat.vert"
+FLAT_SHADER_FRAGMENT_PATH               :: "shaders/flat.frag"
+QUAD_SHADER_VERTEX_PATH                 :: "shaders/quad.vert"
+QUAD_SHADER_FRAGMENT_PATH               :: "shaders/quad.frag"
+TEXTURED_QUAD_SHADER_VERTEX_PATH        :: "shaders/textured_quad.vert"
+TEXTURED_QUAD_SHADER_FRAGMENT_PATH      :: "shaders/textured_quad.frag"
+LINES_SHADER_VERTEX_PATH                :: "shaders/lines.vert"
+LINES_SHADER_FRAGMENT_PATH              :: "shaders/lines.frag"
+POSTPROCESS_SHADER_VERTEX_PATH          :: "shaders/postprocess.vert"
+POSTPROCESS_SHADER_FRAGMENT_PATH        :: "shaders/postprocess.frag"
+BLOCK_SHADOW_MAP_SHADER_VERTEX_PATH     :: "shaders/block_shadow_map.vert"
+BLOCK_SHADOW_MAP_SHADER_FRAGMENT_PATH   :: "shaders/block_shadow_map.frag"
 
 TEXTURES_PATH            :: "textures/"
 WHITE_TEXTURE_PATH       :: "textures/white.aseprite"
@@ -194,6 +197,7 @@ CROSSHAIR_TEXTURE_PATH   :: "textures/crosshair.aseprite"
   .Textured_Quad = { #load(TEXTURED_QUAD_SHADER_VERTEX_PATH, string), #load(TEXTURED_QUAD_SHADER_FRAGMENT_PATH, string) },
   .Lines = { #load(LINES_SHADER_VERTEX_PATH, string), #load(LINES_SHADER_FRAGMENT_PATH, string) },
   .Postprocess = { #load(POSTPROCESS_SHADER_VERTEX_PATH, string), #load(POSTPROCESS_SHADER_FRAGMENT_PATH, string) },
+  .Block_Shadow_Map = { #load(BLOCK_SHADOW_MAP_SHADER_VERTEX_PATH, string), #load(BLOCK_SHADOW_MAP_SHADER_FRAGMENT_PATH, string) },
 }
 
 @(rodata) g_texture_data_map := [Texture_Id][]byte{
@@ -201,7 +205,7 @@ CROSSHAIR_TEXTURE_PATH   :: "textures/crosshair.aseprite"
   .Black = #load(BLACK_TEXTURE_PATH),
   .Transparent = #load(TRANSPARENT_TEXTURE_PATH),
   .Blocks = #load(BLOCKS_TEXTURE_PATH),
-  .Crosshair = #load(CROSSHAIR_TEXTURE_PATH)
+  .Crosshair = #load(CROSSHAIR_TEXTURE_PATH),
 }
 
 @(rodata) g_texture_internal_formats := [Texture_Id]u32{
@@ -220,6 +224,7 @@ when HOT_RELOAD {
     .Textured_Quad = { TEXTURED_QUAD_SHADER_VERTEX_PATH, TEXTURED_QUAD_SHADER_FRAGMENT_PATH },
     .Lines = { LINES_SHADER_VERTEX_PATH, LINES_SHADER_FRAGMENT_PATH },
     .Postprocess = { POSTPROCESS_SHADER_VERTEX_PATH, POSTPROCESS_SHADER_FRAGMENT_PATH },
+    .Block_Shadow_Map = { BLOCK_SHADOW_MAP_SHADER_VERTEX_PATH, BLOCK_SHADOW_MAP_SHADER_FRAGMENT_PATH },
   }
 
   @(rodata) g_texture_file_paths_map := [Texture_Id]string{

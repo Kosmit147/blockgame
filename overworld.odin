@@ -150,10 +150,23 @@ overworld_render :: proc(scene_data: rawptr) {
       color = crosshair_color,
     }, .Crosshair)
   }
+
+  sunlight_line := [2]Line_Vertex {
+    {
+      position = { 0, 110, 0 },
+      color = { **MAGENTA.rgb, 0 },
+    },
+    {
+      position = { 0, 100, 0 } + overworld.world.sunlight.direction * 10,
+      color = MAGENTA,
+    },
+  }
+
+  renderer_render_line(&sunlight_line)
 }
 
 overworld_debug_ui :: proc(overworld: ^Overworld, player_chunk_coordinate: Chunk_Coordinate) {
-  if !debug_overlay_enabled() do return
+  if !g_debug_overlay.enabled do return
 
   imgui.Begin("Overworld")
   if imgui.BeginTabBar("World Tab Bar") {

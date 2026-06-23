@@ -6,13 +6,16 @@ import "core:fmt"
 import "core:mem"
 import "core:mem/virtual"
 
-QUIT_GAME_KEY            :: Key.Escape
-DEBUG_OVERLAY_TOGGLE_KEY :: Key.F_1
-TOGGLE_CURSOR_KEY        :: Key.Left_Control
+QUIT_GAME_KEY                     :: Key.Escape
+DEBUG_OVERLAY_TOGGLE_KEY          :: Key.F_1
+SHOW_IMGUI_DEMO_WINDOW_TOGGLE_KEY :: Key.F_2
+TOGGLE_CURSOR_KEY                 :: Key.Left_Control
 
 Debug_Overlay :: struct {
   enabled: bool,
+  show_imgui_demo_window: bool,
   fps_limit: u32,
+  shadow_map_preview: bool,
 }
 
 g_debug_overlay: Debug_Overlay
@@ -28,7 +31,12 @@ debug_overlay_deinit :: proc() {}
 
 debug_overlay_on_event :: proc(event: Event) {
   if key_pressed_event, is_key_pressed_event := event.(Key_Pressed_Event); is_key_pressed_event {
-    if key_pressed_event.key == DEBUG_OVERLAY_TOGGLE_KEY do g_debug_overlay.enabled = !g_debug_overlay.enabled
+    if key_pressed_event.key == DEBUG_OVERLAY_TOGGLE_KEY {
+      g_debug_overlay.enabled = !g_debug_overlay.enabled
+    }
+    if key_pressed_event.key == SHOW_IMGUI_DEMO_WINDOW_TOGGLE_KEY {
+      g_debug_overlay.show_imgui_demo_window = !g_debug_overlay.show_imgui_demo_window
+    }
   }
 
   if !g_debug_overlay.enabled do return
@@ -42,14 +50,14 @@ debug_overlay_on_event :: proc(event: Event) {
 
 debug_overlay_update :: proc() {
   if !g_debug_overlay.enabled do return
+
+  if g_debug_overlay.show_imgui_demo_window {
+    imgui.ShowDemoWindow(&g_debug_overlay.show_imgui_demo_window)
+  }
+
   debug_overlay_settings_window()
   debug_overlay_music_player_window()
   debug_overlay_memory_window()
-}
-
-@(require_results)
-debug_overlay_enabled :: proc() -> bool {
-  return g_debug_overlay.enabled
 }
 
 debug_overlay_settings_window :: proc() {
@@ -72,6 +80,7 @@ debug_overlay_settings_window :: proc() {
       imgui.TextUnformatted(fmt.ctprintf("Target frame time: %.6fs", window_target_frame_time()))
       imgui.TextUnformatted(fmt.ctprintf("Window size: %v", window_size()))
       imgui.TextUnformatted(fmt.ctprintf("Framebuffer size: %v", window_framebuffer_size()))
+      imgui.TextUnformatted(fmt.ctprintf("Renderer viewport size: %v", g_renderer.viewport))
       imgui.EndTabItem()
     }
     if imgui.BeginTabItem("Renderer") {
@@ -79,6 +88,8 @@ debug_overlay_settings_window :: proc() {
       if imgui.DragFloat("Gamma", &gamma, 0.005, 0.1, 5.0) do renderer_set_gamma(gamma)
       wireframe := renderer_wireframe_enabled()
       if imgui.Checkbox("Wireframe", &wireframe) do renderer_set_wireframe_enabled(wireframe)
+      imgui.Checkbox("Shadow Map Preview", &g_debug_overlay.shadow_map_preview)
+      if g_debug_overlay.shadow_map_preview do debug_overlay_shadow_map_preview()
       imgui.SeparatorText("OpenGL context info")
       imgui.TextUnformatted(fmt.ctprintf("Vendor: %v", g_gl_context.vendor))
       imgui.TextUnformatted(fmt.ctprintf("Renderer: %v", g_gl_context.renderer))
@@ -102,6 +113,17 @@ debug_overlay_settings_window :: proc() {
     }
     imgui.EndTabBar()
   }
+  imgui.End()
+}
+
+debug_overlay_shadow_map_preview :: proc() {
+  imgui.Begin("Shadow Map")
+  imgui.Image(
+    user_texture_id = u64(g_renderer.shadow_map_texture.id),
+    image_size = { 1000, 1000 },
+    uv0 = { 0, 1 },
+    uv1 = { 1, 0 },
+  )
   imgui.End()
 }
 

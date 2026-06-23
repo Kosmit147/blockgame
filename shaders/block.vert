@@ -11,6 +11,8 @@ layout (std140, binding = 0) uniform View_Projection {
 };
 
 layout (std140, binding = 1) uniform Light_Data {
+  mat4 light_view;
+  mat4 light_projection;
   vec3 light_ambient;
   vec3 light_color;
   vec3 light_direction;
@@ -19,8 +21,10 @@ layout (std140, binding = 1) uniform Light_Data {
 uniform mat4 model;
 
 out float AmbientStrength;
+out flat vec3 Normal;
 out flat vec3 DiffuseLight;
 out vec2 UV;
+out vec4 LightSpacePosition;
 
 float ambient_strength[9] = float[](
   1.0,   // 0
@@ -42,7 +46,10 @@ vec3 diffuse() {
 
 void main() {
   AmbientStrength = ambient_strength[in_ambient_occlusion];
+  Normal = in_normal;
   DiffuseLight = diffuse();
   UV = in_uv;
-  gl_Position = projection * view * model * vec4(in_position, 1.0);
+  vec4 world_position = model * vec4(in_position, 1.0);
+  LightSpacePosition = light_projection * light_view * world_position;
+  gl_Position = projection * view * world_position;
 }
