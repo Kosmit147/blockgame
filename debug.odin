@@ -88,6 +88,7 @@ debug_overlay_settings_window :: proc() {
       if imgui.DragFloat("Gamma", &gamma, 0.005, 0.1, 5.0) do renderer_set_gamma(gamma)
       wireframe := renderer_wireframe_enabled()
       if imgui.Checkbox("Wireframe", &wireframe) do renderer_set_wireframe_enabled(wireframe)
+      imgui.Checkbox("Shadow Mapping", &g_renderer.shadow_mapping_enabled)
       imgui.Checkbox("Shadow Map Preview", &g_debug_overlay.shadow_map_preview)
       if g_debug_overlay.shadow_map_preview do debug_overlay_shadow_map_preview()
       imgui.SeparatorText("OpenGL context info")

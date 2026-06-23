@@ -70,6 +70,7 @@ Renderer :: struct {
   // Not entirely optimal, as there's no need to use indices with lines.
   line_renderer: Batch_Renderer(Line_Vertex),
 
+  shadow_mapping_enabled: bool,
   wireframe_enabled: bool,
 }
 
@@ -121,6 +122,8 @@ renderer_init :: proc() -> (ok := false) {
 
   renderer_set_gamma(DEFAULT_GAMMA)
   renderer_set_wireframe_enabled(false)
+
+  g_renderer.shadow_mapping_enabled = true
 
   ok = true
   return
@@ -383,15 +386,6 @@ renderer_render_chunk_to_shadow_map :: proc(chunk: Chunk) {
 }
 
 renderer_render_shadow_map :: proc(world: World) {
-  bind_framebuffer(g_renderer.shadow_map_framebuffer)
-  gl.Viewport(0, 0, SHADOW_MAP_SIZE, SHADOW_MAP_SIZE)
-  gl.Clear(gl.DEPTH_BUFFER_BIT)
-
-  gl.Enable(gl.CULL_FACE)
-  // gl.CullFace(gl.FRONT)
-  gl.Enable(gl.DEPTH_TEST)
-  gl.Disable(gl.BLEND)
-
   use_shader(.Block_Shadow_Map)
   for _, &chunk in world.chunk_map do renderer_render_chunk_to_shadow_map(chunk)
 }
@@ -418,7 +412,17 @@ renderer_render_chunk :: proc(chunk: Chunk) {
 }
 
 renderer_render_world :: proc(world: World) {
-  renderer_render_shadow_map(world)
+  bind_framebuffer(g_renderer.shadow_map_framebuffer)
+  gl.Clear(gl.DEPTH_BUFFER_BIT)
+  gl.Viewport(0, 0, SHADOW_MAP_SIZE, SHADOW_MAP_SIZE)
+  gl.Enable(gl.CULL_FACE)
+  // gl.CullFace(gl.FRONT)
+  gl.Enable(gl.DEPTH_TEST)
+  gl.Disable(gl.BLEND)
+
+  if g_renderer.shadow_mapping_enabled {
+    renderer_render_shadow_map(world)
+  }
 
   bind_framebuffer(g_renderer.framebuffer)
   gl.Viewport(0, 0, g_renderer.viewport.x, g_renderer.viewport.y)
